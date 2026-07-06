@@ -1,0 +1,13 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add:
+    - -IC:/Ilya/dev/cpp/qt/DigitQt/src
+    - -IC:/Ilya/dev/cpp/qt/DigitQt/src/aperture/include
+    - -isystem
+    - C:/msys64/ucrt64/include/qt6
+    - -isystem
+    - C:/msys64/ucrt64/include/qt6/QtCore
+    - -isystem
+    - C:/msys64/ucrt64/include/qt6/QtGui
+    - -isystem
+    - C:/msys64/ucrt64/include/qt6/QtWidgets

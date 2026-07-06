@@ -1,0 +1,37 @@
+#include "Pipeline.h"
+
+#include "core/pipeline/NotYetImplementedStage.h"
+#include "core/pipeline/stages/ApertureMaskingStage.h"
+
+#include <algorithm>
+#include <stdexcept>
+
+namespace digitqt::core::pipeline {
+size_t Pipeline::indexOf(StageId id) {
+  const auto it = std::find(kCanonicalOrder.begin(), kCanonicalOrder.end(), id);
+  if (it == kCanonicalOrder.end())
+    throw std::logic_error("Pipeline::indexOf: unknown StageId");
+  return static_cast<size_t>(std::distance(kCanonicalOrder.begin(), it));
+}
+
+Pipeline::Pipeline() {
+  for (size_t i = 0; i < kCanonicalOrder.size(); ++i) {
+    const StageId id = kCanonicalOrder[i];
+    m_stages[i] = (id == StageId::S0a)
+                      ? std::unique_ptr<PipelineStage>(
+                            std::make_unique<ApertureMaskingStage>())
+                      : std::unique_ptr<PipelineStage>(
+                            std::make_unique<NotYetImplementedStage>(id));
+  }
+}
+PipelineStage &Pipeline::stage(StageId id) { return *m_stages[indexOf(id)]; }
+const PipelineStage &Pipeline::stage(StageId id) const {
+  return *m_stages[indexOf(id)];
+}
+
+void Pipeline::invalidateFrom(StageId id) {
+  for (size_t i = indexOf(id); i < m_stages.size(); ++i)
+    m_stages[i]->invalidate();
+}
+
+} // namespace digitqt::core::pipeline

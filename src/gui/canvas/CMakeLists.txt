@@ -1,0 +1,9 @@
+target_sources(DigitQt
+    PRIVATE
+        BoundaryItem.h
+        BoundaryItem.cpp
+        BoundaryEditController.h
+        BoundaryEditController.cpp
+        ImageCanvas.h
+        ImageCanvas.cpp
+)

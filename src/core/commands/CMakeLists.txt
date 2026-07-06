@@ -1,0 +1,9 @@
+target_sources(DigitQt
+    PRIVATE
+        AddShapeCommand.h
+        AddShapeCommand.cpp
+        RemoveShapeCommand.h
+        RemoveShapeCommand.cpp
+        ReplaceShapeCommand.h
+        ReplaceShapeCommand.cpp
+)
