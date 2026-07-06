@@ -1,0 +1,56 @@
+# Build output
+/build/
+/out/
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+Makefile
+*.ninja
+.ninja_log
+
+# clangd index/cache (per-machine, regenerated automatically)
+.cache/
+
+# Qt generated files
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+*.qm
+Makefile.Debug
+Makefile.Release
+object_script.*.Debug
+object_script.*.Release
+*_plugin_import.cpp
+*.pro.user
+*.pro.user.*
+
+# Compiled binaries / objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+
+# IDE (JetBrains); .vscode is kept tracked for shared config
+.idea/
+.claude/
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
