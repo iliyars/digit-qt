@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "canvas/BoundaryEditController.h"
+#include "canvas/FringeTracingController.h"
 #include "canvas/ImageCanvas.h"
 #include "core/Measurement.h"
 #include "core/pipeline/Pipeline.h"
@@ -11,6 +12,7 @@
 class QLabel;
 class QUndoStack;
 class QStackedWidget;
+class QToolBar;
 
 namespace digitqt::gui {
 
@@ -27,9 +29,11 @@ private slots:
   void openImage();
   void updateStatusBar();
   void onStageSelected(digitqt::core::pipeline::StageId id);
+  void runTracing();
 
 private:
   void buildMenusAndToolbars();
+  void buildLanguageMenu();
   void buildDocks();
 
   std::unique_ptr<digitqt::core::Measurement> m_measurement;
@@ -37,12 +41,14 @@ private:
 
   QUndoStack *m_undoStack;
   digitqt::gui::canvas::BoundaryEditController *m_controller;
+  digitqt::gui::canvas::FringeTracingController *m_fringeController;
   digitqt::gui::canvas::ImageCanvas *m_canvas;
 
   QStackedWidget *m_centralStack;
   NotImplementedPage *m_notImplementedPage;
   PipelineTreeDock *m_pipelineDock;
   ParametersDock *m_parametersDock;
+  QToolBar *m_setupToolBar;
 
   QLabel *m_statusLabel;
 };

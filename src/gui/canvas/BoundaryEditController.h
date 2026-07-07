@@ -21,7 +21,10 @@ enum class EditMode {
   AddExternalRectangle,
   AddInternalEllipse,
   AddInternalRectangle,
+  AddExternalEllipseByPoints,
+  AddInternalEllipseByPoints,
 };
+
 /**
  * @brief Interprets pointer interaction on the image canvas and turns it
  * into undoable mutations of Measurement::boundaries().
@@ -50,8 +53,23 @@ public:
   void handleRelease(const QPointF &pos);
   void deleteSelection();
 
+  /// Double-click finalizes an in-progress ellipse-by-points (see
+  /// AddExternalEllipseByPoints / AddInternalEllipseByPoints). No-op in
+  /// any other mode.
+  void handleDoubleClick(const QPointF &pos);
+
+  /// Discards any in-progress ellipse-by-points collection (e.g. bound
+  /// to the Escape key). No-op if nothing is being collected.
+  void cancelPointCollection();
+
   // Live drag-to-create rectangle preview (Add* modes); empty if not dragging.
   std::optional<QRectF> creationPreview() const;
+
+  /// Points collected so far for an in-progress ellipse-by-points.
+  /// Empty outside of AddExternalEllipseByPoints/AddInternalEllipseByPoints.
+  const std::vector<QPointF> &pointBufferPreview() const {
+    return m_pointBuffer;
+  }
 
   struct Selection {
     aperture::TypeLimits type;
@@ -72,10 +90,12 @@ signals:
 
 private:
   bool isAddMode() const;
+  bool isPointsMode() const;
   aperture::TypeLimits addModeType() const;
   bool addModeIsEllipse() const;
 
   std::unique_ptr<aperture::Shape> buildShapeFromRect(const QRectF &rect) const;
+  void finalizePointsEllipse();
   std::optional<Selection> hitTest(const QPointF &pos) const;
 
   void beginMoveDrag(const Selection &sel, const QPointF &pos);
@@ -91,6 +111,9 @@ private:
   QPointF m_createAnchor;
   QPointF m_createCurrent;
 
+  // Ellipse-by-points collection state
+  std::vector<QPointF> m_pointBuffer;
+
   // Select-mode drag (move) state
   bool m_moving = false;
   QPointF m_moveAnchor;
@@ -98,4 +121,5 @@ private:
 
   std::optional<Selection> m_selection;
 };
+
 } // namespace digitqt::gui::canvas

@@ -3,6 +3,8 @@
 #include <QImage>
 #include <QString>
 
+#include "core/FringeTracingData.h"
+
 #include <aperture/include/visibility/ShapeCollection.h>
 
 namespace digitqt::core {
@@ -35,6 +37,10 @@ public:
   aperture::ShapeCollection &boundaries() { return m_boundaries; }
   const aperture::ShapeCollection &boundaries() const { return m_boundaries; }
 
+  // --- S1: fringe tracing (seed points + traced centerlines) ---------
+  FringeTracingData &fringeTracing() { return m_fringeTracing; }
+  const FringeTracingData &fringeTracing() const { return m_fringeTracing; }
+
   bool isModified() const { return m_modified; }
   void setModified(bool modified) { m_modified = modified; }
 
@@ -42,6 +48,8 @@ private:
   QImage m_image;
   QString m_imagePath;
   aperture::ShapeCollection m_boundaries;
+  FringeTracingData m_fringeTracing;
   bool m_modified = false;
 };
+
 } // namespace digitqt::core

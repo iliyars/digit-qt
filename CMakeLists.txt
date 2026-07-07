@@ -11,9 +11,10 @@ set(CMAKE_AUTOUIC ON)
 
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
 
 add_subdirectory(src)
+add_subdirectory(translations)
 
 if(DIGITQT_BUILD_TESTS)
     enable_testing()

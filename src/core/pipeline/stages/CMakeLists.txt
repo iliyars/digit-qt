@@ -1,7 +1,7 @@
 target_sources(DigitQt
     PRIVATE
-        ApertureMaskingStage.h
-        ApertureMaskingStage.cpp
-
-
+        SetupStage.h
+        SetupStage.cpp
 )
+
+add_subdirectory(fringe_tracing)

@@ -36,6 +36,7 @@ void BoundaryEditController::setMode(EditMode mode) {
     return;
   m_creating = false;
   m_moving = false;
+  m_pointBuffer.clear();
   m_mode = mode;
   emit previewChanged();
 }
@@ -44,10 +45,16 @@ bool BoundaryEditController::isAddMode() const {
   return m_mode != EditMode::Select;
 }
 
+bool BoundaryEditController::isPointsMode() const {
+  return m_mode == EditMode::AddExternalEllipseByPoints ||
+         m_mode == EditMode::AddInternalEllipseByPoints;
+}
+
 aperture::TypeLimits BoundaryEditController::addModeType() const {
   switch (m_mode) {
   case EditMode::AddInternalEllipse:
   case EditMode::AddInternalRectangle:
+  case EditMode::AddInternalEllipseByPoints:
     return aperture::TypeLimits::INTERNAL;
   default:
     return aperture::TypeLimits::EXTERNAL;
@@ -77,6 +84,12 @@ void BoundaryEditController::handlePress(const QPointF &pos,
   if (!m_measurement || !isPrimaryButton)
     return;
 
+  if (isPointsMode()) {
+    m_pointBuffer.push_back(pos);
+    emit previewChanged();
+    return;
+  }
+
   if (isAddMode()) {
     m_creating = true;
     m_createAnchor = pos;
@@ -92,6 +105,62 @@ void BoundaryEditController::handlePress(const QPointF &pos,
   }
   if (hit)
     beginMoveDrag(*hit, pos);
+}
+
+void BoundaryEditController::handleDoubleClick(const QPointF & /*pos*/) {
+  // The double-click's own press was already appended to m_pointBuffer
+  // by handlePress (Qt sends press+release+doubleClick+release for a
+  // double-click, not two presses) -- just try to finalize with what's
+  // already collected.
+  if (!m_measurement || !isPointsMode())
+    return;
+  finalizePointsEllipse();
+}
+
+void BoundaryEditController::cancelPointCollection() {
+  if (m_pointBuffer.empty())
+    return;
+  m_pointBuffer.clear();
+  emit previewChanged();
+}
+
+void BoundaryEditController::finalizePointsEllipse() {
+  if (m_pointBuffer.size() < 3)
+    return; // not enough points yet -- keep collecting
+
+  // ApertureCore's FitEllipse solves a 5x5 linear system directly from
+  // raw x^2/xy/y^2 sums, with no coordinate normalization. For points in
+  // image-pixel space (e.g. centered around (800, 600) rather than near
+  // the origin), that system becomes severely ill-conditioned and
+  // produces a visibly wrong (usually too-small) ellipse. Fitting in
+  // centroid-relative coordinates and shifting the result back avoids
+  // this without touching ApertureCore itself.
+  QPointF centroid(0.0, 0.0);
+  for (const auto &p : m_pointBuffer)
+    centroid += p;
+  centroid /= static_cast<double>(m_pointBuffer.size());
+
+  std::vector<aperture::Point> points;
+  points.reserve(m_pointBuffer.size());
+  for (const auto &p : m_pointBuffer)
+    points.push_back(
+        aperture::Point{p.x() - centroid.x(), p.y() - centroid.y()});
+
+  const auto type = addModeType();
+  auto ellipse = aperture::Ellipse::FitEllipse(points, type);
+
+  m_pointBuffer.clear();
+  emit previewChanged();
+
+  if (!ellipse)
+    return;
+
+  ellipse->shiftX(centroid.x());
+  ellipse->shiftY(centroid.y());
+
+  m_undoStack->push(new AddShapeCommand(m_measurement->boundaries(), type,
+                                        std::move(ellipse)));
+  emit boundariesChanged();
 }
 
 void BoundaryEditController::handleMove(const QPointF &pos) {

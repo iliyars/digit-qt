@@ -4,6 +4,7 @@
 #include <QIcon>
 
 namespace digitqt::gui::icons {
+
 /**
  * @brief Small, dependency-free icon set for the boundary-editing toolbar.
  *
@@ -15,4 +16,7 @@ namespace digitqt::gui::icons {
 
 QIcon cursorIcon();
 QIcon shapeIcon(bool ellipse, const QColor &color, Qt::PenStyle penStyle);
+QIcon pointsEllipseIcon(const QColor &color);
+QIcon seedIcon();
+
 } // namespace digitqt::gui::icons

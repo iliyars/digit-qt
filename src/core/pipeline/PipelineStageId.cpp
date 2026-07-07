@@ -4,16 +4,8 @@ namespace digitqt::core::pipeline {
 
 QString shortName(StageId id) {
   switch (id) {
-  case StageId::S0:
-    return QStringLiteral("S0");
-  case StageId::S0a:
-    return QStringLiteral("S0a");
-  case StageId::S0b:
-    return QStringLiteral("S0b");
-  case StageId::S0c:
-    return QStringLiteral("S0c");
-  case StageId::S1:
-    return QStringLiteral("S1");
+  case StageId::Setup:
+    return QStringLiteral("Setup");
   case StageId::S2:
     return QStringLiteral("S2");
   case StageId::S3:
@@ -34,16 +26,8 @@ QString shortName(StageId id) {
 
 QString displayName(StageId id) {
   switch (id) {
-  case StageId::S0:
-    return QStringLiteral("Raw Image");
-  case StageId::S0a:
-    return QStringLiteral("Aperture & Visibility Masking");
-  case StageId::S0b:
-    return QStringLiteral("Reference Markers");
-  case StageId::S0c:
-    return QStringLiteral("Geometric Calibration");
-  case StageId::S1:
-    return QStringLiteral("Amplitude Digitization");
+  case StageId::Setup:
+    return QStringLiteral("Setup (Image, Aperture, Markers, Fringe Tracing)");
   case StageId::S2:
     return QStringLiteral("Phase Reconstruction");
   case StageId::S3:

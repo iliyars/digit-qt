@@ -35,7 +35,7 @@ public:
 private:
   digitqt::core::Measurement *m_measurement = nullptr;
   digitqt::core::pipeline::StageId m_currentStage =
-      digitqt::core::pipeline::StageId::S0;
+      digitqt::core::pipeline::StageId::Setup;
   QLabel *m_label;
 };
 

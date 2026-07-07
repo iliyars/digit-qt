@@ -1,12 +1,13 @@
 #include "Pipeline.h"
 
 #include "core/pipeline/NotYetImplementedStage.h"
-#include "core/pipeline/stages/ApertureMaskingStage.h"
+#include "core/pipeline/stages/SetupStage.h"
 
 #include <algorithm>
 #include <stdexcept>
 
 namespace digitqt::core::pipeline {
+
 size_t Pipeline::indexOf(StageId id) {
   const auto it = std::find(kCanonicalOrder.begin(), kCanonicalOrder.end(), id);
   if (it == kCanonicalOrder.end())
@@ -17,13 +18,14 @@ size_t Pipeline::indexOf(StageId id) {
 Pipeline::Pipeline() {
   for (size_t i = 0; i < kCanonicalOrder.size(); ++i) {
     const StageId id = kCanonicalOrder[i];
-    m_stages[i] = (id == StageId::S0a)
-                      ? std::unique_ptr<PipelineStage>(
-                            std::make_unique<ApertureMaskingStage>())
-                      : std::unique_ptr<PipelineStage>(
-                            std::make_unique<NotYetImplementedStage>(id));
+    m_stages[i] =
+        (id == StageId::Setup)
+            ? std::unique_ptr<PipelineStage>(std::make_unique<SetupStage>())
+            : std::unique_ptr<PipelineStage>(
+                  std::make_unique<NotYetImplementedStage>(id));
   }
 }
+
 PipelineStage &Pipeline::stage(StageId id) { return *m_stages[indexOf(id)]; }
 const PipelineStage &Pipeline::stage(StageId id) const {
   return *m_stages[indexOf(id)];

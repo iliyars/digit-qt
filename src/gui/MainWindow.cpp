@@ -13,6 +13,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QSettings>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
@@ -22,7 +23,9 @@
 namespace digitqt::gui {
 
 using digitqt::core::pipeline::StageId;
+using digitqt::gui::canvas::ActiveController;
 using digitqt::gui::canvas::EditMode;
+using digitqt::gui::canvas::FringeEditMode;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -30,16 +33,19 @@ MainWindow::MainWindow(QWidget *parent)
       m_pipeline(std::make_unique<digitqt::core::pipeline::Pipeline>()),
       m_undoStack(new QUndoStack(this)),
       m_controller(
-          new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)) {
+          new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)),
+      m_fringeController(new digitqt::gui::canvas::FringeTracingController(
+          m_undoStack, this)) {
   setWindowTitle(tr("DigitQt — Interferogram Processing"));
-  resize(1200, 800);
+  resize(1400, 900);
 
-  // --- Central view: one page per implemented stage, a shared
-  // placeholder page for everything else. ---
+  // --- Central view: one page for image-based stages (Setup, S1),
+  // a shared placeholder page for everything else. ---
   m_centralStack = new QStackedWidget(this);
-  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, this);
+  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller,
+                                                   m_fringeController, this);
   m_notImplementedPage = new NotImplementedPage(this);
-  m_centralStack->addWidget(m_canvas);             // index 0: S0 / S0a
+  m_centralStack->addWidget(m_canvas);             // index 0: Setup / S1
   m_centralStack->addWidget(m_notImplementedPage); // index 1: everything else
   setCentralWidget(m_centralStack);
 
@@ -49,15 +55,24 @@ MainWindow::MainWindow(QWidget *parent)
   connect(m_controller,
           &digitqt::gui::canvas::BoundaryEditController::boundariesChanged,
           this, &MainWindow::updateStatusBar);
+  connect(m_fringeController,
+          &digitqt::gui::canvas::FringeTracingController::seedsChanged, this,
+          &MainWindow::updateStatusBar);
+  connect(m_fringeController,
+          &digitqt::gui::canvas::FringeTracingController::tracedLinesChanged,
+          this, &MainWindow::updateStatusBar);
 
   buildMenusAndToolbars();
+  buildLanguageMenu();
   buildDocks();
 
   m_controller->setMeasurement(m_measurement.get());
+  m_fringeController->setMeasurement(m_measurement.get());
+  m_fringeController->setPipeline(m_pipeline.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_pipelineDock->setPipeline(m_pipeline.get());
   m_parametersDock->setMeasurement(m_measurement.get());
-  onStageSelected(StageId::S0a);
+  onStageSelected(StageId::Setup);
   updateStatusBar();
 }
 
@@ -79,8 +94,10 @@ void MainWindow::buildMenusAndToolbars() {
   editMenu->addAction(undoAction);
   editMenu->addAction(redoAction);
 
-  // --- Boundary toolbar (S0a: external/internal boundary editing) ---
-  auto *toolBar = addToolBar(tr("Boundaries"));
+  // --- Setup toolbar: boundaries + fringe tracing, all in one place ---
+  // (both are part of the single merged "Setup" pipeline stage/screen)
+  auto *toolBar = addToolBar(tr("Setup"));
+  m_setupToolBar = toolBar;
   toolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
   toolBar->setIconSize(QSize(22, 22));
   toolBar->setMovable(false);
@@ -88,47 +105,120 @@ void MainWindow::buildMenusAndToolbars() {
   auto *modeGroup = new QActionGroup(this);
   modeGroup->setExclusive(true);
 
-  auto addModeAction = [&](const QIcon &icon, const QString &tooltip,
-                           EditMode mode, bool checked = false) {
-    auto *action = toolBar->addAction(icon, tooltip);
-    action->setToolTip(tooltip);
-    action->setCheckable(true);
-    action->setChecked(checked);
-    modeGroup->addAction(action);
-    connect(action, &QAction::triggered, this,
-            [this, mode] { m_controller->setMode(mode); });
-    return action;
-  };
   using digitqt::gui::icons::cursorIcon;
+  using digitqt::gui::icons::seedIcon;
   using digitqt::gui::icons::shapeIcon;
 
   const QColor externalColor(0, 190, 60);
   const QColor internalColor(220, 40, 40);
 
-  addModeAction(cursorIcon(), tr("Select / move / delete"), EditMode::Select,
-                true);
+  auto addBoundaryModeAction = [&](const QIcon &icon, const QString &tooltip,
+                                   EditMode mode, bool checked = false) {
+    auto *action = toolBar->addAction(icon, tooltip);
+    action->setToolTip(tooltip);
+    action->setCheckable(true);
+    action->setChecked(checked);
+    modeGroup->addAction(action);
+    connect(action, &QAction::triggered, this, [this, mode] {
+      m_canvas->setActiveController(ActiveController::Boundary);
+      m_controller->setMode(mode);
+    });
+    return action;
+  };
+
+  auto addFringeModeAction = [&](const QIcon &icon, const QString &tooltip,
+                                 FringeEditMode mode) {
+    auto *action = toolBar->addAction(icon, tooltip);
+    action->setToolTip(tooltip);
+    action->setCheckable(true);
+    modeGroup->addAction(action);
+    connect(action, &QAction::triggered, this, [this, mode] {
+      m_canvas->setActiveController(ActiveController::FringeTracing);
+      m_fringeController->setMode(mode);
+    });
+    return action;
+  };
+
+  // --- Boundaries (aperture) ---
+  addBoundaryModeAction(cursorIcon(), tr("Select / move / delete a boundary"),
+                        EditMode::Select, true);
+  addBoundaryModeAction(
+      shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
+      tr("Add external boundary (ellipse)"), EditMode::AddExternalEllipse);
+  addBoundaryModeAction(
+      shapeIcon(/*ellipse=*/false, externalColor, Qt::SolidLine),
+      tr("Add external boundary (rectangle)"), EditMode::AddExternalRectangle);
+  addBoundaryModeAction(
+      shapeIcon(/*ellipse=*/true, internalColor, Qt::DashLine),
+      tr("Add internal boundary (ellipse)"), EditMode::AddInternalEllipse);
+  addBoundaryModeAction(
+      shapeIcon(/*ellipse=*/false, internalColor, Qt::DashLine),
+      tr("Add internal boundary (rectangle)"), EditMode::AddInternalRectangle);
   toolBar->addSeparator();
-  addModeAction(shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
-                tr("Add external boundary (ellipse)"),
-                EditMode::AddExternalEllipse);
-  addModeAction(shapeIcon(/*ellipse=*/false, externalColor, Qt::SolidLine),
-                tr("Add external boundary (rectangle)"),
-                EditMode::AddExternalRectangle);
-  toolBar->addSeparator();
-  addModeAction(shapeIcon(/*ellipse=*/true, internalColor, Qt::DashLine),
-                tr("Add internal boundary (ellipse)"),
-                EditMode::AddInternalEllipse);
-  addModeAction(shapeIcon(/*ellipse=*/false, internalColor, Qt::DashLine),
-                tr("Add internal boundary (rectangle)"),
-                EditMode::AddInternalRectangle);
+  addBoundaryModeAction(
+      digitqt::gui::icons::pointsEllipseIcon(externalColor),
+      tr("Add external boundary (ellipse by points: click around the "
+         "perimeter, double-click to finish)"),
+      EditMode::AddExternalEllipseByPoints);
+  addBoundaryModeAction(
+      digitqt::gui::icons::pointsEllipseIcon(internalColor),
+      tr("Add internal boundary (ellipse by points: click around the "
+         "perimeter, double-click to finish)"),
+      EditMode::AddInternalEllipseByPoints);
   toolBar->addSeparator();
 
+  // --- Fringe tracing (seed points + run tracer) ---
+  addFringeModeAction(seedIcon(), tr("Add seed point (click on a fringe)"),
+                      FringeEditMode::AddSeed);
+  addFringeModeAction(cursorIcon(), tr("Select / delete a seed point"),
+                      FringeEditMode::Select);
+  toolBar->addSeparator();
+
+  // --- Shared actions: Delete (whichever tool is active) and Trace ---
   auto *deleteAction = toolBar->addAction(
       style()->standardIcon(QStyle::SP_TrashIcon), tr("Delete selected"));
-  deleteAction->setToolTip(tr("Delete selected boundary"));
+  deleteAction->setToolTip(
+      tr("Delete the currently selected boundary or seed point"));
   deleteAction->setShortcut(QKeySequence::Delete);
-  connect(deleteAction, &QAction::triggered, m_controller,
-          &digitqt::gui::canvas::BoundaryEditController::deleteSelection);
+  connect(deleteAction, &QAction::triggered, this, [this] {
+    if (m_canvas->activeController() == ActiveController::Boundary)
+      m_controller->deleteSelection();
+    else
+      m_fringeController->deleteSelection();
+  });
+
+  auto *traceAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
+  traceAction->setToolTip(tr("Run the fringe tracer on all seed points"));
+  connect(traceAction, &QAction::triggered, this, &MainWindow::runTracing);
+}
+
+void MainWindow::buildLanguageMenu() {
+  auto *langMenu = menuBar()->addMenu(tr("&Language"));
+  auto *group = new QActionGroup(this);
+  group->setExclusive(true);
+
+  QSettings settings;
+  const QString current =
+      settings.value(QStringLiteral("language"), QStringLiteral("en"))
+          .toString();
+
+  auto addLanguage = [&](const QString &code, const QString &label) {
+    auto *action = langMenu->addAction(label);
+    action->setCheckable(true);
+    action->setChecked(current == code);
+    group->addAction(action);
+    connect(action, &QAction::triggered, this, [this, code] {
+      QSettings settings;
+      settings.setValue(QStringLiteral("language"), code);
+      QMessageBox::information(
+          this, tr("Language changed"),
+          tr("Please restart DigitQt for the language change to take effect."));
+    });
+  };
+
+  addLanguage(QStringLiteral("en"), tr("English"));
+  addLanguage(QStringLiteral("ru"), tr("Русский"));
 }
 
 void MainWindow::buildDocks() {
@@ -146,10 +236,24 @@ void MainWindow::buildDocks() {
 }
 
 void MainWindow::onStageSelected(StageId id) {
-  m_centralStack->setCurrentIndex(id == StageId::S0a ? 0 : 1);
-  if (id != StageId::S0a)
+  const bool isSetup = (id == StageId::Setup);
+
+  m_centralStack->setCurrentIndex(isSetup ? 0 : 1);
+  if (!isSetup)
     m_notImplementedPage->setStage(id);
+
+  m_setupToolBar->setEnabled(isSetup);
+
   m_parametersDock->setStage(id);
+}
+
+void MainWindow::runTracing() {
+  if (!m_fringeController->runTracing()) {
+    QMessageBox::warning(
+        this, tr("Fringe Tracing"),
+        tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
+  }
+  updateStatusBar();
 }
 
 void MainWindow::openImage() {
@@ -159,7 +263,6 @@ void MainWindow::openImage() {
   if (path.isEmpty())
     return;
 
-  QString error;
   const auto result = digitqt::io::loadImage(path);
   if (!result.ok()) {
     QMessageBox::warning(
@@ -170,15 +273,22 @@ void MainWindow::openImage() {
   m_measurement->setImage(result.image, path);
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
+  m_fringeController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
   updateStatusBar();
 }
 
 void MainWindow::updateStatusBar() {
   const auto &b = m_measurement->boundaries();
-  m_statusLabel->setText(tr("External: %1   Internal: %2")
-                             .arg(b.getExternal().size())
-                             .arg(b.getInternal().size()));
+  const auto &tracingData = m_measurement->fringeTracing();
+  m_statusLabel->setText(
+      tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
+          .arg(b.getExternal().size())
+          .arg(b.getInternal().size())
+          .arg(tracingData.seeds().size())
+          .arg(tracingData.tracedLines().size()));
+  m_pipelineDock->refreshStatuses();
+  m_parametersDock->refresh();
 }
 
 } // namespace digitqt::gui

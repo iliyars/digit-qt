@@ -42,14 +42,29 @@ void ParametersDock::refresh() {
       tr("<b>%1</b> (%2)<br><br>")
           .arg(displayName(m_currentStage), shortName(m_currentStage));
 
-  if (m_currentStage == StageId::S0a && m_measurement) {
-    const auto &b = m_measurement->boundaries();
-    text += tr("External boundaries: %1<br>"
-               "Internal boundaries: %2<br><br>"
-               "Use the toolbar to add, move or delete boundaries directly on "
-               "the image.")
-                .arg(b.getExternal().size())
-                .arg(b.getInternal().size());
+  if (m_currentStage == StageId::Setup && m_measurement) {
+    if (m_measurement->hasImage()) {
+      const auto &img = m_measurement->image();
+      const auto &b = m_measurement->boundaries();
+      const auto &tracingData = m_measurement->fringeTracing();
+      text += tr("Image: %1 × %2 px<br>File: %3<br><br>"
+                 "External boundaries: %4<br>"
+                 "Internal boundaries: %5<br><br>"
+                 "Fringe tracing (SCAN-tracer):<br>"
+                 "Seed points: %6<br>"
+                 "Traced lines: %7<br><br>"
+                 "Use the toolbar to add/move/delete boundaries and "
+                 "seed points, and to run the tracer.")
+                  .arg(img.width())
+                  .arg(img.height())
+                  .arg(m_measurement->imagePath())
+                  .arg(b.getExternal().size())
+                  .arg(b.getInternal().size())
+                  .arg(tracingData.seeds().size())
+                  .arg(tracingData.tracedLines().size());
+    } else {
+      text += tr("No image loaded yet. Use File → Open Image.");
+    }
   } else {
     text += tr("No parameters yet — this stage is not implemented.");
   }

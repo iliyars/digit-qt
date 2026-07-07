@@ -6,4 +6,10 @@ target_sources(DigitQt
         RemoveShapeCommand.cpp
         ReplaceShapeCommand.h
         ReplaceShapeCommand.cpp
+        AddSeedCommand.h
+        AddSeedCommand.cpp
+        RemoveSeedCommand.h
+        RemoveSeedCommand.cpp
+        ReplaceTracedLineCommand.h
+        ReplaceTracedLineCommand.cpp
 )

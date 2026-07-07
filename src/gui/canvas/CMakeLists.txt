@@ -4,6 +4,12 @@ target_sources(DigitQt
         BoundaryItem.cpp
         BoundaryEditController.h
         BoundaryEditController.cpp
+        SeedItem.h
+        SeedItem.cpp
+        TracedLineItem.h
+        TracedLineItem.cpp
+        FringeTracingController.h
+        FringeTracingController.cpp
         ImageCanvas.h
         ImageCanvas.cpp
 )
