@@ -29,23 +29,25 @@ struct TracerParams {
 };
 
 /**
- * @brief Step-by-step fringe tracer, ported from the classic SCAN360/STEP.C
- * algorithm ("SCAN-tracer").
+ * @brief Sequential Fringe Tracking (FTM) -- step-by-step tracer ported
+ * from the classic SCAN360/STEP.C algorithm.
  *
  * Starting from a user-given seed point, repeatedly measures the local
  * fringe width and direction, steps forward along the fringe, and
  * re-centers perpendicular to the direction of travel to stay locked onto
  * the fringe's intensity ridge. Needs one seed point per fringe -- see
- * MorphologicalSkeletonTracer (planned) for a seed-free alternative.
+ * ScanlineExtremumTracker for a seed-free alternative.
  */
-class SeedStepTracer : public IFringeTracer {
+class SequentialFringeTracker : public IFringeTracer {
 public:
-  SeedStepTracer();
+  SequentialFringeTracker();
 
   bool initialize(const QImage &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
-  QString name() const override { return QStringLiteral("SCAN-tracer"); }
+  QString name() const override {
+    return QStringLiteral("Sequential Fringe Tracking (FTM)");
+  }
   const QString &lastError() const override { return m_lastError; }
 
   void setParams(const TracerParams &params) { m_params = params; }
@@ -89,4 +91,5 @@ private:
   TracedLine m_tempLine;
   QString m_lastError;
 };
+
 } // namespace digitqt::core::tracing

@@ -1,5 +1,5 @@
 /**
- * @file SeedStepTracer.cpp
+ * @file SequentialFringeTracker.cpp
  * @brief Step-by-step fringe tracer, ported from SCAN360/STEP.C.
  *
  * Ported from the uploaded InterferometryApp project's CFringeTracer, with
@@ -14,7 +14,7 @@
  * The numeric logic (thresholds, step formulas, direction handling) is
  * otherwise unchanged from the original STEP.C port.
  */
-#include "SeedStepTracer.h"
+#include "SequentialFringeTracker.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,10 +25,10 @@ namespace {
 int sgn(int v) { return (v > 0) - (v < 0); }
 } // namespace
 
-SeedStepTracer::SeedStepTracer() = default;
+SequentialFringeTracker::SequentialFringeTracker() = default;
 
-bool SeedStepTracer::initialize(const QImage &image,
-                                std::function<bool(int, int)> isVisible) {
+bool SequentialFringeTracker::initialize(
+    const QImage &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
     m_lastError = QStringLiteral("Empty image");
     return false;
@@ -45,7 +45,7 @@ bool SeedStepTracer::initialize(const QImage &image,
 }
 
 std::vector<TracedLine>
-SeedStepTracer::extract(const std::vector<SeedPoint> &seeds) {
+SequentialFringeTracker::extract(const std::vector<SeedPoint> &seeds) {
   std::vector<TracedLine> result;
   result.reserve(seeds.size());
 
@@ -57,7 +57,7 @@ SeedStepTracer::extract(const std::vector<SeedPoint> &seeds) {
   return result;
 }
 
-TracedLine SeedStepTracer::traceLine(int startX, int startY) {
+TracedLine SequentialFringeTracker::traceLine(int startX, int startY) {
   TracedLine result;
   if (!m_image) {
     m_lastError =
@@ -68,19 +68,19 @@ TracedLine SeedStepTracer::traceLine(int startX, int startY) {
   return result;
 }
 
-bool SeedStepTracer::isInside(int x, int y) const {
+bool SequentialFringeTracker::isInside(int x, int y) const {
   if (x < 0 || x >= m_width || y < 0 || y >= m_height)
     return false;
   return !m_isVisible || m_isVisible(x, y);
 }
 
-uint8_t SeedStepTracer::getPixel(int x, int y) const {
+uint8_t SequentialFringeTracker::getPixel(int x, int y) const {
   if (!m_image || x < 0 || x >= m_width || y < 0 || y >= m_height)
     return 0;
   return m_image[y * m_stride + x];
 }
 
-float SeedStepTracer::averageIntensity(int x, int y) const {
+float SequentialFringeTracker::averageIntensity(int x, int y) const {
   if (!isInside(x, y))
     return 0.0f;
 
@@ -101,8 +101,8 @@ float SeedStepTracer::averageIntensity(int x, int y) const {
   return sum / static_cast<float>(count);
 }
 
-void SeedStepTracer::directionToVector(TraceDirection direction, int &dx,
-                                       int &dy) const {
+void SequentialFringeTracker::directionToVector(TraceDirection direction,
+                                                int &dx, int &dy) const {
   switch (direction) {
   case TraceDirection::Vertical:
     dx = 0;
@@ -123,8 +123,8 @@ void SeedStepTracer::directionToVector(TraceDirection direction, int &dx,
   }
 }
 
-bool SeedStepTracer::traceLineInto(int startX, int startY,
-                                   TracedLine &outPoints) {
+bool SequentialFringeTracker::traceLineInto(int startX, int startY,
+                                            TracedLine &outPoints) {
   outPoints.clear();
   m_tempLine.clear();
   m_lastError.clear();
@@ -206,8 +206,8 @@ bool SeedStepTracer::traceLineInto(int startX, int startY,
   return outPoints.size() >= 2;
 }
 
-bool SeedStepTracer::firstStep(int x, int y, TracedPoint &point1,
-                               TracedPoint &point2) {
+bool SequentialFringeTracker::firstStep(int x, int y, TracedPoint &point1,
+                                        TracedPoint &point2) {
   TraceDirection direction = TraceDirection::Vertical;
   if (!measureWidth(x, y, m_curWidth, direction))
     return false;
@@ -274,7 +274,7 @@ bool SeedStepTracer::firstStep(int x, int y, TracedPoint &point1,
   return true;
 }
 
-int SeedStepTracer::step(TracedLine &line) {
+int SequentialFringeTracker::step(TracedLine &line) {
   const float coeffWide = 1.5f;
 
   const int numPoint = static_cast<int>(line.size()) - 1;
@@ -405,8 +405,8 @@ int SeedStepTracer::step(TracedLine &line) {
   return 0;
 }
 
-bool SeedStepTracer::measureWidth(int x, int y, float &outWidth,
-                                  TraceDirection &outDirection) {
+bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
+                                           TraceDirection &outDirection) {
   const float coefAver = 1.5f;
   const int d[4][2] = {{0, 1}, {1, 1}, {1, 0}, {1, -1}};
 
@@ -508,8 +508,8 @@ bool SeedStepTracer::measureWidth(int x, int y, float &outWidth,
   return true;
 }
 
-bool SeedStepTracer::findMaxAlong(int &x, int &y, int dx, int dy,
-                                  float searchDist) {
+bool SequentialFringeTracker::findMaxAlong(int &x, int &y, int dx, int dy,
+                                           float searchDist) {
   int halfSteps = static_cast<int>(searchDist / 2.0f + 0.5f);
   if (halfSteps < 2)
     halfSteps = 2;
@@ -552,7 +552,8 @@ bool SeedStepTracer::findMaxAlong(int &x, int &y, int dx, int dy,
   return true; // always succeeds -- worst case, the start point itself
 }
 
-bool SeedStepTracer::centerPerpendicular(int &x, int &y, int dx, int dy) {
+bool SequentialFringeTracker::centerPerpendicular(int &x, int &y, int dx,
+                                                  int dy) {
   if (dx != 0)
     dx = (dx > 0) ? 1 : -1;
   if (dy != 0)
@@ -655,8 +656,8 @@ bool SeedStepTracer::centerPerpendicular(int &x, int &y, int dx, int dy) {
   return true;
 }
 
-void SeedStepTracer::linStepToBoundary(int x1, int y1, int x2, int y2,
-                                       int &outX, int &outY) const {
+void SequentialFringeTracker::linStepToBoundary(int x1, int y1, int x2, int y2,
+                                                int &outX, int &outY) const {
   float dx = static_cast<float>(x2 - x1);
   float dy = static_cast<float>(y2 - y1);
 

@@ -1,0 +1,10 @@
+target_sources(DigitQt
+    PRIVATE
+        ScanlineExtremumTypes.h
+        MiddleAlgorithm.h
+        MiddleAlgorithm.cpp
+        RedCenterDetector.h
+        RedCenterDetector.cpp
+        FringeConstructor.h
+        FringeConstructor.cpp
+)
