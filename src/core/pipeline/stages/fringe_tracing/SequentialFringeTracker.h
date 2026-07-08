@@ -26,6 +26,14 @@ struct TracerParams {
   bool bidirectional = true;
   float curvatureCoeff =
       1.5f; // (currently informational; reserved for future tuning)
+
+  // --- Stability improvements (not in the original STEP.C port) -------
+  int directionSmoothingWindow =
+      5; // average travel direction over this many past steps
+  float averageSmoothingAlpha =
+      0.3f; // EMA weight for the adaptive background threshold (0..1)
+  float maxCenteringJumpFactor =
+      1.0f; // reject a centering result further than this * fringe width
 };
 
 /**
@@ -37,6 +45,21 @@ struct TracerParams {
  * re-centers perpendicular to the direction of travel to stay locked onto
  * the fringe's intensity ridge. Needs one seed point per fringe -- see
  * ScanlineExtremumTracker for a seed-free alternative.
+ *
+ * Beyond the literal port, four stability fixes address result-depends-
+ * on-seed-point / jumps-to-neighboring-fringe / stops-early-under-
+ * vignetting behavior seen on real images:
+ *   1. Travel direction is averaged over the last few steps (not just the
+ *      previous one), so a single noisy centering result can't swing the
+ *      whole trajectory.
+ *   2. The background threshold (m_average) is tracked as an EMA across
+ *      steps instead of being pinned to one earlier, brighter location --
+ *      it now follows gradual vignetting instead of falsely triggering
+ *      "fell off the fringe" near the aperture edge.
+ *   3. A centering result that jumps further than maxCenteringJumpFactor
+ *      times the current fringe width is rejected (treated as losing the
+ *      fringe) instead of silently accepted -- this is what prevented
+ *      jumping onto a neighboring fringe.
  */
 class SequentialFringeTracker : public IFringeTracer {
 public:
@@ -87,6 +110,8 @@ private:
   TraceDirection m_curDirection = TraceDirection::Vertical;
   float m_wideLine = 0.0f;
   float m_average = 0.0f;
+  float m_averageEma =
+      0.0f; // slowly-adapting background threshold (tracks vignetting)
 
   TracedLine m_tempLine;
   QString m_lastError;

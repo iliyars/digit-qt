@@ -133,6 +133,7 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY,
   m_wideLine = static_cast<float>(m_width) / 5.0f;
   m_curAverage = 0.0f;
   m_average = 0.0f;
+  m_averageEma = 0.0f;
 
   if (!isInside(startX, startY)) {
     m_lastError =
@@ -182,6 +183,7 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY,
       m_curWidth = static_cast<float>(m_width) / 6.0f;
     m_wideLine = m_curWidth;
     m_average = 0.0f;
+    m_averageEma = 0.0f;
 
     i = 2;
     while (i < m_params.maxSteps) {
@@ -288,10 +290,13 @@ int SequentialFringeTracker::step(TracedLine &line) {
   const int y = static_cast<int>(line[static_cast<size_t>(numPoint)].y);
 
   // If we've dropped below the "floor" threshold, we've slid off the
-  // fringe (e.g. reached a dark zone near the aperture edge). Stop.
-  // Compared against the OLD m_average (before measureWidth's
-  // recalculation below) -- that's the "real" fringe threshold.
-  if (m_average > 0.0f && averageIntensity(x, y) < m_average)
+  // fringe (e.g. reached a genuine dark obstruction). Compared against
+  // an exponentially-smoothed running threshold (m_averageEma), not the
+  // single previous raw sample -- a plain previous-sample comparison
+  // false-triggers under vignetting, since brightness near the aperture
+  // edge is legitimately lower than it was a few steps back even though
+  // the fringe itself hasn't ended.
+  if (m_averageEma > 0.0f && averageIntensity(x, y) < m_averageEma)
     return -5;
 
   TraceDirection dir = TraceDirection::Vertical;
@@ -300,6 +305,16 @@ int SequentialFringeTracker::step(TracedLine &line) {
     return -3;
 
   m_curDirection = dir;
+
+  // measureWidth() just recomputed m_average freshly for (x, y); blend
+  // it into the running EMA so the threshold gradually tracks the local
+  // background level instead of jumping straight to it (which would
+  // make the check above nearly self-referential) or staying pinned to
+  // one earlier sample (which false-triggers under vignetting).
+  m_averageEma = (m_averageEma <= 0.0f)
+                     ? m_average
+                     : (m_params.averageSmoothingAlpha * m_average +
+                        (1.0f - m_params.averageSmoothingAlpha) * m_averageEma);
 
   m_wideLine = measuredWidth;
   if (m_wideLine < 5.0f)
@@ -318,23 +333,25 @@ int SequentialFringeTracker::step(TracedLine &line) {
 
   m_curWidth = m_wideLine;
 
-  int dx = x - static_cast<int>(line[static_cast<size_t>(numPoint - 1)].x);
-  int dy = y - static_cast<int>(line[static_cast<size_t>(numPoint - 1)].y);
-
-  if (std::fabs(static_cast<float>(dx)) < 2.0f &&
-      std::fabs(static_cast<float>(dy)) < 2.0f) {
-    if (numPoint < 2)
-      return -100;
-    dx = x - static_cast<int>(line[static_cast<size_t>(numPoint - 2)].x);
-    dy = y - static_cast<int>(line[static_cast<size_t>(numPoint - 2)].y);
+  // Travel direction: averaged over the last few steps (not just the
+  // previous one), so a single noisy centering result can't swing the
+  // whole trajectory -- that swing is what let the tracer veer onto a
+  // neighboring fringe.
+  const int historyCount =
+      std::min(numPoint, m_params.directionSmoothingWindow);
+  float fdx = 0.0f, fdy = 0.0f;
+  for (int k = 0; k < historyCount; ++k) {
+    const auto &a = line[static_cast<size_t>(numPoint - k)];
+    const auto &b = line[static_cast<size_t>(numPoint - k - 1)];
+    fdx += static_cast<float>(a.x - b.x);
+    fdy += static_cast<float>(a.y - b.y);
   }
+  fdx /= static_cast<float>(historyCount);
+  fdy /= static_cast<float>(historyCount);
 
-  if (std::fabs(static_cast<float>(dx)) < 1.0f &&
-      std::fabs(static_cast<float>(dy)) < 1.0f)
-    return -100;
+  if (std::fabs(fdx) < 1.0f && std::fabs(fdy) < 1.0f)
+    return -100; // no meaningful direction of travel
 
-  float fdx = static_cast<float>(dx);
-  float fdy = static_cast<float>(dy);
   const float sqrWide = std::sqrt(fdx * fdx + fdy * fdy);
 
   if (m_wideLine <= 5.0f) {
@@ -377,6 +394,25 @@ int SequentialFringeTracker::step(TracedLine &line) {
 
   int cx = predX, cy = predY;
   if (!centerPerpendicular(cx, cy, ndx, ndy)) {
+    TracedPoint p;
+    p.x = predX;
+    p.y = predY;
+    p.width = m_curWidth;
+    p.intensity = averageIntensity(predX, predY);
+    line.push_back(p);
+    return -2;
+  }
+
+  // Anti-jump guard: centering is only meant to make a small correction
+  // around the predicted point. A result further than
+  // maxCenteringJumpFactor fringe-widths away means it almost certainly
+  // locked onto a neighboring fringe instead of re-centering on this
+  // one -- accept the prediction as-is and stop, rather than silently
+  // continuing to trace the wrong fringe.
+  const float jumpDx = static_cast<float>(cx - predX);
+  const float jumpDy = static_cast<float>(cy - predY);
+  const float centeringJump = std::sqrt(jumpDx * jumpDx + jumpDy * jumpDy);
+  if (centeringJump > m_wideLine * m_params.maxCenteringJumpFactor) {
     TracedPoint p;
     p.x = predX;
     p.y = predY;
