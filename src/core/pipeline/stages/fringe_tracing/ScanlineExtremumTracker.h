@@ -45,4 +45,4 @@ private:
   QString m_lastError;
 };
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

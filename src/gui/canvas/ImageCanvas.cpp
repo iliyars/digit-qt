@@ -17,7 +17,8 @@ namespace digitqt::gui::canvas {
 ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
                          FringeTracingController *fringeController,
                          QWidget *parent)
-    : QGraphicsView(parent), m_boundaryController(boundaryController),
+    : QGraphicsView(parent),
+      m_boundaryController(boundaryController),
       m_fringeController(fringeController) {
   setScene(&m_scene);
   setRenderHint(QPainter::Antialiasing, true);
@@ -85,7 +86,7 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event) {
     m_panning = true;
     m_lastPanPoint = event->pos();
     setCursor(Qt::ClosedHandCursor);
-    return; // right-click is pan-only, never a tool action
+    return;  // right-click is pan-only, never a tool action
   }
 
   const QPointF pos = mapToScene(event->pos());
@@ -338,4 +339,4 @@ void ImageCanvas::updateLineEditOverlay() {
   }
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

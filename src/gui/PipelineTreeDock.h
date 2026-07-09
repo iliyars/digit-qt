@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QDockWidget>
-
 #include "core/pipeline/PipelineStageId.h"
+
+#include <QDockWidget>
 
 class QTreeWidget;
 
@@ -38,4 +38,4 @@ private:
   digitqt::core::pipeline::Pipeline *m_pipeline = nullptr;
 };
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

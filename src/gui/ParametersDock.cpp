@@ -15,7 +15,8 @@ using digitqt::core::pipeline::StageId;
 ParametersDock::ParametersDock(QWidget *parent)
     : QDockWidget(tr("Parameters"), parent),
       m_algorithmCombo(new QComboBox(this)),
-      m_fringeCenterCombo(new QComboBox(this)), m_label(new QLabel(this)) {
+      m_fringeCenterCombo(new QComboBox(this)),
+      m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
 
   m_algorithmCombo->addItem(
@@ -150,4 +151,4 @@ void ParametersDock::refresh() {
   m_label->setText(text);
 }
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

@@ -1,4 +1,5 @@
 #include "AddShapeCommand.h"
+
 #include "core/ShapeCollectionAccess.h"
 
 #include <QCoreApplication>
@@ -8,7 +9,9 @@ AddShapeCommand::AddShapeCommand(aperture::ShapeCollection &collection,
                                  aperture::TypeLimits type,
                                  std::unique_ptr<aperture::Shape> shape,
                                  QUndoCommand *parent)
-    : QUndoCommand(parent), m_collection(collection), m_type(type),
+    : QUndoCommand(parent),
+      m_collection(collection),
+      m_type(type),
       m_shape(std::move(shape)) {
   setText(type == aperture::TypeLimits::EXTERNAL
               ? QCoreApplication::translate("AddShapeCommand",
@@ -32,4 +35,4 @@ void AddShapeCommand::undo() {
   container.erase(container.begin() + static_cast<long>(m_insertedIndex));
   m_collection.notifyShapeModified();
 }
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

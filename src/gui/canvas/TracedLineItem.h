@@ -1,9 +1,9 @@
 #pragma once
 
+#include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
+
 #include <QGraphicsPathItem>
 #include <QPen>
-
-#include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
 namespace digitqt::gui::canvas {
 
@@ -22,4 +22,4 @@ private:
   QPen m_basePen;
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

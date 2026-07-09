@@ -14,19 +14,19 @@ struct StructureTensorParams {
   // Local ridge-direction estimation via the image structure tensor --
   // a continuous angle from the gradient field, not quantized to
   // 45-degree steps.
-  int orientationWindowRadius = 3; // px
+  int orientationWindowRadius = 3;  // px
   int directionSmoothingWindow =
-      5; // average direction over this many past steps
+      5;  // average direction over this many past steps
 
   // Stepping and 2D local-maximum centering.
-  float stepFraction = 0.5f; // step size = current width * this
+  float stepFraction = 0.5f;  // step size = current width * this
   float minStepSize = 2.0f;
   float maxStepSize = 15.0f;
-  float searchRadiusFraction = 0.5f; // 2D search radius = current width * this
+  float searchRadiusFraction = 0.5f;  // 2D search radius = current width * this
   float minSearchRadius = 2.0f;
   float maxSearchRadius = 15.0f;
   float maxCenteringJumpFactor =
-      1.0f; // reject a maximum further than this * width from the prediction
+      1.0f;  // reject a maximum further than this * width from the prediction
 
   // Loss-of-fringe detection, based on local contrast (peak - background),
   // not raw intensity -- robust to vignetting since it's measured fresh
@@ -105,7 +105,7 @@ private:
   bool findLocalMaximum(double cx, double cy, float radius, double &outX,
                         double &outY, float &outIntensity) const;
 
-  QImage m_grayImage; // owns the pixel data m_image points into
+  QImage m_grayImage;  // owns the pixel data m_image points into
   const uint8_t *m_image = nullptr;
   int m_width = 0;
   int m_height = 0;
@@ -114,9 +114,9 @@ private:
 
   StructureTensorParams m_params;
   float m_contrastEma =
-      0.0f; // running local-contrast estimate for the current trace direction
+      0.0f;  // running local-contrast estimate for the current trace direction
 
   QString m_lastError;
 };
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

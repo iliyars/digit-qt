@@ -26,7 +26,9 @@ Pipeline::Pipeline() {
   }
 }
 
-PipelineStage &Pipeline::stage(StageId id) { return *m_stages[indexOf(id)]; }
+PipelineStage &Pipeline::stage(StageId id) {
+  return *m_stages[indexOf(id)];
+}
 const PipelineStage &Pipeline::stage(StageId id) const {
   return *m_stages[indexOf(id)];
 }
@@ -36,4 +38,4 @@ void Pipeline::invalidateFrom(StageId id) {
     m_stages[i]->invalidate();
 }
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

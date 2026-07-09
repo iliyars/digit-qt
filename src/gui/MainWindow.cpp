@@ -45,8 +45,8 @@ MainWindow::MainWindow(QWidget *parent)
   m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller,
                                                    m_fringeController, this);
   m_notImplementedPage = new NotImplementedPage(this);
-  m_centralStack->addWidget(m_canvas);             // index 0: Setup / S1
-  m_centralStack->addWidget(m_notImplementedPage); // index 1: everything else
+  m_centralStack->addWidget(m_canvas);              // index 0: Setup / S1
+  m_centralStack->addWidget(m_notImplementedPage);  // index 1: everything else
   setCentralWidget(m_centralStack);
 
   m_statusLabel = new QLabel(this);
@@ -175,8 +175,9 @@ void MainWindow::buildMenusAndToolbars() {
 
   auto *autoSeedAction = toolBar->addAction(digitqt::gui::icons::autoSeedIcon(),
                                             tr("Auto-place seeds"));
-  autoSeedAction->setToolTip(tr("Automatically place seeds along one row at "
-                                "the fringes' intensity peaks"));
+  autoSeedAction->setToolTip(
+      tr("Automatically place seeds along one row at "
+         "the fringes' intensity peaks"));
   connect(autoSeedAction, &QAction::triggered, this,
           [this] { m_fringeController->autoPlaceSeeds(); });
 
@@ -299,4 +300,4 @@ void MainWindow::updateStatusBar() {
   m_parametersDock->refresh();
 }
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

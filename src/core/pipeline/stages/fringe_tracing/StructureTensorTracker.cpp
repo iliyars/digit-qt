@@ -40,8 +40,8 @@ bool StructureTensorTracker::initialize(
   return true;
 }
 
-std::vector<TracedLine>
-StructureTensorTracker::extract(const std::vector<SeedPoint> &seeds) {
+std::vector<TracedLine> StructureTensorTracker::extract(
+    const std::vector<SeedPoint> &seeds) {
   std::vector<TracedLine> result;
   result.reserve(seeds.size());
 
@@ -307,9 +307,9 @@ bool StructureTensorTracker::traceLineInto(int startX, int startY,
 
     if (backwardLine.size() > 1) {
       TracedLine combined;
-      combined.assign(backwardLine.rbegin(),
-                      backwardLine.rend() -
-                          1); // reversed, shared seed dropped once
+      combined.assign(
+          backwardLine.rbegin(),
+          backwardLine.rend() - 1);  // reversed, shared seed dropped once
       combined.insert(combined.end(), forwardLine.begin(), forwardLine.end());
       outPoints = std::move(combined);
     }
@@ -338,7 +338,7 @@ void StructureTensorTracker::traceDirectionally(TracedLine &line, double dirX,
 
     if (!isInside(static_cast<int>(std::lround(predX)),
                   static_cast<int>(std::lround(predY))))
-      break; // reached the aperture/image boundary
+      break;  // reached the aperture/image boundary
 
     const float searchRadius =
         std::clamp(width * m_params.searchRadiusFraction,
@@ -419,4 +419,4 @@ void StructureTensorTracker::traceDirectionally(TracedLine &line, double dirX,
   }
 }
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

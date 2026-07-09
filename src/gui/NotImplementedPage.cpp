@@ -23,4 +23,4 @@ void NotImplementedPage::setStage(digitqt::core::pipeline::StageId id) {
                             digitqt::core::pipeline::shortName(id)));
 }
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

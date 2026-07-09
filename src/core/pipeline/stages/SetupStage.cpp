@@ -7,7 +7,6 @@
 #include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 
 #include <aperture/include/visibility/VisibilityChecker.h>
-
 #include <memory>
 
 namespace digitqt::core::pipeline {
@@ -41,36 +40,39 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement,
 
   std::unique_ptr<tracing::IFringeTracer> tracer;
   switch (algorithm) {
-  case digitqt::core::TracerAlgorithm::SequentialTracking:
-    tracer = std::make_unique<tracing::SequentialFringeTracker>();
-    break;
-  case digitqt::core::TracerAlgorithm::StructureTensor:
-    tracer = std::make_unique<tracing::StructureTensorTracker>();
-    break;
-  case digitqt::core::TracerAlgorithm::ScanlineExtremum: {
-    auto scanlineTracer = std::make_unique<tracing::ScanlineExtremumTracker>();
+    case digitqt::core::TracerAlgorithm::SequentialTracking:
+      tracer = std::make_unique<tracing::SequentialFringeTracker>();
+      break;
+    case digitqt::core::TracerAlgorithm::StructureTensor:
+      tracer = std::make_unique<tracing::StructureTensorTracker>();
+      break;
+    case digitqt::core::TracerAlgorithm::ScanlineExtremum: {
+      auto scanlineTracer =
+          std::make_unique<tracing::ScanlineExtremumTracker>();
 
-    tracing::ScanlineExtremumTracker::Params params;
-    switch (tracingData.fringeCenterMode()) {
-    case digitqt::core::FringeCenterMode::Max:
-      params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::Max;
-      break;
-    case digitqt::core::FringeCenterMode::Min:
-      params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::Min;
-      break;
-    case digitqt::core::FringeCenterMode::MinMax:
-      params.fringeCenterAs =
-          tracing::scanline_extremum::FringeCenterMode::MinMax;
+      tracing::ScanlineExtremumTracker::Params params;
+      switch (tracingData.fringeCenterMode()) {
+        case digitqt::core::FringeCenterMode::Max:
+          params.fringeCenterAs =
+              tracing::scanline_extremum::FringeCenterMode::Max;
+          break;
+        case digitqt::core::FringeCenterMode::Min:
+          params.fringeCenterAs =
+              tracing::scanline_extremum::FringeCenterMode::Min;
+          break;
+        case digitqt::core::FringeCenterMode::MinMax:
+          params.fringeCenterAs =
+              tracing::scanline_extremum::FringeCenterMode::MinMax;
+          break;
+      }
+      scanlineTracer->setParams(params);
+
+      tracer = std::move(scanlineTracer);
       break;
     }
-    scanlineTracer->setParams(params);
-
-    tracer = std::move(scanlineTracer);
-    break;
-  }
-  case digitqt::core::TracerAlgorithm::BinaryThinning:
-    tracer = std::make_unique<tracing::BinaryThinningTracker>();
-    break;
+    case digitqt::core::TracerAlgorithm::BinaryThinning:
+      tracer = std::make_unique<tracing::BinaryThinningTracker>();
+      break;
   }
 
   if (!tracer->initialize(measurement.image(), isVisible)) {
@@ -91,4 +93,4 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement,
   return true;
 }
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

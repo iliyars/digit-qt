@@ -27,4 +27,4 @@ struct ImageLoadResult {
  */
 ImageLoadResult loadImage(const QString &path);
 
-} // namespace digitqt::io
+}  // namespace digitqt::io

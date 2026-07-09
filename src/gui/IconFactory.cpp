@@ -17,7 +17,7 @@ QPixmap newCanvas() {
   return pixmap;
 }
 
-} // namespace
+}  // namespace
 
 QIcon cursorIcon() {
   QPixmap pixmap = newCanvas();
@@ -107,10 +107,10 @@ QIcon autoSeedIcon() {
   const QColor seedColor(255, 200, 0);
   painter.setPen(Qt::NoPen);
   painter.setBrush(seedColor);
-  for (double fx : {5.5, 11.0, 16.5}) // scattered dots along the scan line
+  for (double fx : {5.5, 11.0, 16.5})  // scattered dots along the scan line
     painter.drawEllipse(QPointF(fx, midY), 2.0, 2.0);
 
   return QIcon(pixmap);
 }
 
-} // namespace digitqt::gui::icons
+}  // namespace digitqt::gui::icons

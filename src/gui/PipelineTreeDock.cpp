@@ -18,19 +18,19 @@ constexpr int kStageIdRole = Qt::UserRole + 1;
 
 QIcon statusIcon(const QWidget *w, StageStatus status) {
   switch (status) {
-  case StageStatus::Computed:
-    return w->style()->standardIcon(QStyle::SP_DialogApplyButton);
-  case StageStatus::Stale:
-    return w->style()->standardIcon(QStyle::SP_BrowserReload);
-  case StageStatus::Error:
-    return w->style()->standardIcon(QStyle::SP_MessageBoxCritical);
-  case StageStatus::NotComputed:
-    return w->style()->standardIcon(QStyle::SP_DialogCancelButton);
+    case StageStatus::Computed:
+      return w->style()->standardIcon(QStyle::SP_DialogApplyButton);
+    case StageStatus::Stale:
+      return w->style()->standardIcon(QStyle::SP_BrowserReload);
+    case StageStatus::Error:
+      return w->style()->standardIcon(QStyle::SP_MessageBoxCritical);
+    case StageStatus::NotComputed:
+      return w->style()->standardIcon(QStyle::SP_DialogCancelButton);
   }
   return {};
 }
 
-} // namespace
+}  // namespace
 
 PipelineTreeDock::PipelineTreeDock(QWidget *parent)
     : QDockWidget(tr("Pipeline"), parent), m_tree(new QTreeWidget(this)) {
@@ -75,4 +75,4 @@ void PipelineTreeDock::refreshStatuses() {
   }
 }
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

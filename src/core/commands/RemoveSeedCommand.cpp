@@ -31,4 +31,4 @@ void RemoveSeedCommand::undo() {
   seeds.insert(seeds.begin() + static_cast<long>(insertAt), m_removed);
 }
 
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

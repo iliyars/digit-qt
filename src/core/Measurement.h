@@ -1,10 +1,9 @@
 #pragma once
 
-#include <QImage>
-#include <QString>
-
 #include "core/FringeTracingData.h"
 
+#include <QImage>
+#include <QString>
 #include <aperture/include/visibility/ShapeCollection.h>
 
 namespace digitqt::core {
@@ -52,4 +51,4 @@ private:
   bool m_modified = false;
 };
 
-} // namespace digitqt::core
+}  // namespace digitqt::core

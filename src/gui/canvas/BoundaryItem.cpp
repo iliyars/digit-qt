@@ -6,7 +6,7 @@
 namespace digitqt::gui::canvas {
 
 namespace {
-constexpr double kContourStep = 2.0; // pixels between generated contour points
+constexpr double kContourStep = 2.0;  // pixels between generated contour points
 }
 
 BoundaryItem::BoundaryItem(const aperture::Shape *shape, size_t index)
@@ -30,25 +30,25 @@ void BoundaryItem::rebuildPath() {
 
 void BoundaryItem::applyBaseStyle() {
   QPen pen;
-  pen.setCosmetic(true); // constant on-screen width regardless of view zoom
+  pen.setCosmetic(true);  // constant on-screen width regardless of view zoom
   pen.setWidth(2);
 
   switch (m_shape->getTypeLimits()) {
-  case aperture::TypeLimits::EXTERNAL:
-    pen.setColor(QColor(0, 190, 60));
-    pen.setStyle(Qt::SolidLine);
-    m_baseZ = 10.0;
-    break;
-  case aperture::TypeLimits::INTERNAL:
-    pen.setColor(QColor(220, 40, 40));
-    pen.setStyle(Qt::DashLine);
-    m_baseZ = 11.0;
-    break;
-  case aperture::TypeLimits::APERTURE:
-    pen.setColor(QColor(40, 120, 220));
-    pen.setStyle(Qt::DotLine);
-    m_baseZ = 12.0;
-    break;
+    case aperture::TypeLimits::EXTERNAL:
+      pen.setColor(QColor(0, 190, 60));
+      pen.setStyle(Qt::SolidLine);
+      m_baseZ = 10.0;
+      break;
+    case aperture::TypeLimits::INTERNAL:
+      pen.setColor(QColor(220, 40, 40));
+      pen.setStyle(Qt::DashLine);
+      m_baseZ = 11.0;
+      break;
+    case aperture::TypeLimits::APERTURE:
+      pen.setColor(QColor(40, 120, 220));
+      pen.setStyle(Qt::DotLine);
+      m_baseZ = 12.0;
+      break;
   }
   setPen(pen);
   setZValue(m_baseZ);
@@ -61,4 +61,4 @@ void BoundaryItem::setSelectedStyle(bool selected) {
   setZValue(selected ? m_baseZ + 5.0 : m_baseZ);
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

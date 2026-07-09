@@ -1,4 +1,5 @@
 #include "Measurement.h"
+
 #include <utility>
 namespace digitqt::core {
 
@@ -9,4 +10,4 @@ void Measurement::setImage(QImage image, QString path) {
   m_fringeTracing.clear();
   m_modified = true;
 }
-} // namespace digitqt::core
+}  // namespace digitqt::core

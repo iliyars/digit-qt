@@ -9,4 +9,4 @@ bool NotYetImplementedStage::doCompute(
   return false;
 }
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

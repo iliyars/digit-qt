@@ -4,10 +4,9 @@
 #include <QPointF>
 #include <QRectF>
 #include <QUndoStack>
-#include <optional>
-
 #include <aperture/include/geometry/Shape.h>
 #include <aperture/include/visibility/TypeLimits.h>
+#include <optional>
 
 namespace digitqt::core {
 class Measurement;
@@ -82,10 +81,10 @@ public:
   std::optional<Selection> selection() const { return m_selection; }
 
 signals:
-  void boundariesChanged(); // ShapeCollection content changed -> view should
-                            // re-render
+  void boundariesChanged();  // ShapeCollection content changed -> view should
+                             // re-render
   void
-  previewChanged(); // drag preview changed -> view should redraw rubber band
+  previewChanged();  // drag preview changed -> view should redraw rubber band
   void selectionChanged();
 
 private:
@@ -117,9 +116,9 @@ private:
   // Select-mode drag (move) state
   bool m_moving = false;
   QPointF m_moveAnchor;
-  std::unique_ptr<aperture::Shape> m_moveOriginal; // clone taken at drag start
+  std::unique_ptr<aperture::Shape> m_moveOriginal;  // clone taken at drag start
 
   std::optional<Selection> m_selection;
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QString>
-
 #include "PipelineStageId.h"
+
+#include <QString>
 
 namespace digitqt::core {
 class Measurement;
@@ -11,10 +11,10 @@ class Measurement;
 namespace digitqt::core::pipeline {
 
 enum class StageStatus {
-  NotComputed, // never run
-  Stale,       // was computed, but an upstream stage changed since
-  Computed,    // up to date
-  Error,       // last compute() attempt failed
+  NotComputed,  // never run
+  Stale,        // was computed, but an upstream stage changed since
+  Computed,     // up to date
+  Error,        // last compute() attempt failed
 };
 
 /**
@@ -69,4 +69,4 @@ private:
   QString m_errorMessage;
 };
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

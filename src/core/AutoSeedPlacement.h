@@ -22,8 +22,7 @@ namespace digitqt::core {
  * pixels, so this still works for an aperture that isn't centered in the
  * image.
  */
-std::vector<tracing::SeedPoint>
-findRowSeeds(const QImage &image,
-             const std::function<bool(int, int)> &isVisible);
+std::vector<tracing::SeedPoint> findRowSeeds(
+    const QImage &image, const std::function<bool(int, int)> &isVisible);
 
-} // namespace digitqt::core
+}  // namespace digitqt::core

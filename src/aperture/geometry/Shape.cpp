@@ -10,4 +10,4 @@ namespace aperture {
 // Shape is abstract - no implementation needed
 // All methods are pure virtual or inline
 
-} // namespace aperture
+}  // namespace aperture

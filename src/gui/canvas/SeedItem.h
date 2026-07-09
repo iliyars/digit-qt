@@ -16,4 +16,4 @@ private:
   size_t m_index;
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QDockWidget>
-
 #include "core/pipeline/PipelineStageId.h"
+
+#include <QDockWidget>
 
 class QLabel;
 class QComboBox;
@@ -47,4 +47,4 @@ private:
   QLabel *m_label;
 };
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

@@ -15,4 +15,4 @@ bool PipelineStage::compute(digitqt::core::Measurement &measurement) {
   return success;
 }
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

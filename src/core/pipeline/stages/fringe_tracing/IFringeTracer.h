@@ -12,8 +12,8 @@ namespace digitqt::core::tracing {
 struct TracedPoint {
   double x = 0.0;
   double y = 0.0;
-  float width = 0.0f;     // locally measured fringe width, in pixels
-  float intensity = 0.0f; // locally measured average intensity (0..255)
+  float width = 0.0f;      // locally measured fringe width, in pixels
+  float intensity = 0.0f;  // locally measured average intensity (0..255)
 };
 
 using TracedLine = std::vector<TracedPoint>;
@@ -52,11 +52,11 @@ public:
 
   /// Extracts all centerlines found. seeds is only used by tracers that
   /// need starting points; global algorithms ignore it.
-  virtual std::vector<TracedLine>
-  extract(const std::vector<SeedPoint> &seeds) = 0;
+  virtual std::vector<TracedLine> extract(
+      const std::vector<SeedPoint> &seeds) = 0;
 
   virtual QString name() const = 0;
   virtual const QString &lastError() const = 0;
 };
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

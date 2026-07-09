@@ -1,4 +1,5 @@
 #include "ReplaceShapeCommand.h"
+
 #include "core/ShapeCollectionAccess.h"
 
 #include <QCoreApplication>
@@ -9,8 +10,12 @@ ReplaceShapeCommand::ReplaceShapeCommand(
     aperture::ShapeCollection &collection, aperture::TypeLimits type,
     size_t index, std::unique_ptr<aperture::Shape> before,
     std::unique_ptr<aperture::Shape> after, QUndoCommand *parent)
-    : QUndoCommand(parent), m_collection(collection), m_type(type),
-      m_index(index), m_before(std::move(before)), m_after(std::move(after)) {
+    : QUndoCommand(parent),
+      m_collection(collection),
+      m_type(type),
+      m_index(index),
+      m_before(std::move(before)),
+      m_after(std::move(after)) {
   setText(QCoreApplication::translate("ReplaceShapeCommand",
                                       "Move/resize boundary"));
 }
@@ -31,4 +36,4 @@ void ReplaceShapeCommand::undo() {
   m_collection.notifyShapeModified();
 }
 
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

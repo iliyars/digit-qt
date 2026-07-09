@@ -1,11 +1,11 @@
+#include "gui/MainWindow.h"
+
 #include <QApplication>
 #include <QLocale>
 #include <QPalette>
 #include <QSettings>
 #include <QStyleFactory>
 #include <QTranslator>
-
-#include "gui/MainWindow.h"
 
 namespace {
 
@@ -53,7 +53,7 @@ void loadTranslation(QApplication &app, QTranslator &translator) {
                    : QStringLiteral("en");
 
   if (language == QStringLiteral("en"))
-    return; // nothing to load -- source strings are already English
+    return;  // nothing to load -- source strings are already English
 
   const QString qmPath = app.applicationDirPath() +
                          QStringLiteral("/translations/DigitQt_") + language +
@@ -65,7 +65,7 @@ void loadTranslation(QApplication &app, QTranslator &translator) {
   // source -- never a hard failure.
 }
 
-} // namespace
+}  // namespace
 
 int main(int argc, char **argv) {
   QApplication app(argc, argv);

@@ -23,15 +23,15 @@ namespace digitqt::core::pipeline {
  * something at stage X potentially invalidates every stage after it.
  */
 enum class StageId {
-  Setup, // S0 + S0a + S0b + S0c + S1: image, aperture masking, reference
-         // markers, geometric calibration, fringe tracing
-  S2,    // Phase Reconstruction
-  S3,    // Phase Unwrapping
-  S4,    // Wavefront Reconstruction
-  S4b,   // Wavefront Calibration (subtraction)
-  S5,    // Polynomial / Modal Analysis
-  S6,    // Diffraction Analysis
-  S7,    // Interferogram Synthesis
+  Setup,  // S0 + S0a + S0b + S0c + S1: image, aperture masking, reference
+          // markers, geometric calibration, fringe tracing
+  S2,     // Phase Reconstruction
+  S3,     // Phase Unwrapping
+  S4,     // Wavefront Reconstruction
+  S4b,    // Wavefront Calibration (subtraction)
+  S5,     // Polynomial / Modal Analysis
+  S6,     // Diffraction Analysis
+  S7,     // Interferogram Synthesis
 };
 
 /// Short code as used in the spec and the pipeline tree, e.g. "S0a".
@@ -40,4 +40,4 @@ QString shortName(StageId id);
 /// Human-readable name, e.g. "Aperture & Visibility Masking".
 QString displayName(StageId id);
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline
