@@ -1,11 +1,15 @@
 #include "FringeTracingController.h"
 
+#include "core/AutoSeedPlacement.h"
 #include "core/Measurement.h"
 #include "core/commands/AddSeedCommand.h"
+#include "core/commands/AddSeedsCommand.h"
 #include "core/commands/RemoveSeedCommand.h"
 #include "core/commands/ReplaceTracedLineCommand.h"
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
+
+#include <aperture/include/visibility/VisibilityChecker.h>
 
 #include <algorithm>
 #include <cmath>
@@ -13,6 +17,7 @@
 namespace digitqt::gui::canvas {
 
 using digitqt::commands::AddSeedCommand;
+using digitqt::commands::AddSeedsCommand;
 using digitqt::commands::RemoveSeedCommand;
 using digitqt::commands::ReplaceTracedLineCommand;
 
@@ -329,6 +334,26 @@ bool FringeTracingController::runTracing() {
   m_lastError = stage.errorMessage();
   emit tracedLinesChanged();
   return ok;
+}
+
+void FringeTracingController::autoPlaceSeeds() {
+  if (!m_measurement || !m_measurement->hasImage())
+    return;
+
+  aperture::VisibilityChecker checker(m_measurement->boundaries());
+  auto isVisible = [&checker](int x, int y) {
+    return checker.isVisible(
+        aperture::Point{static_cast<double>(x), static_cast<double>(y)});
+  };
+
+  auto seeds = digitqt::core::findRowSeeds(m_measurement->image(), isVisible);
+  if (seeds.empty()) {
+    m_lastError = QStringLiteral("No intensity peaks found to place seeds at");
+    return;
+  }
+
+  m_undoStack->push(new AddSeedsCommand(*m_measurement, std::move(seeds)));
+  emit seedsChanged();
 }
 
 } // namespace digitqt::gui::canvas

@@ -55,6 +55,10 @@ public:
   void handleRelease(const QPointF &pos);
   void deleteSelection();
 
+  /// Scans one row of the image for intensity peaks and adds a seed at
+  /// each one found (see core::findRowSeeds), as a single undo step.
+  void autoPlaceSeeds();
+
   /// Double-click: enters line-edit mode for the traced line under the
   /// cursor (any line, regardless of current FringeEditMode), or does
   /// nothing if no line is close enough.

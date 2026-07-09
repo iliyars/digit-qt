@@ -12,14 +12,14 @@ add_executable(DigitQt::App ALIAS DigitQt)
 
 # Lets every module #include "core/Measurement.h", "gui/MainWindow.h", etc.
 # using paths relative to src/.
-target_include_directories(DigitQt PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(DigitQt PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${OpenCV_INCLUDE_DIRS})
 
 add_subdirectory(aperture)  # independent library
 add_subdirectory(core)          # target_sources(DigitQt ...)
 add_subdirectory(io)            # target_sources(DigitQt ...)
 add_subdirectory(gui)           # target_sources(DigitQt ...)
 
-target_link_libraries(DigitQt PRIVATE Qt6::Widgets Aperture::Core)
+target_link_libraries(DigitQt PRIVATE Qt6::Widgets Aperture::Core ${OpenCV_LIBS})
 
 set_target_properties(DigitQt PROPERTIES
     CXX_STANDARD 17

@@ -13,6 +13,11 @@ option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
 
+# Needed by BinaryThinningTracker (Fringe Binary Method: adaptive
+# threshold + Zhang-Suen skeletonization). On MSYS2 UCRT64:
+#   pacman -S mingw-w64-ucrt-x86_64-opencv
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+
 add_subdirectory(src)
 add_subdirectory(translations)
 

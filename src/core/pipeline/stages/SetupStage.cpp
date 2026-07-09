@@ -1,8 +1,10 @@
 #include "SetupStage.h"
 
 #include "core/Measurement.h"
+#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
 #include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
 #include "core/pipeline/stages/fringe_tracing/SequentialFringeTracker.h"
+#include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 
 #include <aperture/include/visibility/VisibilityChecker.h>
 
@@ -18,11 +20,12 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement,
   }
 
   auto &tracingData = measurement.fringeTracing();
-  const bool isSequentialTracking =
-      (tracingData.algorithm() ==
-       digitqt::core::TracerAlgorithm::SequentialTracking);
+  const auto algorithm = tracingData.algorithm();
+  const bool needsSeeds =
+      (algorithm == digitqt::core::TracerAlgorithm::SequentialTracking ||
+       algorithm == digitqt::core::TracerAlgorithm::StructureTensor);
 
-  if (isSequentialTracking && tracingData.seeds().empty()) {
+  if (needsSeeds && tracingData.seeds().empty()) {
     errorMessage =
         QStringLiteral("No seed points placed. Click on the image to add one.");
     return false;
@@ -37,9 +40,14 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement,
   };
 
   std::unique_ptr<tracing::IFringeTracer> tracer;
-  if (isSequentialTracking) {
+  switch (algorithm) {
+  case digitqt::core::TracerAlgorithm::SequentialTracking:
     tracer = std::make_unique<tracing::SequentialFringeTracker>();
-  } else {
+    break;
+  case digitqt::core::TracerAlgorithm::StructureTensor:
+    tracer = std::make_unique<tracing::StructureTensorTracker>();
+    break;
+  case digitqt::core::TracerAlgorithm::ScanlineExtremum: {
     auto scanlineTracer = std::make_unique<tracing::ScanlineExtremumTracker>();
 
     tracing::ScanlineExtremumTracker::Params params;
@@ -58,6 +66,11 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement,
     scanlineTracer->setParams(params);
 
     tracer = std::move(scanlineTracer);
+    break;
+  }
+  case digitqt::core::TracerAlgorithm::BinaryThinning:
+    tracer = std::make_unique<tracing::BinaryThinningTracker>();
+    break;
   }
 
   if (!tracer->initialize(measurement.image(), isVisible)) {

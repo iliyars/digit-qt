@@ -172,6 +172,14 @@ void MainWindow::buildMenusAndToolbars() {
                       FringeEditMode::AddSeed);
   addFringeModeAction(cursorIcon(), tr("Select / delete a seed point"),
                       FringeEditMode::Select);
+
+  auto *autoSeedAction = toolBar->addAction(digitqt::gui::icons::autoSeedIcon(),
+                                            tr("Auto-place seeds"));
+  autoSeedAction->setToolTip(tr("Automatically place seeds along one row at "
+                                "the fringes' intensity peaks"));
+  connect(autoSeedAction, &QAction::triggered, this,
+          [this] { m_fringeController->autoPlaceSeeds(); });
+
   toolBar->addSeparator();
 
   // --- Shared actions: Delete (whichever tool is active) and Trace ---

@@ -93,4 +93,24 @@ QIcon seedIcon() {
   return QIcon(pixmap);
 }
 
+QIcon autoSeedIcon() {
+  QPixmap pixmap = newCanvas();
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  const double midY = kSize / 2.0;
+  QPen linePen(QColor(140, 140, 140));
+  linePen.setWidth(1);
+  painter.setPen(linePen);
+  painter.drawLine(QPointF(3.0, midY), QPointF(kSize - 3.0, midY));
+
+  const QColor seedColor(255, 200, 0);
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(seedColor);
+  for (double fx : {5.5, 11.0, 16.5}) // scattered dots along the scan line
+    painter.drawEllipse(QPointF(fx, midY), 2.0, 2.0);
+
+  return QIcon(pixmap);
+}
+
 } // namespace digitqt::gui::icons

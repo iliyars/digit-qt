@@ -21,9 +21,13 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_algorithmCombo->addItem(
       tr("Sequential Fringe Tracking (FTM)"),
       static_cast<int>(TracerAlgorithm::SequentialTracking));
+  m_algorithmCombo->addItem(tr("Ridge Tracking (Structure Tensor)"),
+                            static_cast<int>(TracerAlgorithm::StructureTensor));
   m_algorithmCombo->addItem(
       tr("Scanline Extremum Method (FTM)"),
       static_cast<int>(TracerAlgorithm::ScanlineExtremum));
+  m_algorithmCombo->addItem(tr("Binary Thinning Method (FBM)"),
+                            static_cast<int>(TracerAlgorithm::BinaryThinning));
   connect(m_algorithmCombo, &QComboBox::currentIndexChanged, this,
           &ParametersDock::onAlgorithmChanged);
 

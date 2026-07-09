@@ -10,6 +10,8 @@ target_sources(DigitQt
         AddSeedCommand.cpp
         RemoveSeedCommand.h
         RemoveSeedCommand.cpp
+        AddSeedsCommand.h
+        AddSeedsCommand.cpp
         ReplaceTracedLineCommand.h
         ReplaceTracedLineCommand.cpp
 )
