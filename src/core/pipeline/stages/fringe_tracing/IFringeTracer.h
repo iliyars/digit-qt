@@ -7,6 +7,7 @@
 class QImage;
 
 namespace digitqt::core::tracing {
+
 /// One point along a traced fringe centerline, in image pixel coordinates.
 struct TracedPoint {
   double x = 0.0;
@@ -31,11 +32,11 @@ struct SeedPoint {
  * Multiple independent implementations exist on purpose, so they can be
  * run on the same image and compared side by side (see the S1 parameters
  * panel's algorithm picker):
- *   - SeedStepTracer: step-by-step tracer from a seed point, ported from
- *     the classic SCAN360/STEP.C algorithm ("SCAN-tracer").
- *   - (planned) LegacyScanlineTracer: scanline-extrema + fringe numbering,
- *     ported from the original Digit project's RedCenterDetector /
- *     FringeConstructor.
+ *   - SequentialFringeTracker: Sequential Fringe Tracking (FTM), step-by-step
+ *     from a seed point, ported from the classic SCAN360/STEP.C algorithm.
+ *   - ScanlineExtremumTracker: Scanline Extremum Method (FTM), global
+ *     row-by-row extrema + fringe numbering, ported from the original Digit
+ * project's RedCenterDetector / FringeConstructor.
  *   - (planned) MorphologicalSkeletonTracer: global morphological
  *     skeleton (OpenCV); needs no seed points at all.
  */

@@ -5,6 +5,7 @@
 #include "core/pipeline/PipelineStageId.h"
 
 class QLabel;
+class QComboBox;
 
 namespace digitqt::core {
 class Measurement;
@@ -15,10 +16,11 @@ namespace digitqt::gui {
 /**
  * @brief Right-hand dock: parameters for the currently selected stage.
  *
- * Today this only shows a short read-only blurb per stage (boundary counts
- * for S0a, "not implemented" otherwise). As each stage gets a real
- * implementation, its page here grows into actual editable parameter
- * widgets -- this dock is the seam where that happens, not MainWindow.
+ * Today this shows the fringe-tracing algorithm picker plus a short
+ * read-only info blurb per stage ("not implemented" for anything past
+ * Setup). As each stage gets a real implementation, its page here grows
+ * into actual editable parameter widgets -- this dock is the seam where
+ * that happens, not MainWindow.
  */
 class ParametersDock : public QDockWidget {
   Q_OBJECT
@@ -32,10 +34,16 @@ public:
   /// boundary counts) and refreshes the displayed text.
   void refresh();
 
+private slots:
+  void onAlgorithmChanged(int index);
+  void onFringeCenterModeChanged(int index);
+
 private:
   digitqt::core::Measurement *m_measurement = nullptr;
   digitqt::core::pipeline::StageId m_currentStage =
       digitqt::core::pipeline::StageId::Setup;
+  QComboBox *m_algorithmCombo;
+  QComboBox *m_fringeCenterCombo;
   QLabel *m_label;
 };
 

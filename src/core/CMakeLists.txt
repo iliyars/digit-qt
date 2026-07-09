@@ -3,6 +3,8 @@ target_sources(DigitQt
         Measurement.h
         Measurement.cpp
         ShapeCollectionAccess.h
+        AutoSeedPlacement.h
+        AutoSeedPlacement.cpp
 )
 
 add_subdirectory(commands)
