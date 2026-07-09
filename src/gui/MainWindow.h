@@ -1,13 +1,13 @@
 #pragma once
 
-#include <QMainWindow>
-#include <memory>
-
 #include "canvas/BoundaryEditController.h"
 #include "canvas/FringeTracingController.h"
 #include "canvas/ImageCanvas.h"
 #include "core/Measurement.h"
 #include "core/pipeline/Pipeline.h"
+
+#include <QMainWindow>
+#include <memory>
 
 class QLabel;
 class QUndoStack;
@@ -53,4 +53,4 @@ private:
   QLabel *m_statusLabel;
 };
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui

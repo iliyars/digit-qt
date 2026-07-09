@@ -20,4 +20,4 @@ protected:
   bool doCompute(digitqt::core::Measurement &measurement,
                  QString &errorMessage) override;
 };
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

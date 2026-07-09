@@ -42,4 +42,4 @@ double fitQuadraticPeak(int *n, int *x, int *y);
 std::vector<double> detectPeaks(const uint8_t *line, std::size_t nx, int y,
                                 const std::function<bool(int, int)> &isVisible);
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

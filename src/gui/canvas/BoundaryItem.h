@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QGraphicsPathItem>
-
 #include <aperture/include/geometry/Shape.h>
 
 namespace digitqt::gui::canvas {
@@ -35,4 +34,4 @@ private:
   double m_baseZ = 0.0;
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

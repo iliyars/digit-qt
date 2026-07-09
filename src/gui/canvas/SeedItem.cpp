@@ -27,4 +27,4 @@ void SeedItem::setSelectedStyle(bool selected) {
   setZValue(selected ? 35.0 : 30.0);
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

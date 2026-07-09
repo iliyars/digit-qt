@@ -1,5 +1,11 @@
 #pragma once
 
+#include "BoundaryEditController.h"
+#include "BoundaryItem.h"
+#include "FringeTracingController.h"
+#include "SeedItem.h"
+#include "TracedLineItem.h"
+
 #include <QGraphicsEllipseItem>
 #include <QGraphicsPathItem>
 #include <QGraphicsPixmapItem>
@@ -7,12 +13,6 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <vector>
-
-#include "BoundaryEditController.h"
-#include "BoundaryItem.h"
-#include "FringeTracingController.h"
-#include "SeedItem.h"
-#include "TracedLineItem.h"
 
 namespace digitqt::core {
 class Measurement;
@@ -88,11 +88,11 @@ private:
   std::vector<TracedLineItem *> m_lineItems;
   bool m_fringeVisible = true;
   std::vector<QGraphicsEllipseItem *>
-      m_lineVertexItems; // handles for the line under edit
+      m_lineVertexItems;  // handles for the line under edit
 
   // Right-button pan (separate from the left-button tool interactions)
   bool m_panning = false;
   QPoint m_lastPanPoint;
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

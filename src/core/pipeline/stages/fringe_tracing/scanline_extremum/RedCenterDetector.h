@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vector>
-
 #include "ScanlineExtremumTypes.h"
+
+#include <vector>
 
 namespace digitqt::core::tracing::scanline_extremum {
 
@@ -21,4 +21,4 @@ public:
   static std::vector<Section> detectExtrema(const DigitizationInput &input);
 };
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

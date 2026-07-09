@@ -6,8 +6,8 @@
 
 namespace digitqt::core::tracing::scanline_extremum {
 
-std::vector<Section>
-RedCenterDetector::detectExtrema(const DigitizationInput &input) {
+std::vector<Section> RedCenterDetector::detectExtrema(
+    const DigitizationInput &input) {
   std::vector<Section> results;
   if (!input.bitmapData || input.imageWidth <= 0 || input.imageHeight <= 0 ||
       !input.isVisible)
@@ -50,10 +50,10 @@ RedCenterDetector::detectExtrema(const DigitizationInput &input) {
                             input.isVisible);
     }
 
-    auto appendResults = [y, width,
-                          &lineResult](const std::vector<double> &xs,
-                                       const std::vector<uint8_t> &sourceLine,
-                                       ExtremumType type) {
+    auto appendResults = [y, width, &lineResult](
+                             const std::vector<double> &xs,
+                             const std::vector<uint8_t> &sourceLine,
+                             ExtremumType type) {
       for (const double x : xs) {
         const int sampleX = static_cast<int>(x + 0.5);
         double intensity = 0.0;
@@ -95,4 +95,4 @@ RedCenterDetector::detectExtrema(const DigitizationInput &input) {
   return results;
 }
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

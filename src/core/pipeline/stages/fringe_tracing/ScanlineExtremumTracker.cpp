@@ -20,8 +20,8 @@ bool ScanlineExtremumTracker::initialize(
   return true;
 }
 
-std::vector<TracedLine>
-ScanlineExtremumTracker::extract(const std::vector<SeedPoint> & /*seeds*/) {
+std::vector<TracedLine> ScanlineExtremumTracker::extract(
+    const std::vector<SeedPoint> & /*seeds*/) {
   // Global algorithm -- seeds are not used, see IFringeTracer's contract.
   std::vector<TracedLine> result;
 
@@ -82,4 +82,4 @@ ScanlineExtremumTracker::extract(const std::vector<SeedPoint> & /*seeds*/) {
   return result;
 }
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

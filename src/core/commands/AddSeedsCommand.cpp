@@ -9,7 +9,8 @@ namespace digitqt::commands {
 AddSeedsCommand::AddSeedsCommand(
     digitqt::core::Measurement &measurement,
     std::vector<digitqt::core::tracing::SeedPoint> seeds, QUndoCommand *parent)
-    : QUndoCommand(parent), m_measurement(measurement),
+    : QUndoCommand(parent),
+      m_measurement(measurement),
       m_seeds(std::move(seeds)) {
   setText(
       QCoreApplication::translate("AddSeedsCommand", "Auto-place seed points"));
@@ -30,4 +31,4 @@ void AddSeedsCommand::undo() {
               seeds.begin() + static_cast<long>(m_startIndex + count));
 }
 
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

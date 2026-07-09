@@ -1,9 +1,8 @@
 #pragma once
 
 #include <QUndoCommand>
-#include <memory>
-
 #include <aperture/include/visibility/ShapeCollection.h>
+#include <memory>
 
 namespace digitqt::commands {
 /**
@@ -26,4 +25,4 @@ private:
   size_t m_index;
   std::unique_ptr<aperture::Shape> m_removed;
 };
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

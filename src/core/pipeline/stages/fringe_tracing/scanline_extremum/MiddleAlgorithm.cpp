@@ -19,7 +19,7 @@ void applyLinearBackground(uint8_t *line, int end1, int end2, double aa,
   }
 }
 
-} // namespace
+}  // namespace
 
 void removeBackground(uint8_t *line, int leftIdx, int rightIdx) {
   const int segmentLength = rightIdx - leftIdx;
@@ -96,7 +96,7 @@ void removeBackground(uint8_t *line, int leftIdx, int rightIdx) {
 double fitQuadraticPeak(int *n, int *x, int *y) {
   const int N = *n;
   if (N < 3) {
-    *n = -1; // Not enough points
+    *n = -1;  // Not enough points
     return 0.0;
   }
 
@@ -139,7 +139,7 @@ double fitQuadraticPeak(int *n, int *x, int *y) {
     }
 
     if (maxVal < kEps) {
-      *n = -2; // Singular matrix
+      *n = -2;  // Singular matrix
       return 0.0;
     }
 
@@ -177,12 +177,12 @@ double fitQuadraticPeak(int *n, int *x, int *y) {
   }
 
   const double vertex = -c[1] / (2.0 * c[2]);
-  return vertex + 0.5; // sub-pixel position, original convention
+  return vertex + 0.5;  // sub-pixel position, original convention
 }
 
-std::vector<double>
-detectPeaks(const uint8_t *line, std::size_t nx, int y,
-            const std::function<bool(int, int)> &isVisible) {
+std::vector<double> detectPeaks(
+    const uint8_t *line, std::size_t nx, int y,
+    const std::function<bool(int, int)> &isVisible) {
   std::vector<double> results;
   std::size_t i = 0;
 
@@ -191,7 +191,7 @@ detectPeaks(const uint8_t *line, std::size_t nx, int y,
       const std::size_t start = i;
       while (i < nx && line[i] != 0 && isVisible(static_cast<int>(i), y))
         ++i;
-      const std::size_t end = i; // exclusive
+      const std::size_t end = i;  // exclusive
 
       std::array<int, 300> ax{}, ay{};
       int maxVal = 0, firstMaxIdx = 0, n = 0;
@@ -207,7 +207,7 @@ detectPeaks(const uint8_t *line, std::size_t nx, int y,
       }
 
       if (n < 3)
-        continue; // not enough points for a reliable estimate
+        continue;  // not enough points for a reliable estimate
 
       double tmpf = 0.0;
       int half = firstMaxIdx;
@@ -216,7 +216,7 @@ detectPeaks(const uint8_t *line, std::size_t nx, int y,
         int nLocal = n;
         tmpf = fitQuadraticPeak(&nLocal, ax.data(), ay.data());
         if (nLocal < 0)
-          continue; // fit failed
+          continue;  // fit failed
         n = nLocal;
 
         if (tmpf > ax[0] && tmpf < ax[static_cast<size_t>(n - 1)])
@@ -245,4 +245,4 @@ detectPeaks(const uint8_t *line, std::size_t nx, int y,
   return results;
 }
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

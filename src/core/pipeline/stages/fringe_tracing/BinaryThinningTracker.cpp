@@ -11,10 +11,9 @@
  */
 #include "BinaryThinningTracker.h"
 
-#include <opencv2/imgproc.hpp>
-
 #include <algorithm>
 #include <cmath>
+#include <opencv2/imgproc.hpp>
 #include <utility>
 
 namespace digitqt::core::tracing {
@@ -41,8 +40,8 @@ bool BinaryThinningTracker::initialize(
   return true;
 }
 
-std::vector<TracedLine>
-BinaryThinningTracker::extract(const std::vector<SeedPoint> & /*seeds*/) {
+std::vector<TracedLine> BinaryThinningTracker::extract(
+    const std::vector<SeedPoint> & /*seeds*/) {
   // Global algorithm -- seeds are not used, see IFringeTracer's contract.
   if (m_image.empty()) {
     m_lastError =
@@ -69,9 +68,9 @@ BinaryThinningTracker::extract(const std::vector<SeedPoint> & /*seeds*/) {
       smoothLine(line);
 
   if (lines.empty()) {
-    m_lastError =
-        QStringLiteral("No fringes detected -- check the aperture, contrast, "
-                       "and the adaptiveC/pruneLength parameters");
+    m_lastError = QStringLiteral(
+        "No fringes detected -- check the aperture, contrast, "
+        "and the adaptiveC/pruneLength parameters");
   }
 
   return lines;
@@ -259,7 +258,7 @@ TracedLine BinaryThinningTracker::traceBranch(const cv::Mat &skel,
     }
 
     if (numCandidates == 0)
-      break; // dead end -- line's end
+      break;  // dead end -- line's end
 
     // One candidate: just go there. Several: pick the one closest in
     // direction to the previous step (keeps the branch smooth through
@@ -275,7 +274,7 @@ TracedLine BinaryThinningTracker::traceBranch(const cv::Mat &skel,
                                          candidates[i].dy * candidates[i].dy));
         const float dot = static_cast<float>(prevDx * candidates[i].dx +
                                              prevDy * candidates[i].dy);
-        const float score = dot / (prevLen * cdLen); // cos(angle)
+        const float score = dot / (prevLen * cdLen);  // cos(angle)
         if (score > bestScore) {
           bestScore = score;
           bestIdx = i;
@@ -359,7 +358,7 @@ void BinaryThinningTracker::pruneSkeleton(cv::Mat &skel,
 
   bool changed = true;
   int iterations = 0;
-  const int maxIterations = 20; // guards against an infinite loop
+  const int maxIterations = 20;  // guards against an infinite loop
 
   while (changed && iterations++ < maxIterations) {
     changed = false;
@@ -377,7 +376,7 @@ void BinaryThinningTracker::pruneSkeleton(cv::Mat &skel,
       int x = ep.first, y = ep.second;
 
       if (skel.at<uchar>(y, x) == 0)
-        continue; // already erased earlier this pass
+        continue;  // already erased earlier this pass
 
       std::vector<std::pair<int, int>> branch;
       branch.emplace_back(x, y);
@@ -403,10 +402,10 @@ void BinaryThinningTracker::pruneSkeleton(cv::Mat &skel,
         }
 
         if (nextX < 0)
-          break; // dead end
+          break;  // dead end
 
         if (countNeighbors(skel, nextX, nextY) >= 3)
-          break; // reached a junction -- branch ends here
+          break;  // reached a junction -- branch ends here
 
         prevX = curX;
         prevY = curY;
@@ -493,7 +492,7 @@ void BinaryThinningTracker::linkBrokenLines(
 
         const double cosAngle =
             (iTailDx * jHeadDx + iTailDy * jHeadDy) / (iLen * jLen);
-        if (cosAngle < 0.5) // > 60 degrees apart, or antiparallel
+        if (cosAngle < 0.5)  // > 60 degrees apart, or antiparallel
           continue;
 
         // --- Guard 2: the bridge must run over the binarized
@@ -520,7 +519,8 @@ void BinaryThinningTracker::linkBrokenLines(
 
           if (total > 0) {
             const double whiteRatio = static_cast<double>(whiteCount) / total;
-            if (whiteRatio < 0.6) // require at least 60% of the bridge on white
+            if (whiteRatio <
+                0.6)  // require at least 60% of the bridge on white
               continue;
           }
         }
@@ -618,4 +618,4 @@ void BinaryThinningTracker::filterByCurvature(
       lines.end());
 }
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

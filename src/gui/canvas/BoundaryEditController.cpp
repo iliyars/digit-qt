@@ -6,10 +6,9 @@
 #include "core/commands/RemoveShapeCommand.h"
 #include "core/commands/ReplaceShapeCommand.h"
 
+#include <algorithm>
 #include <aperture/include/geometry/Ellipse.h>
 #include <aperture/include/geometry/Rectangle.h>
-
-#include <algorithm>
 
 namespace digitqt::gui::canvas {
 
@@ -52,12 +51,12 @@ bool BoundaryEditController::isPointsMode() const {
 
 aperture::TypeLimits BoundaryEditController::addModeType() const {
   switch (m_mode) {
-  case EditMode::AddInternalEllipse:
-  case EditMode::AddInternalRectangle:
-  case EditMode::AddInternalEllipseByPoints:
-    return aperture::TypeLimits::INTERNAL;
-  default:
-    return aperture::TypeLimits::EXTERNAL;
+    case EditMode::AddInternalEllipse:
+    case EditMode::AddInternalRectangle:
+    case EditMode::AddInternalEllipseByPoints:
+      return aperture::TypeLimits::INTERNAL;
+    default:
+      return aperture::TypeLimits::EXTERNAL;
   }
 }
 
@@ -66,8 +65,8 @@ bool BoundaryEditController::addModeIsEllipse() const {
          m_mode == EditMode::AddInternalEllipse;
 }
 
-std::unique_ptr<aperture::Shape>
-BoundaryEditController::buildShapeFromRect(const QRectF &rect) const {
+std::unique_ptr<aperture::Shape> BoundaryEditController::buildShapeFromRect(
+    const QRectF &rect) const {
   const double cx = rect.center().x();
   const double cy = rect.center().y();
   const double halfW = std::max(rect.width() / 2.0, 1.0);
@@ -126,7 +125,7 @@ void BoundaryEditController::cancelPointCollection() {
 
 void BoundaryEditController::finalizePointsEllipse() {
   if (m_pointBuffer.size() < 3)
-    return; // not enough points yet -- keep collecting
+    return;  // not enough points yet -- keep collecting
 
   // ApertureCore's FitEllipse solves a 5x5 linear system directly from
   // raw x^2/xy/y^2 sums, with no coordinate normalization. For points in
@@ -178,7 +177,7 @@ void BoundaryEditController::handleRelease(const QPointF &pos) {
     const QRectF rect = QRectF(m_createAnchor, pos).normalized();
     emit previewChanged();
     if (rect.width() < 2.0 || rect.height() < 2.0)
-      return; // ignore accidental clicks
+      return;  // ignore accidental clicks
     auto shape = buildShapeFromRect(rect);
     m_undoStack->push(new AddShapeCommand(m_measurement->boundaries(),
                                           addModeType(), std::move(shape)));
@@ -278,4 +277,4 @@ void BoundaryEditController::commitMoveDrag() {
   emit boundariesChanged();
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

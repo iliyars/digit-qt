@@ -38,4 +38,4 @@ private:
   std::array<std::unique_ptr<PipelineStage>, kCanonicalOrder.size()> m_stages;
 };
 
-} // namespace digitqt::core::pipeline
+}  // namespace digitqt::core::pipeline

@@ -1,4 +1,5 @@
 #include "RemoveShapeCommand.h"
+
 #include "core/ShapeCollectionAccess.h"
 
 #include <QCoreApplication>
@@ -8,7 +9,9 @@ namespace digitqt::commands {
 RemoveShapeCommand::RemoveShapeCommand(aperture::ShapeCollection &collection,
                                        aperture::TypeLimits type, size_t index,
                                        QUndoCommand *parent)
-    : QUndoCommand(parent), m_collection(collection), m_type(type),
+    : QUndoCommand(parent),
+      m_collection(collection),
+      m_type(type),
       m_index(index) {
   setText(QCoreApplication::translate("RemoveShapeCommand", "Remove boundary"));
 }
@@ -32,4 +35,4 @@ void RemoveShapeCommand::undo() {
   m_collection.notifyShapeModified();
 }
 
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

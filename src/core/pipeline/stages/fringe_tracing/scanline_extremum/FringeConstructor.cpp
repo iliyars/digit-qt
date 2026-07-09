@@ -77,23 +77,23 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
         for (int gap = 1; gap <= kMaxRowGap; ++gap) {
           const int adjacentY = y - step * gap;
           if (step > 0 ? adjacentY < mainIdx : adjacentY > mainIdx)
-            break; // ran past the already-processed range
+            break;  // ran past the already-processed range
 
           const auto &candidate = scanlines[static_cast<size_t>(adjacentY)];
           const int idx = findMatchingExtremum(ne, ne.position.x, candidate,
                                                tolerance, fringeCenterAs);
           if (idx < 0)
-            continue; // nothing at this distance either -- try further back
+            continue;  // nothing at this distance either -- try further back
 
           if (wouldCross(static_cast<int>(curIdx), idx, currentScanline.points,
                          candidate.points))
-            continue; // would cross an existing chain segment
+            continue;  // would cross an existing chain segment
 
           const double proposedNumber =
               candidate.points[static_cast<size_t>(idx)].number;
           if (wouldViolateAlternation(ne.extremumType, proposedNumber,
                                       candidate, fringeCenterAs, fringeStep))
-            continue; // would break Red/Black alternation (MinMax mode)
+            continue;  // would break Red/Black alternation (MinMax mode)
 
           matchIdx = idx;
           matchedScanline = &candidate;
@@ -141,13 +141,13 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
         }
         ne.assigned = true;
         ne.chainId =
-            nextChainId++; // new physical fringe segment, not a continuation
+            nextChainId++;  // new physical fringe segment, not a continuation
       }
     }
   };
 
-  propagate(mainIdx - 1, -1, -1);         // upward
-  propagate(mainIdx + 1, imageHeight, 1); // downward
+  propagate(mainIdx - 1, -1, -1);          // upward
+  propagate(mainIdx + 1, imageHeight, 1);  // downward
 
   return convertToFringes(scanlines);
 }
@@ -212,7 +212,7 @@ int FringeConstructor::findMatchingExtremum(
       continue;
 
     if (extremum.extremumType != adjExt.extremumType)
-      continue; // type consistency
+      continue;  // type consistency
 
     if (distance < bestDistance) {
       bestDistance = distance;
@@ -279,7 +279,7 @@ bool FringeConstructor::segmentsIntersect(double x1, double y1, double x2,
 
   const double cross1 = crossProduct(dx1, dy1, dx2, dy2);
   if (std::abs(cross1) < 1e-10)
-    return false; // parallel/collinear -> treat as non-crossing
+    return false;  // parallel/collinear -> treat as non-crossing
 
   const double t1 = crossProduct(dx3, dy3, dx2, dy2) / cross1;
   const double t2 = crossProduct(dx3, dy3, dx1, dy1) / cross1;
@@ -317,8 +317,8 @@ bool FringeConstructor::wouldViolateAlternation(ExtremumType currentType,
   return foundPrevSameType || foundNextSameType;
 }
 
-std::vector<NumberedFringe>
-FringeConstructor::convertToFringes(const std::vector<Section> &scanlines) {
+std::vector<NumberedFringe> FringeConstructor::convertToFringes(
+    const std::vector<Section> &scanlines) {
   // Grouping by chainId (not by .number -- see ExtremumPoint::chainId's
   // doc comment) is what actually guarantees each resulting polyline is
   // one physically continuous chain of matched points, never two
@@ -332,7 +332,7 @@ FringeConstructor::convertToFringes(const std::vector<Section> &scanlines) {
         continue;
       chainPoints[ne.chainId].push_back(ne.position);
       chainNumber.try_emplace(ne.chainId,
-                              ne.number); // label from the chain's first point
+                              ne.number);  // label from the chain's first point
     }
   }
 
@@ -349,4 +349,4 @@ FringeConstructor::convertToFringes(const std::vector<Section> &scanlines) {
   return result;
 }
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

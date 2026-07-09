@@ -6,5 +6,11 @@
     "--query-driver=C:/msys64/ucrt64/bin/g++.exe",
     "--background-index",
     "--header-insertion=never"
-  ]
+  ],
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "[c]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  }
 }

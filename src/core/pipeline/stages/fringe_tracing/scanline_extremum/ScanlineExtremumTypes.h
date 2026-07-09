@@ -71,7 +71,7 @@ struct DigitizationInput {
   const unsigned char *bitmapData{nullptr};
   int imageWidth{0};
   int imageHeight{0};
-  int bytesPerLine{0}; // stride; defaults to imageWidth if 0
+  int bytesPerLine{0};  // stride; defaults to imageWidth if 0
 
   std::function<bool(int, int)> isVisible;
 
@@ -80,4 +80,4 @@ struct DigitizationInput {
   double toleranceFactor{0.3};
 };
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

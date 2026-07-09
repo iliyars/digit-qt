@@ -20,4 +20,4 @@ QIcon pointsEllipseIcon(const QColor &color);
 QIcon seedIcon();
 QIcon autoSeedIcon();
 
-} // namespace digitqt::gui::icons
+}  // namespace digitqt::gui::icons

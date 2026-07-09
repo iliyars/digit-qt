@@ -1,12 +1,12 @@
 #pragma once
 
+#include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
+
 #include <QObject>
 #include <QPointF>
 #include <QString>
 #include <QUndoStack>
 #include <optional>
-
-#include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
 namespace digitqt::core {
 class Measurement;
@@ -111,7 +111,8 @@ private:
   std::optional<size_t> m_selectedPointIndex;
   bool m_draggingPoint = false;
   size_t m_dragPointIndex = 0;
-  digitqt::core::tracing::TracedLine m_dragLineBefore; // snapshot at drag start
+  digitqt::core::tracing::TracedLine
+      m_dragLineBefore;  // snapshot at drag start
 };
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

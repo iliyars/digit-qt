@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ScanlineExtremumTypes.h"
+
 #include <functional>
 #include <vector>
-
-#include "ScanlineExtremumTypes.h"
 
 namespace digitqt::core::tracing::scanline_extremum {
 
@@ -39,12 +39,11 @@ namespace digitqt::core::tracing::scanline_extremum {
  */
 class FringeConstructor {
 public:
-  static std::vector<NumberedFringe>
-  constructFringes(std::vector<Section> &scanlines, int imageWidth,
-                   int imageHeight,
-                   const std::function<bool(int, int)> &isVisible,
-                   FringeCenterMode fringeCenterAs, double fringeStep,
-                   double toleranceFactor);
+  static std::vector<NumberedFringe> constructFringes(
+      std::vector<Section> &scanlines, int imageWidth, int imageHeight,
+      const std::function<bool(int, int)> &isVisible,
+      FringeCenterMode fringeCenterAs, double fringeStep,
+      double toleranceFactor);
 
 private:
   static int selectMainScanline(const std::vector<Section> &scanlines,
@@ -69,8 +68,8 @@ private:
                                       FringeCenterMode fringeCenterAs,
                                       double fringeStep);
 
-  static std::vector<NumberedFringe>
-  convertToFringes(const std::vector<Section> &scanlines);
+  static std::vector<NumberedFringe> convertToFringes(
+      const std::vector<Section> &scanlines);
 };
 
-} // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace digitqt::core::tracing::scanline_extremum

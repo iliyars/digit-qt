@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QUndoCommand>
-
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
+
+#include <QUndoCommand>
 
 namespace digitqt::core {
 class Measurement;
@@ -26,4 +26,4 @@ private:
   bool m_hasRemoved = false;
 };
 
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

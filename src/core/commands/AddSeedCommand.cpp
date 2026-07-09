@@ -25,4 +25,4 @@ void AddSeedCommand::undo() {
   if (m_insertedIndex < seeds.size())
     seeds.erase(seeds.begin() + static_cast<long>(m_insertedIndex));
 }
-} // namespace digitqt::commands
+}  // namespace digitqt::commands

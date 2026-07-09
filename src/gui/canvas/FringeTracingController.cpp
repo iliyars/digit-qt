@@ -9,9 +9,8 @@
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
 
-#include <aperture/include/visibility/VisibilityChecker.h>
-
 #include <algorithm>
+#include <aperture/include/visibility/VisibilityChecker.h>
 #include <cmath>
 
 namespace digitqt::gui::canvas {
@@ -36,7 +35,7 @@ double pointSegmentDistance(const QPointF &p, const QPointF &a,
   return std::sqrt(QPointF::dotProduct(d, d));
 }
 
-} // namespace
+}  // namespace
 
 FringeTracingController::FringeTracingController(QUndoStack *undoStack,
                                                  QObject *parent)
@@ -117,8 +116,8 @@ void FringeTracingController::exitLineEditMode() {
   emit lineEditModeChanged();
 }
 
-std::optional<size_t>
-FringeTracingController::hitTestSeed(const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestSeed(
+    const QPointF &pos) const {
   if (!m_measurement)
     return std::nullopt;
   const auto &seeds = m_measurement->fringeTracing().seeds();
@@ -139,8 +138,8 @@ FringeTracingController::hitTestSeed(const QPointF &pos) const {
   return best;
 }
 
-std::optional<size_t>
-FringeTracingController::hitTestAnyLine(const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestAnyLine(
+    const QPointF &pos) const {
   if (!m_measurement)
     return std::nullopt;
 
@@ -165,8 +164,8 @@ FringeTracingController::hitTestAnyLine(const QPointF &pos) const {
   return best;
 }
 
-std::optional<size_t>
-FringeTracingController::hitTestPointInEditingLine(const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestPointInEditingLine(
+    const QPointF &pos) const {
   if (!m_measurement || !m_editingLineIndex)
     return std::nullopt;
   const auto &lines = m_measurement->fringeTracing().tracedLines();
@@ -201,7 +200,7 @@ void FringeTracingController::beginPointDrag(size_t pointIndex,
   m_draggingPoint = true;
   m_dragPointIndex = pointIndex;
   m_selectedPointIndex = pointIndex;
-  m_dragLineBefore = lines[*m_editingLineIndex]; // snapshot for undo
+  m_dragLineBefore = lines[*m_editingLineIndex];  // snapshot for undo
   emit lineEditModeChanged();
 }
 
@@ -231,7 +230,7 @@ void FringeTracingController::commitPointDrag() {
   if (*m_editingLineIndex >= lines.size())
     return;
 
-  auto after = lines[*m_editingLineIndex]; // already-live-updated state
+  auto after = lines[*m_editingLineIndex];  // already-live-updated state
   // Roll back to the pre-drag snapshot; the command's redo() re-applies
   // it, so the whole drag lands as a single undo step.
   lines[*m_editingLineIndex] = m_dragLineBefore;
@@ -312,7 +311,7 @@ void FringeTracingController::deleteSelectedPoint() {
   if (*m_selectedPointIndex >= line.size())
     return;
   if (line.size() <= 2)
-    return; // keep at least 2 points -- a shorter "line" isn't meaningful
+    return;  // keep at least 2 points -- a shorter "line" isn't meaningful
 
   auto before = line;
   auto after = line;
@@ -356,4 +355,4 @@ void FringeTracingController::autoPlaceSeeds() {
   emit seedsChanged();
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

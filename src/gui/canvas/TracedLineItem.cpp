@@ -11,7 +11,7 @@ const QColor kPalette[] = {
     QColor(255, 170, 0), QColor(200, 100, 255), QColor(0, 210, 200),
 };
 constexpr int kPaletteSize = sizeof(kPalette) / sizeof(kPalette[0]);
-} // namespace
+}  // namespace
 
 TracedLineItem::TracedLineItem(const digitqt::core::tracing::TracedLine &line,
                                size_t index) {
@@ -43,4 +43,4 @@ void TracedLineItem::setEditing(bool editing) {
   setZValue(editing ? 26.0 : 25.0);
 }
 
-} // namespace digitqt::gui::canvas
+}  // namespace digitqt::gui::canvas

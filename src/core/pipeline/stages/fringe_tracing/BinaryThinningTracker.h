@@ -3,7 +3,6 @@
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
 #include <QImage>
-
 #include <opencv2/core.hpp>
 
 namespace digitqt::core::tracing {
@@ -17,26 +16,26 @@ namespace digitqt::core::tracing {
 struct BinaryThinningParams {
   // --- Stage 1: binarization ---
   int gaussianKernel =
-      5; // Gaussian blur kernel size (odd, >= 3). 0 = no smoothing
-  int adaptiveBlockSize = 51; // adaptiveThreshold block size (odd)
-  double adaptiveC = -5.0; // adaptiveThreshold subtraction constant (negative
-                           // for bright fringes)
+      5;  // Gaussian blur kernel size (odd, >= 3). 0 = no smoothing
+  int adaptiveBlockSize = 51;  // adaptiveThreshold block size (odd)
+  double adaptiveC = -5.0;  // adaptiveThreshold subtraction constant (negative
+                            // for bright fringes)
   int morphKernelSize =
-      3; // morphological open/close kernel size (odd, >= 3). 0 = skip
+      3;  // morphological open/close kernel size (odd, >= 3). 0 = skip
 
   // --- Stage 2: line extraction ---
-  int minLineLength = 30;   // lines shorter than this (in points) are discarded
-  bool computeWidth = true; // measure fringe width via distance transform
+  int minLineLength = 30;  // lines shorter than this (in points) are discarded
+  bool computeWidth = true;  // measure fringe width via distance transform
 
   // --- Stage 3: post-processing ---
   bool smoothLines = false;
-  int smoothWindow = 3; // moving-average half-window
+  int smoothWindow = 3;  // moving-average half-window
   int pruneLength =
-      40; // max length of skeleton spurs removed before extraction
+      40;  // max length of skeleton spurs removed before extraction
   int linkDistance =
-      15; // max gap (px) bridged between two line endpoints; 0 = disabled
-  float maxAvgAngle = 0.4f; // reject lines whose average turn angle (radians)
-                            // between segments exceeds this
+      15;  // max gap (px) bridged between two line endpoints; 0 = disabled
+  float maxAvgAngle = 0.4f;  // reject lines whose average turn angle (radians)
+                             // between segments exceeds this
 };
 
 /**
@@ -95,14 +94,14 @@ private:
 
   BinaryThinningParams m_params;
 
-  cv::Mat m_image;  // grayscale input (CV_8UC1), owned copy
-  cv::Mat m_mask;   // aperture mask (255 = inside), built from m_isVisible
-  cv::Mat m_binary; // binarized fringes
+  cv::Mat m_image;   // grayscale input (CV_8UC1), owned copy
+  cv::Mat m_mask;    // aperture mask (255 = inside), built from m_isVisible
+  cv::Mat m_binary;  // binarized fringes
   cv::Mat m_skeleton;
-  cv::Mat m_distMap; // distance transform, for width (only if computeWidth)
+  cv::Mat m_distMap;  // distance transform, for width (only if computeWidth)
 
   std::function<bool(int, int)> m_isVisible;
   QString m_lastError;
 };
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

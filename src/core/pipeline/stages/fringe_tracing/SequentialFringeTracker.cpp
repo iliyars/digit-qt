@@ -1,18 +1,14 @@
 /**
  * @file SequentialFringeTracker.cpp
- * @brief Step-by-step fringe tracer, ported from SCAN360/STEP.C.
+ * @brief Пошаговый трассировщик полос, перенесённый из SCAN360/STEP.C.
  *
- * Ported from the uploaded InterferometryApp project's CFringeTracer, with
- * two adaptations:
- *   - initialize() takes a QImage + isVisible predicate instead of a
- *     cv::Mat + CEllipseBoundary, so this tracer has no OpenCV dependency
- *     and works against our own (multi-shape) aperture, not a single ellipse.
- *   - TracedPoint uses double x/y (to stay uniform with other tracers that
- *     produce sub-pixel positions); this algorithm itself still computes
- *     in integer pixel coordinates internally, unchanged from the original.
+ * @details
+ * Полное описание алгоритма, геометрический смысл каждой фазы и разбор
+ * найденных ошибок — см. Doxygen-документацию класса в
+ * `SequentialFringeTracker.h` и сопроводительную методичку
+ * `01_SequentialFringeTracker.md`. Здесь оставлены только комментарии,
+ * поясняющие конкретные строки кода.
  *
- * The numeric logic (thresholds, step formulas, direction handling) is
- * otherwise unchanged from the original STEP.C port.
  */
 #include "SequentialFringeTracker.h"
 
@@ -22,13 +18,15 @@
 namespace digitqt::core::tracing {
 
 namespace {
-int sgn(int v) { return (v > 0) - (v < 0); }
-} // namespace
+int sgn(int v) {
+  return (v > 0) - (v < 0);
+}
+}  // namespace
 
 SequentialFringeTracker::SequentialFringeTracker() = default;
 
-bool SequentialFringeTracker::initialize(
-    const QImage &image, std::function<bool(int, int)> isVisible) {
+bool SequentialFringeTracker::initialize(const QImage &image,
+                                         std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
     m_lastError = QStringLiteral("Empty image");
     return false;
@@ -44,8 +42,7 @@ bool SequentialFringeTracker::initialize(
   return true;
 }
 
-std::vector<TracedLine>
-SequentialFringeTracker::extract(const std::vector<SeedPoint> &seeds) {
+std::vector<TracedLine> SequentialFringeTracker::extract(const std::vector<SeedPoint> &seeds) {
   std::vector<TracedLine> result;
   result.reserve(seeds.size());
 
@@ -60,8 +57,7 @@ SequentialFringeTracker::extract(const std::vector<SeedPoint> &seeds) {
 TracedLine SequentialFringeTracker::traceLine(int startX, int startY) {
   TracedLine result;
   if (!m_image) {
-    m_lastError =
-        QStringLiteral("Tracer not initialized. Call initialize() first.");
+    m_lastError = QStringLiteral("Tracer not initialized. Call initialize() first.");
     return result;
   }
   traceLineInto(startX, startY, result);
@@ -101,50 +97,47 @@ float SequentialFringeTracker::averageIntensity(int x, int y) const {
   return sum / static_cast<float>(count);
 }
 
-void SequentialFringeTracker::directionToVector(TraceDirection direction,
-                                                int &dx, int &dy) const {
+void SequentialFringeTracker::directionToVector(TraceDirection direction, int &dx, int &dy) const {
   switch (direction) {
-  case TraceDirection::Vertical:
-    dx = 0;
-    dy = 1;
-    break;
-  case TraceDirection::Diagonal45:
-    dx = 1;
-    dy = 1;
-    break;
-  case TraceDirection::Horizontal:
-    dx = 1;
-    dy = 0;
-    break;
-  case TraceDirection::Diagonal135:
-    dx = 1;
-    dy = -1;
-    break;
+    case TraceDirection::Vertical:
+      dx = 0;
+      dy = 1;
+      break;
+    case TraceDirection::Diagonal45:
+      dx = 1;
+      dy = 1;
+      break;
+    case TraceDirection::Horizontal:
+      dx = 1;
+      dy = 0;
+      break;
+    case TraceDirection::Diagonal135:
+      dx = 1;
+      dy = -1;
+      break;
   }
 }
 
-bool SequentialFringeTracker::traceLineInto(int startX, int startY,
-                                            TracedLine &outPoints) {
+bool SequentialFringeTracker::traceLineInto(int startX, int startY, TracedLine &outPoints) {
   outPoints.clear();
   m_tempLine.clear();
   m_lastError.clear();
 
-  m_curWidth = static_cast<float>(m_width) / 6.0f;
-  m_wideLine = static_cast<float>(m_width) / 5.0f;
+  m_curWidth =
+      (m_params.initialWidth > 0.0f) ? m_params.initialWidth : static_cast<float>(m_width) / 6.0f;
+  m_wideLine = m_curWidth * 1.2f;
   m_curAverage = 0.0f;
   m_average = 0.0f;
   m_averageEma = 0.0f;
 
   if (!isInside(startX, startY)) {
-    m_lastError =
-        QStringLiteral("Start point is outside the aperture/boundaries");
+    m_lastError = QStringLiteral("Start point is outside the aperture/boundaries");
     return false;
   }
 
   TracedPoint point1, point2;
   if (!firstStep(startX, startY, point1, point2)) {
-    m_lastError =
-        QStringLiteral("Could not determine initial fringe direction");
+    m_lastError = QStringLiteral("Could not determine initial fringe direction");
     return false;
   }
 
@@ -166,8 +159,6 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY,
     return outPoints.size() >= 2;
   }
 
-  // Bidirectional tracing: re-trace from the start, going the other way,
-  // then splice reverse+forward together (see original STEP.C:130-161).
   if (m_params.bidirectional && m_tempLine.size() >= 3) {
     TracedLine forwardLine = m_tempLine;
     m_tempLine.clear();
@@ -185,7 +176,7 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY,
     m_average = 0.0f;
     m_averageEma = 0.0f;
 
-    i = 2;
+    i = 1;
     while (i < m_params.maxSteps) {
       stop = step(m_tempLine);
       if (stop != 0)
@@ -208,8 +199,7 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY,
   return outPoints.size() >= 2;
 }
 
-bool SequentialFringeTracker::firstStep(int x, int y, TracedPoint &point1,
-                                        TracedPoint &point2) {
+bool SequentialFringeTracker::firstStep(int x, int y, TracedPoint &point1, TracedPoint &point2) {
   TraceDirection direction = TraceDirection::Vertical;
   if (!measureWidth(x, y, m_curWidth, direction))
     return false;
@@ -241,22 +231,22 @@ bool SequentialFringeTracker::firstStep(int x, int y, TracedPoint &point1,
 
   int perpDx = 0, perpDy = 0;
   switch (direction) {
-  case TraceDirection::Vertical:
-    perpDx = static_cast<int>(m_curWidth + 0.5f);
-    perpDy = 0;
-    break;
-  case TraceDirection::Diagonal45:
-    perpDx = static_cast<int>(0.707f * m_curWidth + 0.5f);
-    perpDy = -perpDx;
-    break;
-  case TraceDirection::Horizontal:
-    perpDx = 0;
-    perpDy = static_cast<int>(m_curWidth + 0.5f);
-    break;
-  case TraceDirection::Diagonal135:
-    perpDx = static_cast<int>(0.707f * m_curWidth + 0.5f);
-    perpDy = perpDx;
-    break;
+    case TraceDirection::Vertical:
+      perpDx = static_cast<int>(m_curWidth + 0.5f);
+      perpDy = 0;
+      break;
+    case TraceDirection::Diagonal45:
+      perpDx = static_cast<int>(0.707f * m_curWidth + 0.5f);
+      perpDy = -perpDx;
+      break;
+    case TraceDirection::Horizontal:
+      perpDx = 0;
+      perpDy = static_cast<int>(m_curWidth + 0.5f);
+      break;
+    case TraceDirection::Diagonal135:
+      perpDx = static_cast<int>(0.707f * m_curWidth + 0.5f);
+      perpDy = perpDx;
+      break;
   }
 
   xx = static_cast<int>(point1.x) + perpDx;
@@ -277,7 +267,7 @@ bool SequentialFringeTracker::firstStep(int x, int y, TracedPoint &point1,
 }
 
 int SequentialFringeTracker::step(TracedLine &line) {
-  const float coeffWide = 1.5f;
+  const float coeffWide = (m_params.maxWidthChange > 1.0f) ? m_params.maxWidthChange : 1.5f;
 
   const int numPoint = static_cast<int>(line.size()) - 1;
   if (numPoint < 1)
@@ -289,13 +279,6 @@ int SequentialFringeTracker::step(TracedLine &line) {
   const int x = static_cast<int>(line[static_cast<size_t>(numPoint)].x);
   const int y = static_cast<int>(line[static_cast<size_t>(numPoint)].y);
 
-  // If we've dropped below the "floor" threshold, we've slid off the
-  // fringe (e.g. reached a genuine dark obstruction). Compared against
-  // an exponentially-smoothed running threshold (m_averageEma), not the
-  // single previous raw sample -- a plain previous-sample comparison
-  // false-triggers under vignetting, since brightness near the aperture
-  // edge is legitimately lower than it was a few steps back even though
-  // the fringe itself hasn't ended.
   if (m_averageEma > 0.0f && averageIntensity(x, y) < m_averageEma)
     return -5;
 
@@ -306,15 +289,9 @@ int SequentialFringeTracker::step(TracedLine &line) {
 
   m_curDirection = dir;
 
-  // measureWidth() just recomputed m_average freshly for (x, y); blend
-  // it into the running EMA so the threshold gradually tracks the local
-  // background level instead of jumping straight to it (which would
-  // make the check above nearly self-referential) or staying pinned to
-  // one earlier sample (which false-triggers under vignetting).
-  m_averageEma = (m_averageEma <= 0.0f)
-                     ? m_average
-                     : (m_params.averageSmoothingAlpha * m_average +
-                        (1.0f - m_params.averageSmoothingAlpha) * m_averageEma);
+  m_averageEma = (m_averageEma <= 0.0f) ? m_average
+                                        : (m_params.averageSmoothingAlpha * m_average +
+                                           (1.0f - m_params.averageSmoothingAlpha) * m_averageEma);
 
   m_wideLine = measuredWidth;
   if (m_wideLine < 5.0f)
@@ -333,12 +310,7 @@ int SequentialFringeTracker::step(TracedLine &line) {
 
   m_curWidth = m_wideLine;
 
-  // Travel direction: averaged over the last few steps (not just the
-  // previous one), so a single noisy centering result can't swing the
-  // whole trajectory -- that swing is what let the tracer veer onto a
-  // neighboring fringe.
-  const int historyCount =
-      std::min(numPoint, m_params.directionSmoothingWindow);
+  const int historyCount = std::min(numPoint, m_params.directionSmoothingWindow);
   float fdx = 0.0f, fdy = 0.0f;
   for (int k = 0; k < historyCount; ++k) {
     const auto &a = line[static_cast<size_t>(numPoint - k)];
@@ -350,7 +322,7 @@ int SequentialFringeTracker::step(TracedLine &line) {
   fdy /= static_cast<float>(historyCount);
 
   if (std::fabs(fdx) < 1.0f && std::fabs(fdy) < 1.0f)
-    return -100; // no meaningful direction of travel
+    return -100;  // no meaningful direction of travel
 
   const float sqrWide = std::sqrt(fdx * fdx + fdy * fdy);
 
@@ -403,12 +375,6 @@ int SequentialFringeTracker::step(TracedLine &line) {
     return -2;
   }
 
-  // Anti-jump guard: centering is only meant to make a small correction
-  // around the predicted point. A result further than
-  // maxCenteringJumpFactor fringe-widths away means it almost certainly
-  // locked onto a neighboring fringe instead of re-centering on this
-  // one -- accept the prediction as-is and stop, rather than silently
-  // continuing to trace the wrong fringe.
   const float jumpDx = static_cast<float>(cx - predX);
   const float jumpDy = static_cast<float>(cy - predY);
   const float centeringJump = std::sqrt(jumpDx * jumpDx + jumpDy * jumpDy);
@@ -429,7 +395,6 @@ int SequentialFringeTracker::step(TracedLine &line) {
   np.intensity = averageIntensity(cx, cy);
   line.push_back(np);
 
-  // Closure stop condition: back near the start -> the loop closed.
   if (static_cast<int>(line.size()) > 5) {
     const TracedPoint &ref = line.front();
     const float dx0 = static_cast<float>(cx - static_cast<int>(ref.x));
@@ -449,9 +414,9 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
   // --- Phase 1: find the "floor" threshold (average) ------------------
   // average gets overwritten on every direction -- the final value comes
   // from the last direction {1,-1}. That's how the original behaves.
-  float minAver = m_average / coefAver;
   const float maxWide = m_wideLine * 1.41f;
   const int stepLimit = 3;
+  float axisFloor[4];
 
   for (int i = 0; i < 4; ++i) {
     const int dx = d[i][0];
@@ -473,8 +438,10 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
     float ss = s / static_cast<float>(n);
     int r = 1, k = 0;
 
-    while ((k < stepLimit && r < m_width / 6) ||
-           r < static_cast<int>(maxWide)) {
+    float floorEstimate = m_average / coefAver;
+    bool floorFonud = false;
+
+    while ((k < stepLimit && r < m_width / 6) || r < static_cast<int>(maxWide)) {
       ++r;
       ddx += dx;
       ddy += dy;
@@ -494,12 +461,16 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
         k = 0;
       } else {
         ++k;
-        minAver = ss; // fix the floor
+        floorEstimate = ss;  // fix the floor
         ss = buf;
       }
     }
-    m_average = minAver;
+    if (!floorFonud)
+      floorEstimate = ss;
+    axisFloor[i] = floorEstimate;
   }
+
+  m_average = (axisFloor[0] + axisFloor[1] + axisFloor[2] + axisFloor[3]) / 4.0f;
 
   // --- Phase 2: measure width in 4 directions, take the minimum -------
   float minWide = static_cast<float>(m_width) / 6.0f;
@@ -509,10 +480,10 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
     const int dx = d[j][0];
     const int dy = d[j][1];
     int ddx = dx, ddy = dy;
-    float ii = (j == 1 || j == 3) ? 1.42f : 1.0f; // diagonals are longer
+    float ii = (j == 1 || j == 3) ? 1.42f : 1.0f;  // diagonals are longer
 
-    while (isInside(x + ddx, y + ddy) &&
-           averageIntensity(x + ddx, y + ddy) > m_average && ii < minWide) {
+    while (isInside(x + ddx, y + ddy) && averageIntensity(x + ddx, y + ddy) > m_average &&
+           ii < minWide) {
       ii += (j == 1 || j == 3) ? 1.42f : 1.0f;
       ddx += dx;
       ddy += dy;
@@ -520,8 +491,7 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
 
     ddx = dx;
     ddy = dy;
-    while (isInside(x - ddx, y - ddy) &&
-           averageIntensity(x - ddx, y - ddy) > m_average &&
+    while (isInside(x - ddx, y - ddy) && averageIntensity(x - ddx, y - ddy) > m_average &&
            ii <= minWide + 3) {
       ii += (j == 1 || j == 3) ? 1.42f : 1.0f;
       ddx += dx;
@@ -544,8 +514,7 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
   return true;
 }
 
-bool SequentialFringeTracker::findMaxAlong(int &x, int &y, int dx, int dy,
-                                           float searchDist) {
+bool SequentialFringeTracker::findMaxAlong(int &x, int &y, int dx, int dy, float searchDist) {
   int halfSteps = static_cast<int>(searchDist / 2.0f + 0.5f);
   if (halfSteps < 2)
     halfSteps = 2;
@@ -585,11 +554,10 @@ bool SequentialFringeTracker::findMaxAlong(int &x, int &y, int dx, int dy,
 
   x = maxX;
   y = maxY;
-  return true; // always succeeds -- worst case, the start point itself
+  return true;  // always succeeds -- worst case, the start point itself
 }
 
-bool SequentialFringeTracker::centerPerpendicular(int &x, int &y, int dx,
-                                                  int dy) {
+bool SequentialFringeTracker::centerPerpendicular(int &x, int &y, int dx, int dy) {
   if (dx != 0)
     dx = (dx > 0) ? 1 : -1;
   if (dy != 0)
@@ -613,8 +581,7 @@ bool SequentialFringeTracker::centerPerpendicular(int &x, int &y, int dx,
     for (int i = 1; i <= halfWidth; ++i) {
       const int testPlusX = xx + perpDx * i;
       const int testPlusY = yy + perpDy * i;
-      if (isInside(testPlusX, testPlusY) &&
-          averageIntensity(testPlusX, testPlusY) >= m_average) {
+      if (isInside(testPlusX, testPlusY) && averageIntensity(testPlusX, testPlusY) >= m_average) {
         xx = testPlusX;
         yy = testPlusY;
         dx = xx - x;
@@ -692,27 +659,42 @@ bool SequentialFringeTracker::centerPerpendicular(int &x, int &y, int dx,
   return true;
 }
 
-void SequentialFringeTracker::linStepToBoundary(int x1, int y1, int x2, int y2,
-                                                int &outX, int &outY) const {
-  float dx = static_cast<float>(x2 - x1);
-  float dy = static_cast<float>(y2 - y1);
+void SequentialFringeTracker::linStepToBoundary(int x1, int y1, int x2, int y2, int &outX,
+                                                int &outY) const {
+  const float dxTotal = static_cast<float>(x2 - x1);
+  const float dyTotal = static_cast<float>(y2 - y1);
 
-  const int signX = (dx < 0) ? -1 : 1;
-  const int signY = (dy < 0) ? -1 : 1;
-  dx = std::fabs(dx);
-  dy = std::fabs(dy);
+  const int signX = (dxTotal < 0) ? -1 : 1;
+  const int signY = (dyTotal < 0) ? -1 : 1;
+  const float absDx = std::fabs(dxTotal);
+  const float absDy = std::fabs(dyTotal);
+
+  if (absDx == 0.0f && absDy == 0.0f) {
+    outX = isInside(x2, y2) ? x2 : x1;
+    outY = isInside(x2, y2) ? y2 : y1;
+    return;
+  }
 
   int stop = 0;
-  if (dx == 0.0f) {
-    stop = static_cast<int>(dy);
-    dy = static_cast<float>(signY);
-  } else if (dy == 0.0f) {
-    stop = static_cast<int>(dx);
-    dx = static_cast<float>(signX);
+  float stepDx = 0.0f, stepDy = 0.0f;
+
+  if (absDy == 0.0f) {
+    stop = static_cast<int>(absDx);
+    stepDx = static_cast<float>(signX);
+    stepDy = 0.0f;
+  } else if (absDx == 0.0f) {
+    stop = static_cast<int>(absDy);
+    stepDx = 0.0f;
+    stepDy = static_cast<float>(signY);
+  } else if (absDy >= absDx) {
+    // Y -- ведущая ось (как и было в оригинале для этого случая).
+    stop = static_cast<int>(absDy);
+    stepDx = absDx / absDy * static_cast<float>(signX);
+    stepDy = static_cast<float>(signY);
   } else {
-    stop = static_cast<int>(dy);
-    dx = dx / dy * static_cast<float>(signX);
-    dy = static_cast<float>(signY);
+    stop = static_cast<int>(absDx);
+    stepDx = static_cast<float>(signX);
+    stepDy = absDy / absDx * static_cast<float>(signY);
   }
 
   float x = static_cast<float>(x1);
@@ -720,20 +702,27 @@ void SequentialFringeTracker::linStepToBoundary(int x1, int y1, int x2, int y2,
   int lastInsideX = x1, lastInsideY = y1;
 
   for (int i = 1; i < stop; ++i) {
-    x += dx;
-    y += dy;
+    x += stepDx;
+    y += stepDy;
 
-    if (!isInside(static_cast<int>(x), static_cast<int>(y))) {
+    const int ix = static_cast<int>(x);
+    const int iy = static_cast<int>(y);
+    if (!isInside(ix, iy)) {
       outX = lastInsideX;
       outY = lastInsideY;
       return;
     }
-    lastInsideX = static_cast<int>(x);
-    lastInsideY = static_cast<int>(y);
+    lastInsideX = ix;
+    lastInsideY = iy;
   }
 
-  outX = x2;
-  outY = y2;
+  if (isInside(x2, y2)) {
+    outX = x2;
+    outY = y2;
+  } else {
+    outX = lastInsideX;
+    outY = lastInsideY;
+  }
 }
 
-} // namespace digitqt::core::tracing
+}  // namespace digitqt::core::tracing

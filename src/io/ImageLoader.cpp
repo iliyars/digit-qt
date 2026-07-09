@@ -14,4 +14,4 @@ ImageLoadResult loadImage(const QString &path) {
   return result;
 }
 
-} // namespace digitqt::io
+}  // namespace digitqt::io

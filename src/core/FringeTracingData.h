@@ -10,21 +10,22 @@ namespace digitqt::core {
 /// use. A user-facing choice (see ParametersDock's algorithm combo box),
 /// not itself undoable -- like the current edit-mode/tool selection.
 enum class TracerAlgorithm {
-  SequentialTracking, // SequentialFringeTracker: classic STEP.C-derived step
-                      // tracer (FTM)
-  StructureTensor,    // StructureTensorTracker: gradient structure-tensor ridge
-                      // tracker (FTM)
-  ScanlineExtremum, // ScanlineExtremumTracker: global, row-by-row extrema (FTM)
-  BinaryThinning,   // BinaryThinningTracker: adaptive threshold + Zhang-Suen
-                    // skeletonization (FBM)
+  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step
+                       // tracer (FTM)
+  StructureTensor,   // StructureTensorTracker: gradient structure-tensor ridge
+                     // tracker (FTM)
+  ScanlineExtremum,  // ScanlineExtremumTracker: global, row-by-row extrema
+                     // (FTM)
+  BinaryThinning,    // BinaryThinningTracker: adaptive threshold + Zhang-Suen
+                     // skeletonization (FBM)
 };
 /// Which kind of fringe center ScanlineExtremumTracker should look for.
 /// Not used by SequentialFringeTracker (it follows whichever ridge the
 /// seed point lands on).
 enum class FringeCenterMode {
-  Max,    // bright fringe centers only
-  Min,    // dark fringe centers only
-  MinMax, // both, with Red/Black alternation enforced between neighbors
+  Max,     // bright fringe centers only
+  Min,     // dark fringe centers only
+  MinMax,  // both, with Red/Black alternation enforced between neighbors
 };
 
 /**
@@ -63,4 +64,4 @@ private:
   FringeCenterMode m_fringeCenterMode = FringeCenterMode::MinMax;
 };
 
-} // namespace digitqt::core
+}  // namespace digitqt::core

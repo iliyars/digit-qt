@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QWidget>
-
 #include "core/pipeline/PipelineStageId.h"
+
+#include <QWidget>
 
 class QLabel;
 
@@ -21,4 +21,4 @@ private:
   QLabel *m_label;
 };
 
-} // namespace digitqt::gui
+}  // namespace digitqt::gui
