@@ -8,6 +8,7 @@
 #include <QUndoStack>
 #include <optional>
 
+
 namespace digitqt::core {
 class Measurement;
 }
@@ -41,8 +42,7 @@ enum class FringeEditMode {
 class FringeTracingController : public QObject {
   Q_OBJECT
 public:
-  explicit FringeTracingController(QUndoStack *undoStack,
-                                   QObject *parent = nullptr);
+  explicit FringeTracingController(QUndoStack *undoStack, QObject *parent = nullptr);
 
   void setMeasurement(digitqt::core::Measurement *measurement);
   void setPipeline(digitqt::core::pipeline::Pipeline *pipeline);
@@ -67,6 +67,11 @@ public:
   /// Leaves line-edit mode (bound to Escape). No-op if not editing.
   void exitLineEditMode();
 
+  /// Manually sets the fringe order for the line under edit (or any
+  /// line by index). Marks it as manually numbered so a subsequent
+  /// auto-numbering pass won't overwrite it.
+  void setLineOrder(size_t lineIndex, double newOrder);
+
   /// Runs the Setup stage's compute() (fringe tracing) against the
   /// current seeds. Returns true on success; on failure, see lastError().
   bool runTracing();
@@ -78,9 +83,7 @@ public:
   /// The point currently selected within the line under edit (set by
   /// clicking on it -- see handlePress). Deleted by deleteSelection()
   /// while a line is being edited.
-  std::optional<size_t> selectedPointIndex() const {
-    return m_selectedPointIndex;
-  }
+  std::optional<size_t> selectedPointIndex() const { return m_selectedPointIndex; }
 
 signals:
   void seedsChanged();
@@ -111,8 +114,7 @@ private:
   std::optional<size_t> m_selectedPointIndex;
   bool m_draggingPoint = false;
   size_t m_dragPointIndex = 0;
-  digitqt::core::tracing::TracedLine
-      m_dragLineBefore;  // snapshot at drag start
+  digitqt::core::tracing::TracedLine m_dragLineBefore;  // snapshot at drag start
 };
 
 }  // namespace digitqt::gui::canvas

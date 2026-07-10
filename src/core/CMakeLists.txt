@@ -5,6 +5,9 @@ target_sources(DigitQt
         ShapeCollectionAccess.h
         AutoSeedPlacement.h
         AutoSeedPlacement.cpp
+        NumberedFringeLine.h
+        FringeOrdering.h
+        FringeOrdering.cpp
 )
 
 add_subdirectory(commands)

@@ -15,8 +15,7 @@
 namespace digitqt::gui::canvas {
 
 ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
-                         FringeTracingController *fringeController,
-                         QWidget *parent)
+                         FringeTracingController *fringeController, QWidget *parent)
     : QGraphicsView(parent),
       m_boundaryController(boundaryController),
       m_fringeController(fringeController) {
@@ -40,8 +39,8 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
   m_pointsPreviewItem->hide();
   m_scene.addItem(m_pointsPreviewItem);
 
-  connect(m_boundaryController, &BoundaryEditController::boundariesChanged,
-          this, &ImageCanvas::rebuildBoundaryItems);
+  connect(m_boundaryController, &BoundaryEditController::boundariesChanged, this,
+          &ImageCanvas::rebuildBoundaryItems);
   connect(m_boundaryController, &BoundaryEditController::previewChanged, this,
           &ImageCanvas::updatePreviewItem);
   connect(m_boundaryController, &BoundaryEditController::selectionChanged, this,
@@ -49,12 +48,12 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
 
   connect(m_fringeController, &FringeTracingController::seedsChanged, this,
           &ImageCanvas::rebuildFringeItems);
-  connect(m_fringeController, &FringeTracingController::tracedLinesChanged,
-          this, &ImageCanvas::rebuildFringeItems);
+  connect(m_fringeController, &FringeTracingController::tracedLinesChanged, this,
+          &ImageCanvas::rebuildFringeItems);
   connect(m_fringeController, &FringeTracingController::selectionChanged, this,
           &ImageCanvas::updateFringeSelectionHighlight);
-  connect(m_fringeController, &FringeTracingController::lineEditModeChanged,
-          this, &ImageCanvas::updateLineEditOverlay);
+  connect(m_fringeController, &FringeTracingController::lineEditModeChanged, this,
+          &ImageCanvas::updateLineEditOverlay);
 }
 
 void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
@@ -178,8 +177,7 @@ void ImageCanvas::setFringeTracingVisible(bool visible) {
     item->setVisible(visible);
 }
 
-void ImageCanvas::updateCursorInfoTooltip(const QPointF &scenePos,
-                                          const QPoint &globalPos) {
+void ImageCanvas::updateCursorInfoTooltip(const QPointF &scenePos, const QPoint &globalPos) {
   if (!m_measurement || !m_measurement->hasImage()) {
     QToolTip::hideText();
     return;
@@ -195,8 +193,7 @@ void ImageCanvas::updateCursorInfoTooltip(const QPointF &scenePos,
   }
 
   const int intensity = qGray(img.pixel(x, y));
-  const QString text =
-      tr("x: %1, y: %2\nintensity: %3").arg(x).arg(y).arg(intensity);
+  const QString text = tr("x: %1, y: %2\nintensity: %3").arg(x).arg(y).arg(intensity);
   QToolTip::showText(globalPos, text, this);
 }
 
@@ -253,8 +250,8 @@ void ImageCanvas::updatePreviewItem() {
 void ImageCanvas::updateSelectionHighlight() {
   auto sel = m_boundaryController->selection();
   for (auto *item : m_boundaryItems) {
-    const bool isSelected = sel && item->shapeType() == sel->type &&
-                            item->shapeIndex() == sel->index;
+    const bool isSelected =
+        sel && item->shapeType() == sel->type && item->shapeIndex() == sel->index;
     item->setSelectedStyle(isSelected);
   }
 }
@@ -285,7 +282,7 @@ void ImageCanvas::rebuildFringeItems() {
 
   const auto &lines = tracingData.tracedLines();
   for (size_t i = 0; i < lines.size(); ++i) {
-    auto *item = new TracedLineItem(lines[i], i);
+    auto *item = new TracedLineItem(lines[i].points, i, lines[i].order);
     item->setVisible(m_fringeVisible);
     m_scene.addItem(item);
     m_lineItems.push_back(item);
@@ -324,13 +321,12 @@ void ImageCanvas::updateLineEditOverlay() {
 
   const auto selectedPoint = m_fringeController->selectedPointIndex();
   constexpr double kHandleRadius = 3.0;
-  const auto &linePoints = lines[*editingIndex];
+  const auto &linePoints = lines[*editingIndex].points;
   for (size_t i = 0; i < linePoints.size(); ++i) {
     const auto &point = linePoints[i];
     const bool isSelected = selectedPoint && *selectedPoint == i;
-    auto *handle = new QGraphicsEllipseItem(
-        point.x - kHandleRadius, point.y - kHandleRadius, kHandleRadius * 2,
-        kHandleRadius * 2);
+    auto *handle = new QGraphicsEllipseItem(point.x - kHandleRadius, point.y - kHandleRadius,
+                                            kHandleRadius * 2, kHandleRadius * 2);
     handle->setPen(QPen(Qt::white, 1));
     handle->setBrush(isSelected ? QColor(255, 120, 0) : QColor(0, 150, 255));
     handle->setZValue(isSelected ? 41.0 : 40.0);
