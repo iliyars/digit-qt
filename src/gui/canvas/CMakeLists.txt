@@ -10,6 +10,8 @@ target_sources(DigitQt
         TracedLineItem.cpp
         FringeTracingController.h
         FringeTracingController.cpp
+        PhaseMapView.h
+        PhaseMapView.cpp
         ImageCanvas.h
         ImageCanvas.cpp
 )

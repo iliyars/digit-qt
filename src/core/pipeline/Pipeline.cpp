@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 
 #include "core/pipeline/NotYetImplementedStage.h"
+#include "core/pipeline/stages/PhaseReconstructionStage.h"
 #include "core/pipeline/stages/SetupStage.h"
 
 #include <algorithm>
@@ -18,11 +19,12 @@ size_t Pipeline::indexOf(StageId id) {
 Pipeline::Pipeline() {
   for (size_t i = 0; i < kCanonicalOrder.size(); ++i) {
     const StageId id = kCanonicalOrder[i];
-    m_stages[i] =
-        (id == StageId::Setup)
-            ? std::unique_ptr<PipelineStage>(std::make_unique<SetupStage>())
-            : std::unique_ptr<PipelineStage>(
-                  std::make_unique<NotYetImplementedStage>(id));
+    if (id == StageId::Setup)
+      m_stages[i] = std::make_unique<SetupStage>();
+    else if (id == StageId::S2)
+      m_stages[i] = std::make_unique<PhaseReconstructionStage>();
+    else
+      m_stages[i] = std::make_unique<NotYetImplementedStage>(id);
   }
 }
 

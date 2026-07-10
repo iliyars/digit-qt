@@ -8,6 +8,7 @@ void Measurement::setImage(QImage image, QString path) {
   m_imagePath = std::move(path);
   m_boundaries.clear();
   m_fringeTracing.clear();
+  m_phaseMap.clear();
   m_modified = true;
 }
 }  // namespace digitqt::core
