@@ -63,6 +63,14 @@
     </message>
 </context>
 <context>
+    <name>SetFringeOrderCommand</name>
+    <message>
+        <location filename="../src/core/commands/SetFringeOrderCommand.cpp" line="18"/>
+        <source>Set fringe order</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>digitqt::gui::MainWindow</name>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="38"/>
@@ -70,179 +78,179 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="77"/>
+        <location filename="../src/gui/MainWindow.cpp" line="78"/>
         <source>&amp;File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="78"/>
+        <location filename="../src/gui/MainWindow.cpp" line="79"/>
         <source>&amp;Open Image...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="81"/>
+        <location filename="../src/gui/MainWindow.cpp" line="82"/>
         <source>E&amp;xit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="84"/>
+        <location filename="../src/gui/MainWindow.cpp" line="85"/>
         <source>&amp;Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="85"/>
+        <location filename="../src/gui/MainWindow.cpp" line="86"/>
         <source>&amp;Undo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="87"/>
+        <location filename="../src/gui/MainWindow.cpp" line="88"/>
         <source>&amp;Redo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="138"/>
+        <location filename="../src/gui/MainWindow.cpp" line="139"/>
         <source>Add external boundary (ellipse)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="140"/>
+        <location filename="../src/gui/MainWindow.cpp" line="141"/>
         <source>Add external boundary (rectangle)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="142"/>
+        <location filename="../src/gui/MainWindow.cpp" line="143"/>
         <source>Add internal boundary (ellipse)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="144"/>
+        <location filename="../src/gui/MainWindow.cpp" line="145"/>
         <source>Add internal boundary (rectangle)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="167"/>
+        <location filename="../src/gui/MainWindow.cpp" line="168"/>
         <source>Delete selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="238"/>
+        <location filename="../src/gui/MainWindow.cpp" line="239"/>
         <source>Fringe Tracing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="157"/>
+        <location filename="../src/gui/MainWindow.cpp" line="158"/>
         <source>Add seed point (click on a fringe)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="94"/>
+        <location filename="../src/gui/MainWindow.cpp" line="95"/>
         <source>Setup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="136"/>
+        <location filename="../src/gui/MainWindow.cpp" line="137"/>
         <source>Select / move / delete a boundary</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="147"/>
+        <location filename="../src/gui/MainWindow.cpp" line="148"/>
         <source>Add external boundary (ellipse by points: click around the perimeter, double-click to finish)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="151"/>
+        <location filename="../src/gui/MainWindow.cpp" line="152"/>
         <source>Add internal boundary (ellipse by points: click around the perimeter, double-click to finish)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="158"/>
+        <location filename="../src/gui/MainWindow.cpp" line="159"/>
         <source>Select / delete a seed point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="160"/>
+        <location filename="../src/gui/MainWindow.cpp" line="161"/>
         <source>Auto-place seeds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="161"/>
+        <location filename="../src/gui/MainWindow.cpp" line="162"/>
         <source>Automatically place seeds along one row at the fringes&apos; intensity peaks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="168"/>
+        <location filename="../src/gui/MainWindow.cpp" line="169"/>
         <source>Delete the currently selected boundary or seed point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="177"/>
+        <location filename="../src/gui/MainWindow.cpp" line="178"/>
         <source>Trace fringes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="178"/>
+        <location filename="../src/gui/MainWindow.cpp" line="179"/>
         <source>Run the fringe tracer on all seed points</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="184"/>
+        <location filename="../src/gui/MainWindow.cpp" line="185"/>
         <source>&amp;Language</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="199"/>
+        <location filename="../src/gui/MainWindow.cpp" line="200"/>
         <source>Language changed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="200"/>
+        <location filename="../src/gui/MainWindow.cpp" line="201"/>
         <source>Please restart DigitQt for the language change to take effect.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="204"/>
+        <location filename="../src/gui/MainWindow.cpp" line="205"/>
         <source>English</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="205"/>
+        <location filename="../src/gui/MainWindow.cpp" line="206"/>
         <source>Русский</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="217"/>
+        <location filename="../src/gui/MainWindow.cpp" line="218"/>
         <source>&amp;View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="239"/>
+        <location filename="../src/gui/MainWindow.cpp" line="240"/>
         <source>Tracing failed:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="247"/>
+        <location filename="../src/gui/MainWindow.cpp" line="248"/>
         <source>Open Interferogram Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="248"/>
+        <location filename="../src/gui/MainWindow.cpp" line="249"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="254"/>
+        <location filename="../src/gui/MainWindow.cpp" line="255"/>
         <source>Open Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="254"/>
+        <location filename="../src/gui/MainWindow.cpp" line="255"/>
         <source>Failed to load image:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="269"/>
+        <location filename="../src/gui/MainWindow.cpp" line="270"/>
         <source>External: %1   Internal: %2   Seeds: %3   Traced: %4</source>
         <translation type="unfinished"></translation>
     </message>
@@ -259,77 +267,82 @@ not implemented yet</source>
 <context>
     <name>digitqt::gui::ParametersDock</name>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="16"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="18"/>
         <source>Parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="23"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="26"/>
         <source>Sequential Fringe Tracking (FTM)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="24"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="27"/>
         <source>Ridge Tracking (Structure Tensor)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="25"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="28"/>
         <source>Scanline Extremum Method (FTM)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="26"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="29"/>
         <source>Binary Thinning Method (FBM)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="29"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="32"/>
         <source>Bright fringes only (Max)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="30"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="33"/>
         <source>Dark fringes only (Min)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="31"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="34"/>
         <source>Both, alternating (MinMax)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="32"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="35"/>
         <source>Only used by Scanline Extremum Method</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="43"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="50"/>
         <source>&lt;b&gt;Fringe tracing algorithm&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="48"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="55"/>
         <source>&lt;b&gt;Fringe center&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="109"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="63"/>
+        <source>&lt;b&gt;Fringe order (double-click a line to edit)&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="169"/>
         <source>&lt;b&gt;%1&lt;/b&gt; (%2)&lt;br&gt;&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="116"/>
-        <source>Image: %1 × %2 px&lt;br&gt;File: %3&lt;br&gt;&lt;br&gt;External boundaries: %4&lt;br&gt;Internal boundaries: %5&lt;br&gt;&lt;br&gt;Seed points: %6&lt;br&gt;Traced lines: %7&lt;br&gt;&lt;br&gt;Use the toolbar to add/move/delete boundaries and seed points, and to run the tracer.</source>
+        <location filename="../src/gui/ParametersDock.cpp" line="176"/>
+        <source>Image: %1 × %2 px&lt;br&gt;File: %3&lt;br&gt;&lt;br&gt;External boundaries: %4&lt;br&gt;Internal boundaries: %5&lt;br&gt;&lt;br&gt;Seed points: %6&lt;br&gt;Traced lines: %7&lt;br&gt;&lt;br&gt;Use the toolbar to add/move/delete boundaries and seed points, and to run the tracer. Double-click a traced line to edit its points or fringe order.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="131"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="192"/>
         <source>No image loaded yet. Use File → Open Image.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="134"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="195"/>
         <source>No parameters yet — this stage is not implemented.</source>
         <translation type="unfinished"></translation>
     </message>

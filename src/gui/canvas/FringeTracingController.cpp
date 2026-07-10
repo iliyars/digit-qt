@@ -6,6 +6,7 @@
 #include "core/commands/AddSeedsCommand.h"
 #include "core/commands/RemoveSeedCommand.h"
 #include "core/commands/ReplaceTracedLineCommand.h"
+#include "core/commands/SetFringeOrderCommand.h"
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
 
@@ -13,17 +14,18 @@
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <cmath>
 
+
 namespace digitqt::gui::canvas {
 
 using digitqt::commands::AddSeedCommand;
 using digitqt::commands::AddSeedsCommand;
 using digitqt::commands::RemoveSeedCommand;
 using digitqt::commands::ReplaceTracedLineCommand;
+using digitqt::commands::SetFringeOrderCommand;
 
 namespace {
 
-double pointSegmentDistance(const QPointF &p, const QPointF &a,
-                            const QPointF &b) {
+double pointSegmentDistance(const QPointF &p, const QPointF &a, const QPointF &b) {
   const QPointF ab = b - a;
   const double lenSq = QPointF::dotProduct(ab, ab);
   double t = 0.0;
@@ -37,12 +39,10 @@ double pointSegmentDistance(const QPointF &p, const QPointF &a,
 
 }  // namespace
 
-FringeTracingController::FringeTracingController(QUndoStack *undoStack,
-                                                 QObject *parent)
+FringeTracingController::FringeTracingController(QUndoStack *undoStack, QObject *parent)
     : QObject(parent), m_undoStack(undoStack) {}
 
-void FringeTracingController::setMeasurement(
-    digitqt::core::Measurement *measurement) {
+void FringeTracingController::setMeasurement(digitqt::core::Measurement *measurement) {
   m_measurement = measurement;
   m_selection.reset();
   m_editingLineIndex.reset();
@@ -54,13 +54,11 @@ void FringeTracingController::setMeasurement(
   emit lineEditModeChanged();
 }
 
-void FringeTracingController::setPipeline(
-    digitqt::core::pipeline::Pipeline *pipeline) {
+void FringeTracingController::setPipeline(digitqt::core::pipeline::Pipeline *pipeline) {
   m_pipeline = pipeline;
 }
 
-void FringeTracingController::handlePress(const QPointF &pos,
-                                          bool isPrimaryButton) {
+void FringeTracingController::handlePress(const QPointF &pos, bool isPrimaryButton) {
   if (!m_measurement || !isPrimaryButton)
     return;
 
@@ -116,8 +114,7 @@ void FringeTracingController::exitLineEditMode() {
   emit lineEditModeChanged();
 }
 
-std::optional<size_t> FringeTracingController::hitTestSeed(
-    const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestSeed(const QPointF &pos) const {
   if (!m_measurement)
     return std::nullopt;
   const auto &seeds = m_measurement->fringeTracing().seeds();
@@ -138,8 +135,7 @@ std::optional<size_t> FringeTracingController::hitTestSeed(
   return best;
 }
 
-std::optional<size_t> FringeTracingController::hitTestAnyLine(
-    const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestAnyLine(const QPointF &pos) const {
   if (!m_measurement)
     return std::nullopt;
 
@@ -150,10 +146,10 @@ std::optional<size_t> FringeTracingController::hitTestAnyLine(
   double bestDist = kHitTolerance;
 
   for (size_t li = 0; li < lines.size(); ++li) {
-    const auto &line = lines[li];
-    for (size_t i = 0; i + 1 < line.size(); ++i) {
-      const QPointF a(line[i].x, line[i].y);
-      const QPointF b(line[i + 1].x, line[i + 1].y);
+    const auto &points = lines[li].points;
+    for (size_t i = 0; i + 1 < points.size(); ++i) {
+      const QPointF a(points[i].x, points[i].y);
+      const QPointF b(points[i + 1].x, points[i + 1].y);
       const double dist = pointSegmentDistance(pos, a, b);
       if (dist < bestDist) {
         bestDist = dist;
@@ -164,22 +160,21 @@ std::optional<size_t> FringeTracingController::hitTestAnyLine(
   return best;
 }
 
-std::optional<size_t> FringeTracingController::hitTestPointInEditingLine(
-    const QPointF &pos) const {
+std::optional<size_t> FringeTracingController::hitTestPointInEditingLine(const QPointF &pos) const {
   if (!m_measurement || !m_editingLineIndex)
     return std::nullopt;
   const auto &lines = m_measurement->fringeTracing().tracedLines();
   if (*m_editingLineIndex >= lines.size())
     return std::nullopt;
-  const auto &line = lines[*m_editingLineIndex];
+  const auto &points = lines[*m_editingLineIndex].points;
 
   constexpr double kHitRadius = 8.0;
   std::optional<size_t> best;
   double bestDist = kHitRadius;
 
-  for (size_t i = 0; i < line.size(); ++i) {
-    const double dx = pos.x() - line[i].x;
-    const double dy = pos.y() - line[i].y;
+  for (size_t i = 0; i < points.size(); ++i) {
+    const double dx = pos.x() - points[i].x;
+    const double dy = pos.y() - points[i].y;
     const double dist = std::sqrt(dx * dx + dy * dy);
     if (dist < bestDist) {
       bestDist = dist;
@@ -189,8 +184,7 @@ std::optional<size_t> FringeTracingController::hitTestPointInEditingLine(
   return best;
 }
 
-void FringeTracingController::beginPointDrag(size_t pointIndex,
-                                             const QPointF & /*pos*/) {
+void FringeTracingController::beginPointDrag(size_t pointIndex, const QPointF & /*pos*/) {
   if (!m_measurement || !m_editingLineIndex)
     return;
   auto &lines = m_measurement->fringeTracing().tracedLines();
@@ -200,7 +194,7 @@ void FringeTracingController::beginPointDrag(size_t pointIndex,
   m_draggingPoint = true;
   m_dragPointIndex = pointIndex;
   m_selectedPointIndex = pointIndex;
-  m_dragLineBefore = lines[*m_editingLineIndex];  // snapshot for undo
+  m_dragLineBefore = lines[*m_editingLineIndex].points;  // snapshot for undo
   emit lineEditModeChanged();
 }
 
@@ -210,12 +204,12 @@ void FringeTracingController::updatePointDrag(const QPointF &pos) {
   auto &lines = m_measurement->fringeTracing().tracedLines();
   if (*m_editingLineIndex >= lines.size())
     return;
-  auto &line = lines[*m_editingLineIndex];
-  if (m_dragPointIndex >= line.size())
+  auto &points = lines[*m_editingLineIndex].points;
+  if (m_dragPointIndex >= points.size())
     return;
 
-  line[m_dragPointIndex].x = pos.x();
-  line[m_dragPointIndex].y = pos.y();
+  points[m_dragPointIndex].x = pos.x();
+  points[m_dragPointIndex].y = pos.y();
   emit tracedLinesChanged();
 }
 
@@ -230,12 +224,12 @@ void FringeTracingController::commitPointDrag() {
   if (*m_editingLineIndex >= lines.size())
     return;
 
-  auto after = lines[*m_editingLineIndex];  // already-live-updated state
+  auto after = lines[*m_editingLineIndex].points;  // already-live-updated state
   // Roll back to the pre-drag snapshot; the command's redo() re-applies
   // it, so the whole drag lands as a single undo step.
-  lines[*m_editingLineIndex] = m_dragLineBefore;
-  m_undoStack->push(new ReplaceTracedLineCommand(
-      *m_measurement, *m_editingLineIndex, m_dragLineBefore, after));
+  lines[*m_editingLineIndex].points = m_dragLineBefore;
+  m_undoStack->push(
+      new ReplaceTracedLineCommand(*m_measurement, *m_editingLineIndex, m_dragLineBefore, after));
   emit tracedLinesChanged();
 }
 
@@ -245,8 +239,8 @@ void FringeTracingController::insertPointOnEditingLine(const QPointF &pos) {
   auto &lines = m_measurement->fringeTracing().tracedLines();
   if (*m_editingLineIndex >= lines.size())
     return;
-  const auto &line = lines[*m_editingLineIndex];
-  if (line.size() < 2)
+  const auto &points = lines[*m_editingLineIndex].points;
+  if (points.size() < 2)
     return;
 
   constexpr double kInsertTolerance = 15.0;
@@ -254,9 +248,9 @@ void FringeTracingController::insertPointOnEditingLine(const QPointF &pos) {
   double bestDist = kInsertTolerance;
   bool found = false;
 
-  for (size_t i = 0; i + 1 < line.size(); ++i) {
-    const QPointF a(line[i].x, line[i].y);
-    const QPointF b(line[i + 1].x, line[i + 1].y);
+  for (size_t i = 0; i + 1 < points.size(); ++i) {
+    const QPointF a(points[i].x, points[i].y);
+    const QPointF b(points[i + 1].x, points[i + 1].y);
     const double dist = pointSegmentDistance(pos, a, b);
     if (dist < bestDist) {
       bestDist = dist;
@@ -268,22 +262,20 @@ void FringeTracingController::insertPointOnEditingLine(const QPointF &pos) {
   if (!found)
     return;
 
-  auto before = line;
-  auto after = line;
+  auto before = points;
+  auto after = points;
 
   digitqt::core::tracing::TracedPoint newPoint;
   newPoint.x = pos.x();
   newPoint.y = pos.y();
-  newPoint.width =
-      (line[bestSegment].width + line[bestSegment + 1].width) / 2.0f;
-  newPoint.intensity =
-      (line[bestSegment].intensity + line[bestSegment + 1].intensity) / 2.0f;
+  newPoint.width = (points[bestSegment].width + points[bestSegment + 1].width) / 2.0f;
+  newPoint.intensity = (points[bestSegment].intensity + points[bestSegment + 1].intensity) / 2.0f;
 
   after.insert(after.begin() + static_cast<long>(bestSegment) + 1, newPoint);
 
   m_selectedPointIndex.reset();
-  m_undoStack->push(new ReplaceTracedLineCommand(
-      *m_measurement, *m_editingLineIndex, before, after));
+  m_undoStack->push(
+      new ReplaceTracedLineCommand(*m_measurement, *m_editingLineIndex, before, after));
   emit tracedLinesChanged();
 }
 
@@ -307,20 +299,20 @@ void FringeTracingController::deleteSelectedPoint() {
   auto &lines = m_measurement->fringeTracing().tracedLines();
   if (*m_editingLineIndex >= lines.size())
     return;
-  const auto &line = lines[*m_editingLineIndex];
-  if (*m_selectedPointIndex >= line.size())
+  const auto &points = lines[*m_editingLineIndex].points;
+  if (*m_selectedPointIndex >= points.size())
     return;
-  if (line.size() <= 2)
+  if (points.size() <= 2)
     return;  // keep at least 2 points -- a shorter "line" isn't meaningful
 
-  auto before = line;
-  auto after = line;
+  auto before = points;
+  auto after = points;
   after.erase(after.begin() + static_cast<long>(*m_selectedPointIndex));
 
   m_selectedPointIndex.reset();
   m_draggingPoint = false;
-  m_undoStack->push(new ReplaceTracedLineCommand(
-      *m_measurement, *m_editingLineIndex, before, after));
+  m_undoStack->push(
+      new ReplaceTracedLineCommand(*m_measurement, *m_editingLineIndex, before, after));
   emit tracedLinesChanged();
 }
 
@@ -341,8 +333,7 @@ void FringeTracingController::autoPlaceSeeds() {
 
   aperture::VisibilityChecker checker(m_measurement->boundaries());
   auto isVisible = [&checker](int x, int y) {
-    return checker.isVisible(
-        aperture::Point{static_cast<double>(x), static_cast<double>(y)});
+    return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
   };
 
   auto seeds = digitqt::core::findRowSeeds(m_measurement->image(), isVisible);
@@ -353,6 +344,17 @@ void FringeTracingController::autoPlaceSeeds() {
 
   m_undoStack->push(new AddSeedsCommand(*m_measurement, std::move(seeds)));
   emit seedsChanged();
+}
+
+void FringeTracingController::setLineOrder(size_t lineIndex, double newOrder) {
+  if (!m_measurement)
+    return;
+  const auto &lines = m_measurement->fringeTracing().tracedLines();
+  if (lineIndex >= lines.size())
+    return;
+
+  m_undoStack->push(new SetFringeOrderCommand(*m_measurement, lineIndex, newOrder));
+  emit tracedLinesChanged();
 }
 
 }  // namespace digitqt::gui::canvas

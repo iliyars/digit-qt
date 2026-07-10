@@ -32,18 +32,15 @@ MainWindow::MainWindow(QWidget *parent)
       m_measurement(std::make_unique<digitqt::core::Measurement>()),
       m_pipeline(std::make_unique<digitqt::core::pipeline::Pipeline>()),
       m_undoStack(new QUndoStack(this)),
-      m_controller(
-          new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)),
-      m_fringeController(new digitqt::gui::canvas::FringeTracingController(
-          m_undoStack, this)) {
+      m_controller(new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)),
+      m_fringeController(new digitqt::gui::canvas::FringeTracingController(m_undoStack, this)) {
   setWindowTitle(tr("DigitQt — Interferogram Processing"));
   resize(1400, 900);
 
   // --- Central view: one page for image-based stages (Setup, S1),
   // a shared placeholder page for everything else. ---
   m_centralStack = new QStackedWidget(this);
-  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller,
-                                                   m_fringeController, this);
+  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController, this);
   m_notImplementedPage = new NotImplementedPage(this);
   m_centralStack->addWidget(m_canvas);              // index 0: Setup / S1
   m_centralStack->addWidget(m_notImplementedPage);  // index 1: everything else
@@ -52,14 +49,11 @@ MainWindow::MainWindow(QWidget *parent)
   m_statusLabel = new QLabel(this);
   statusBar()->addPermanentWidget(m_statusLabel);
 
-  connect(m_controller,
-          &digitqt::gui::canvas::BoundaryEditController::boundariesChanged,
-          this, &MainWindow::updateStatusBar);
-  connect(m_fringeController,
-          &digitqt::gui::canvas::FringeTracingController::seedsChanged, this,
+  connect(m_controller, &digitqt::gui::canvas::BoundaryEditController::boundariesChanged, this,
           &MainWindow::updateStatusBar);
-  connect(m_fringeController,
-          &digitqt::gui::canvas::FringeTracingController::tracedLinesChanged,
+  connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::seedsChanged, this,
+          &MainWindow::updateStatusBar);
+  connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::tracedLinesChanged,
           this, &MainWindow::updateStatusBar);
 
   buildMenusAndToolbars();
@@ -72,6 +66,7 @@ MainWindow::MainWindow(QWidget *parent)
   m_canvas->setMeasurement(m_measurement.get());
   m_pipelineDock->setPipeline(m_pipeline.get());
   m_parametersDock->setMeasurement(m_measurement.get());
+  m_parametersDock->setFringeController(m_fringeController);
   onStageSelected(StageId::Setup);
   updateStatusBar();
 }
@@ -79,8 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
-  auto *openAction =
-      fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
+  auto *openAction = fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
   openAction->setShortcut(QKeySequence::Open);
   fileMenu->addSeparator();
   fileMenu->addAction(tr("E&xit"), this, &QWidget::close);
@@ -112,8 +106,8 @@ void MainWindow::buildMenusAndToolbars() {
   const QColor externalColor(0, 190, 60);
   const QColor internalColor(220, 40, 40);
 
-  auto addBoundaryModeAction = [&](const QIcon &icon, const QString &tooltip,
-                                   EditMode mode, bool checked = false) {
+  auto addBoundaryModeAction = [&](const QIcon &icon, const QString &tooltip, EditMode mode,
+                                   bool checked = false) {
     auto *action = toolBar->addAction(icon, tooltip);
     action->setToolTip(tooltip);
     action->setCheckable(true);
@@ -126,8 +120,7 @@ void MainWindow::buildMenusAndToolbars() {
     return action;
   };
 
-  auto addFringeModeAction = [&](const QIcon &icon, const QString &tooltip,
-                                 FringeEditMode mode) {
+  auto addFringeModeAction = [&](const QIcon &icon, const QString &tooltip, FringeEditMode mode) {
     auto *action = toolBar->addAction(icon, tooltip);
     action->setToolTip(tooltip);
     action->setCheckable(true);
@@ -140,54 +133,45 @@ void MainWindow::buildMenusAndToolbars() {
   };
 
   // --- Boundaries (aperture) ---
-  addBoundaryModeAction(cursorIcon(), tr("Select / move / delete a boundary"),
-                        EditMode::Select, true);
-  addBoundaryModeAction(
-      shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
-      tr("Add external boundary (ellipse)"), EditMode::AddExternalEllipse);
-  addBoundaryModeAction(
-      shapeIcon(/*ellipse=*/false, externalColor, Qt::SolidLine),
-      tr("Add external boundary (rectangle)"), EditMode::AddExternalRectangle);
-  addBoundaryModeAction(
-      shapeIcon(/*ellipse=*/true, internalColor, Qt::DashLine),
-      tr("Add internal boundary (ellipse)"), EditMode::AddInternalEllipse);
-  addBoundaryModeAction(
-      shapeIcon(/*ellipse=*/false, internalColor, Qt::DashLine),
-      tr("Add internal boundary (rectangle)"), EditMode::AddInternalRectangle);
+  addBoundaryModeAction(cursorIcon(), tr("Select / move / delete a boundary"), EditMode::Select,
+                        true);
+  addBoundaryModeAction(shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
+                        tr("Add external boundary (ellipse)"), EditMode::AddExternalEllipse);
+  addBoundaryModeAction(shapeIcon(/*ellipse=*/false, externalColor, Qt::SolidLine),
+                        tr("Add external boundary (rectangle)"), EditMode::AddExternalRectangle);
+  addBoundaryModeAction(shapeIcon(/*ellipse=*/true, internalColor, Qt::DashLine),
+                        tr("Add internal boundary (ellipse)"), EditMode::AddInternalEllipse);
+  addBoundaryModeAction(shapeIcon(/*ellipse=*/false, internalColor, Qt::DashLine),
+                        tr("Add internal boundary (rectangle)"), EditMode::AddInternalRectangle);
   toolBar->addSeparator();
-  addBoundaryModeAction(
-      digitqt::gui::icons::pointsEllipseIcon(externalColor),
-      tr("Add external boundary (ellipse by points: click around the "
-         "perimeter, double-click to finish)"),
-      EditMode::AddExternalEllipseByPoints);
-  addBoundaryModeAction(
-      digitqt::gui::icons::pointsEllipseIcon(internalColor),
-      tr("Add internal boundary (ellipse by points: click around the "
-         "perimeter, double-click to finish)"),
-      EditMode::AddInternalEllipseByPoints);
+  addBoundaryModeAction(digitqt::gui::icons::pointsEllipseIcon(externalColor),
+                        tr("Add external boundary (ellipse by points: click around the "
+                           "perimeter, double-click to finish)"),
+                        EditMode::AddExternalEllipseByPoints);
+  addBoundaryModeAction(digitqt::gui::icons::pointsEllipseIcon(internalColor),
+                        tr("Add internal boundary (ellipse by points: click around the "
+                           "perimeter, double-click to finish)"),
+                        EditMode::AddInternalEllipseByPoints);
   toolBar->addSeparator();
 
   // --- Fringe tracing (seed points + run tracer) ---
   addFringeModeAction(seedIcon(), tr("Add seed point (click on a fringe)"),
                       FringeEditMode::AddSeed);
-  addFringeModeAction(cursorIcon(), tr("Select / delete a seed point"),
-                      FringeEditMode::Select);
+  addFringeModeAction(cursorIcon(), tr("Select / delete a seed point"), FringeEditMode::Select);
 
-  auto *autoSeedAction = toolBar->addAction(digitqt::gui::icons::autoSeedIcon(),
-                                            tr("Auto-place seeds"));
+  auto *autoSeedAction =
+      toolBar->addAction(digitqt::gui::icons::autoSeedIcon(), tr("Auto-place seeds"));
   autoSeedAction->setToolTip(
-      tr("Automatically place seeds along one row at "
-         "the fringes' intensity peaks"));
+      tr("Automatically place seeds along one row at the fringes' intensity peaks"));
   connect(autoSeedAction, &QAction::triggered, this,
           [this] { m_fringeController->autoPlaceSeeds(); });
 
   toolBar->addSeparator();
 
   // --- Shared actions: Delete (whichever tool is active) and Trace ---
-  auto *deleteAction = toolBar->addAction(
-      style()->standardIcon(QStyle::SP_TrashIcon), tr("Delete selected"));
-  deleteAction->setToolTip(
-      tr("Delete the currently selected boundary or seed point"));
+  auto *deleteAction =
+      toolBar->addAction(style()->standardIcon(QStyle::SP_TrashIcon), tr("Delete selected"));
+  deleteAction->setToolTip(tr("Delete the currently selected boundary or seed point"));
   deleteAction->setShortcut(QKeySequence::Delete);
   connect(deleteAction, &QAction::triggered, this, [this] {
     if (m_canvas->activeController() == ActiveController::Boundary)
@@ -196,8 +180,8 @@ void MainWindow::buildMenusAndToolbars() {
       m_fringeController->deleteSelection();
   });
 
-  auto *traceAction = toolBar->addAction(
-      style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
+  auto *traceAction =
+      toolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
   traceAction->setToolTip(tr("Run the fringe tracer on all seed points"));
   connect(traceAction, &QAction::triggered, this, &MainWindow::runTracing);
 }
@@ -209,8 +193,7 @@ void MainWindow::buildLanguageMenu() {
 
   QSettings settings;
   const QString current =
-      settings.value(QStringLiteral("language"), QStringLiteral("en"))
-          .toString();
+      settings.value(QStringLiteral("language"), QStringLiteral("en")).toString();
 
   auto addLanguage = [&](const QString &code, const QString &label) {
     auto *action = langMenu->addAction(label);
@@ -233,8 +216,7 @@ void MainWindow::buildLanguageMenu() {
 void MainWindow::buildDocks() {
   m_pipelineDock = new PipelineTreeDock(this);
   addDockWidget(Qt::LeftDockWidgetArea, m_pipelineDock);
-  connect(m_pipelineDock, &PipelineTreeDock::stageSelected, this,
-          &MainWindow::onStageSelected);
+  connect(m_pipelineDock, &PipelineTreeDock::stageSelected, this, &MainWindow::onStageSelected);
 
   m_parametersDock = new ParametersDock(this);
   addDockWidget(Qt::RightDockWidgetArea, m_parametersDock);
@@ -258,9 +240,8 @@ void MainWindow::onStageSelected(StageId id) {
 
 void MainWindow::runTracing() {
   if (!m_fringeController->runTracing()) {
-    QMessageBox::warning(
-        this, tr("Fringe Tracing"),
-        tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
+    QMessageBox::warning(this, tr("Fringe Tracing"),
+                         tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
   }
   updateStatusBar();
 }
@@ -274,9 +255,8 @@ void MainWindow::openImage() {
 
   const auto result = digitqt::io::loadImage(path);
   if (!result.ok()) {
-    QMessageBox::warning(
-        this, tr("Open Image"),
-        tr("Failed to load image:\n%1").arg(result.errorMessage));
+    QMessageBox::warning(this, tr("Open Image"),
+                         tr("Failed to load image:\n%1").arg(result.errorMessage));
     return;
   }
   m_measurement->setImage(result.image, path);
@@ -290,12 +270,11 @@ void MainWindow::openImage() {
 void MainWindow::updateStatusBar() {
   const auto &b = m_measurement->boundaries();
   const auto &tracingData = m_measurement->fringeTracing();
-  m_statusLabel->setText(
-      tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
-          .arg(b.getExternal().size())
-          .arg(b.getInternal().size())
-          .arg(tracingData.seeds().size())
-          .arg(tracingData.tracedLines().size()));
+  m_statusLabel->setText(tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
+                             .arg(b.getExternal().size())
+                             .arg(b.getInternal().size())
+                             .arg(tracingData.seeds().size())
+                             .arg(tracingData.tracedLines().size()));
   m_pipelineDock->refreshStatuses();
   m_parametersDock->refresh();
 }

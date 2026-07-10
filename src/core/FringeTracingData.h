@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/NumberedFringeLine.h"
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
 #include <vector>
@@ -10,15 +11,12 @@ namespace digitqt::core {
 /// use. A user-facing choice (see ParametersDock's algorithm combo box),
 /// not itself undoable -- like the current edit-mode/tool selection.
 enum class TracerAlgorithm {
-  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step
-                       // tracer (FTM)
-  StructureTensor,   // StructureTensorTracker: gradient structure-tensor ridge
-                     // tracker (FTM)
-  ScanlineExtremum,  // ScanlineExtremumTracker: global, row-by-row extrema
-                     // (FTM)
-  BinaryThinning,    // BinaryThinningTracker: adaptive threshold + Zhang-Suen
-                     // skeletonization (FBM)
+  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step tracer (FTM)
+  StructureTensor,     // StructureTensorTracker: gradient structure-tensor ridge tracker (FTM)
+  ScanlineExtremum,    // ScanlineExtremumTracker: global, row-by-row extrema (FTM)
+  BinaryThinning,  // BinaryThinningTracker: adaptive threshold + Zhang-Suen skeletonization (FBM)
 };
+
 /// Which kind of fringe center ScanlineExtremumTracker should look for.
 /// Not used by SequentialFringeTracker (it follows whichever ridge the
 /// seed point lands on).
@@ -32,19 +30,18 @@ enum class FringeCenterMode {
  * @brief Live, editable data for S1 (fringe tracing).
  *
  * Holds the seed points the user has placed (interactively, via
- * FringeTracingController) and the centerlines produced by the last time
- * the stage was computed. Lives directly on Measurement, the same way
- * boundaries() does -- per "Measurement owns all data".
+ * FringeTracingController) and the numbered centerlines produced by the
+ * last time the stage was computed (see NumberedFringeLine). Lives
+ * directly on Measurement, the same way boundaries() does -- per
+ * "Measurement owns all data".
  */
 class FringeTracingData {
 public:
   std::vector<tracing::SeedPoint> &seeds() { return m_seeds; }
   const std::vector<tracing::SeedPoint> &seeds() const { return m_seeds; }
 
-  std::vector<tracing::TracedLine> &tracedLines() { return m_tracedLines; }
-  const std::vector<tracing::TracedLine> &tracedLines() const {
-    return m_tracedLines;
-  }
+  std::vector<NumberedFringeLine> &tracedLines() { return m_tracedLines; }
+  const std::vector<NumberedFringeLine> &tracedLines() const { return m_tracedLines; }
 
   TracerAlgorithm algorithm() const { return m_algorithm; }
   void setAlgorithm(TracerAlgorithm algorithm) { m_algorithm = algorithm; }
@@ -59,7 +56,7 @@ public:
 
 private:
   std::vector<tracing::SeedPoint> m_seeds;
-  std::vector<tracing::TracedLine> m_tracedLines;
+  std::vector<NumberedFringeLine> m_tracedLines;
   TracerAlgorithm m_algorithm = TracerAlgorithm::SequentialTracking;
   FringeCenterMode m_fringeCenterMode = FringeCenterMode::MinMax;
 };

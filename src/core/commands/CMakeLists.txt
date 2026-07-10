@@ -14,4 +14,6 @@ target_sources(DigitQt
         AddSeedsCommand.cpp
         ReplaceTracedLineCommand.h
         ReplaceTracedLineCommand.cpp
+        SetFringeOrderCommand.h
+        SetFringeOrderCommand.cpp
 )
