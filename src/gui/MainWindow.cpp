@@ -41,9 +41,11 @@ MainWindow::MainWindow(QWidget *parent)
   // a shared placeholder page for everything else. ---
   m_centralStack = new QStackedWidget(this);
   m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController, this);
+  m_phaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
   m_notImplementedPage = new NotImplementedPage(this);
-  m_centralStack->addWidget(m_canvas);              // index 0: Setup / S1
-  m_centralStack->addWidget(m_notImplementedPage);  // index 1: everything else
+  m_centralStack->addWidget(m_canvas);              // index 0: Setup
+  m_centralStack->addWidget(m_phaseMapView);        // index 1: S2 (Phase Reconstruction)
+  m_centralStack->addWidget(m_notImplementedPage);  // index 2: everything else
   setCentralWidget(m_centralStack);
 
   m_statusLabel = new QLabel(this);
@@ -64,6 +66,7 @@ MainWindow::MainWindow(QWidget *parent)
   m_fringeController->setMeasurement(m_measurement.get());
   m_fringeController->setPipeline(m_pipeline.get());
   m_canvas->setMeasurement(m_measurement.get());
+  m_phaseMapView->setMeasurement(m_measurement.get());
   m_pipelineDock->setPipeline(m_pipeline.get());
   m_parametersDock->setMeasurement(m_measurement.get());
   m_parametersDock->setFringeController(m_fringeController);
@@ -184,6 +187,34 @@ void MainWindow::buildMenusAndToolbars() {
       toolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
   traceAction->setToolTip(tr("Run the fringe tracer on all seed points"));
   connect(traceAction, &QAction::triggered, this, &MainWindow::runTracing);
+
+  // --- Phase toolbar (S2: heatmap/isolines display + compute) ---
+  auto *phaseToolBar = addToolBar(tr("Phase"));
+  m_phaseToolBar = phaseToolBar;
+  phaseToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  phaseToolBar->setIconSize(QSize(22, 22));
+  phaseToolBar->setMovable(false);
+
+  auto *heatmapAction =
+      phaseToolBar->addAction(digitqt::gui::icons::heatmapIcon(), tr("Show heatmap"));
+  heatmapAction->setCheckable(true);
+  heatmapAction->setChecked(true);
+  connect(heatmapAction, &QAction::toggled, m_phaseMapView,
+          &digitqt::gui::canvas::PhaseMapView::setHeatmapVisible);
+
+  auto *isolinesAction =
+      phaseToolBar->addAction(digitqt::gui::icons::isolinesIcon(), tr("Show isolines"));
+  isolinesAction->setCheckable(true);
+  isolinesAction->setChecked(false);
+  connect(isolinesAction, &QAction::toggled, m_phaseMapView,
+          &digitqt::gui::canvas::PhaseMapView::setIsolinesVisible);
+
+  phaseToolBar->addSeparator();
+
+  auto *computePhaseAction =
+      phaseToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Compute phase"));
+  computePhaseAction->setToolTip(tr("Reconstruct the phase map from the numbered fringe lines"));
+  connect(computePhaseAction, &QAction::triggered, this, &MainWindow::computePhase);
 }
 
 void MainWindow::buildLanguageMenu() {
@@ -228,12 +259,20 @@ void MainWindow::buildDocks() {
 
 void MainWindow::onStageSelected(StageId id) {
   const bool isSetup = (id == StageId::Setup);
+  const bool isPhase = (id == StageId::S2);
 
-  m_centralStack->setCurrentIndex(isSetup ? 0 : 1);
-  if (!isSetup)
+  if (isSetup)
+    m_centralStack->setCurrentIndex(0);
+  else if (isPhase)
+    m_centralStack->setCurrentIndex(1);
+  else
+    m_centralStack->setCurrentIndex(2);
+
+  if (!isSetup && !isPhase)
     m_notImplementedPage->setStage(id);
 
   m_setupToolBar->setEnabled(isSetup);
+  m_phaseToolBar->setEnabled(isPhase);
 
   m_parametersDock->setStage(id);
 }
@@ -243,6 +282,16 @@ void MainWindow::runTracing() {
     QMessageBox::warning(this, tr("Fringe Tracing"),
                          tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
   }
+  updateStatusBar();
+}
+
+void MainWindow::computePhase() {
+  auto &stage = m_pipeline->stage(StageId::S2);
+  if (!stage.compute(*m_measurement)) {
+    QMessageBox::warning(this, tr("Phase Reconstruction"),
+                         tr("Phase reconstruction failed:\n%1").arg(stage.errorMessage()));
+  }
+  m_phaseMapView->refresh();
   updateStatusBar();
 }
 
@@ -264,6 +313,7 @@ void MainWindow::openImage() {
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
+  m_phaseMapView->setMeasurement(m_measurement.get());
   updateStatusBar();
 }
 

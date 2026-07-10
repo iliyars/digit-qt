@@ -19,7 +19,7 @@ add_subdirectory(core)          # target_sources(DigitQt ...)
 add_subdirectory(io)            # target_sources(DigitQt ...)
 add_subdirectory(gui)           # target_sources(DigitQt ...)
 
-target_link_libraries(DigitQt PRIVATE Qt6::Widgets Aperture::Core ${OpenCV_LIBS})
+target_link_libraries(DigitQt PRIVATE Qt6::Widgets Aperture::Core ${OpenCV_LIBS} Eigen3::Eigen)
 
 set_target_properties(DigitQt PROPERTIES
     CXX_STANDARD 17

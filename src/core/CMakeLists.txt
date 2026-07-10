@@ -8,6 +8,7 @@ target_sources(DigitQt
         NumberedFringeLine.h
         FringeOrdering.h
         FringeOrdering.cpp
+        PhaseMap.h
 )
 
 add_subdirectory(commands)

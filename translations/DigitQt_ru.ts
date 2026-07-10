@@ -78,179 +78,215 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="78"/>
+        <location filename="../src/gui/MainWindow.cpp" line="81"/>
         <source>&amp;File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="79"/>
+        <location filename="../src/gui/MainWindow.cpp" line="82"/>
         <source>&amp;Open Image...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="82"/>
+        <location filename="../src/gui/MainWindow.cpp" line="85"/>
         <source>E&amp;xit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="85"/>
+        <location filename="../src/gui/MainWindow.cpp" line="88"/>
         <source>&amp;Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="86"/>
+        <location filename="../src/gui/MainWindow.cpp" line="89"/>
         <source>&amp;Undo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="88"/>
+        <location filename="../src/gui/MainWindow.cpp" line="91"/>
         <source>&amp;Redo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="139"/>
+        <location filename="../src/gui/MainWindow.cpp" line="142"/>
         <source>Add external boundary (ellipse)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="141"/>
+        <location filename="../src/gui/MainWindow.cpp" line="144"/>
         <source>Add external boundary (rectangle)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="143"/>
+        <location filename="../src/gui/MainWindow.cpp" line="146"/>
         <source>Add internal boundary (ellipse)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="145"/>
+        <location filename="../src/gui/MainWindow.cpp" line="148"/>
         <source>Add internal boundary (rectangle)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="168"/>
+        <location filename="../src/gui/MainWindow.cpp" line="171"/>
         <source>Delete selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="239"/>
+        <location filename="../src/gui/MainWindow.cpp" line="273"/>
         <source>Fringe Tracing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="158"/>
+        <location filename="../src/gui/MainWindow.cpp" line="161"/>
         <source>Add seed point (click on a fringe)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="95"/>
+        <location filename="../src/gui/MainWindow.cpp" line="98"/>
         <source>Setup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="137"/>
+        <location filename="../src/gui/MainWindow.cpp" line="140"/>
         <source>Select / move / delete a boundary</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="148"/>
+        <location filename="../src/gui/MainWindow.cpp" line="151"/>
         <source>Add external boundary (ellipse by points: click around the perimeter, double-click to finish)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="152"/>
+        <location filename="../src/gui/MainWindow.cpp" line="155"/>
         <source>Add internal boundary (ellipse by points: click around the perimeter, double-click to finish)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="159"/>
+        <location filename="../src/gui/MainWindow.cpp" line="162"/>
         <source>Select / delete a seed point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="161"/>
+        <location filename="../src/gui/MainWindow.cpp" line="164"/>
         <source>Auto-place seeds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="162"/>
+        <location filename="../src/gui/MainWindow.cpp" line="165"/>
         <source>Automatically place seeds along one row at the fringes&apos; intensity peaks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="169"/>
+        <location filename="../src/gui/MainWindow.cpp" line="172"/>
         <source>Delete the currently selected boundary or seed point</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="178"/>
+        <location filename="../src/gui/MainWindow.cpp" line="181"/>
         <source>Trace fringes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="179"/>
+        <location filename="../src/gui/MainWindow.cpp" line="182"/>
         <source>Run the fringe tracer on all seed points</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="185"/>
-        <source>&amp;Language</source>
+        <location filename="../src/gui/MainWindow.cpp" line="186"/>
+        <source>Phase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="200"/>
-        <source>Language changed</source>
+        <location filename="../src/gui/MainWindow.cpp" line="192"/>
+        <source>Show heatmap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="201"/>
-        <source>Please restart DigitQt for the language change to take effect.</source>
+        <location filename="../src/gui/MainWindow.cpp" line="197"/>
+        <source>Show isolines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="204"/>
+        <source>Compute phase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="205"/>
+        <source>Reconstruct the phase map from the numbered fringe lines</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="211"/>
+        <source>&amp;Language</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="226"/>
+        <source>Language changed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="227"/>
+        <source>Please restart DigitQt for the language change to take effect.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="231"/>
         <source>English</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="206"/>
+        <location filename="../src/gui/MainWindow.cpp" line="232"/>
         <source>Русский</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="218"/>
+        <location filename="../src/gui/MainWindow.cpp" line="244"/>
         <source>&amp;View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="240"/>
+        <location filename="../src/gui/MainWindow.cpp" line="274"/>
         <source>Tracing failed:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="248"/>
+        <location filename="../src/gui/MainWindow.cpp" line="283"/>
+        <source>Phase Reconstruction</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="284"/>
+        <source>Phase reconstruction failed:
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/MainWindow.cpp" line="293"/>
         <source>Open Interferogram Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="249"/>
+        <location filename="../src/gui/MainWindow.cpp" line="294"/>
         <source>Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="255"/>
+        <location filename="../src/gui/MainWindow.cpp" line="300"/>
         <source>Open Image</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="255"/>
+        <location filename="../src/gui/MainWindow.cpp" line="300"/>
         <source>Failed to load image:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/gui/MainWindow.cpp" line="270"/>
+        <location filename="../src/gui/MainWindow.cpp" line="316"/>
         <source>External: %1   Internal: %2   Seeds: %3   Traced: %4</source>
         <translation type="unfinished"></translation>
     </message>

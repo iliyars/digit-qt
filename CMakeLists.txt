@@ -18,6 +18,11 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
 #   pacman -S mingw-w64-ucrt-x86_64-opencv
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 
+# Needed by PhaseReconstructor (S2: Laplace/Poisson solve from numbered
+# fringe contours to a dense phase map). Header-only. On MSYS2 UCRT64:
+#   pacman -S mingw-w64-ucrt-x86_64-eigen3
+find_package(Eigen3 REQUIRED)
+
 add_subdirectory(src)
 add_subdirectory(translations)
 

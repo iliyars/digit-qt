@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/FringeTracingData.h"
+#include "core/PhaseMap.h"
 
 #include <QImage>
 #include <QString>
@@ -40,6 +41,10 @@ public:
   FringeTracingData &fringeTracing() { return m_fringeTracing; }
   const FringeTracingData &fringeTracing() const { return m_fringeTracing; }
 
+  // --- S2: восстановленная карта фазы (в единицах порядка полосы) ----
+  PhaseMap &phaseMap() { return m_phaseMap; }
+  const PhaseMap &phaseMap() const { return m_phaseMap; }
+
   bool isModified() const { return m_modified; }
   void setModified(bool modified) { m_modified = modified; }
 
@@ -48,6 +53,7 @@ private:
   QString m_imagePath;
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
+  PhaseMap m_phaseMap;
   bool m_modified = false;
 };
 

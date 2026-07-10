@@ -1,5 +1,6 @@
 #include "IconFactory.h"
 
+#include <QLinearGradient>
 #include <QPainter>
 #include <QPixmap>
 #include <QPolygonF>
@@ -26,9 +27,8 @@ QIcon cursorIcon() {
 
   // Simple mouse-pointer silhouette.
   QPolygonF arrow;
-  arrow << QPointF(5, 3) << QPointF(5, 20) << QPointF(9.5, 15.5)
-        << QPointF(12.5, 21.5) << QPointF(15, 20.3) << QPointF(12, 14.3)
-        << QPointF(18, 14) << QPointF(5, 3);
+  arrow << QPointF(5, 3) << QPointF(5, 20) << QPointF(9.5, 15.5) << QPointF(12.5, 21.5)
+        << QPointF(15, 20.3) << QPointF(12, 14.3) << QPointF(18, 14) << QPointF(5, 3);
 
   painter.setBrush(QColor(70, 70, 70));
   painter.setPen(QPen(Qt::white, 1));
@@ -71,8 +71,7 @@ QIcon pointsEllipseIcon(const QColor &color) {
   for (int i = 0; i < kDots; ++i) {
     const double angle = kTwoPi * i / kDots;
     const double x = rect.center().x() + (rect.width() / 2.0) * std::cos(angle);
-    const double y =
-        rect.center().y() + (rect.height() / 2.0) * std::sin(angle);
+    const double y = rect.center().y() + (rect.height() / 2.0) * std::sin(angle);
     painter.drawEllipse(QPointF(x, y), 1.6, 1.6);
   }
 
@@ -86,8 +85,7 @@ QIcon seedIcon() {
 
   const QColor seedColor(255, 200, 0);
   painter.setPen(QPen(seedColor, 2));
-  painter.setBrush(
-      QColor(seedColor.red(), seedColor.green(), seedColor.blue(), 160));
+  painter.setBrush(QColor(seedColor.red(), seedColor.green(), seedColor.blue(), 160));
   painter.drawEllipse(QRectF(kSize / 2.0 - 5, kSize / 2.0 - 5, 10, 10));
 
   return QIcon(pixmap);
@@ -109,6 +107,41 @@ QIcon autoSeedIcon() {
   painter.setBrush(seedColor);
   for (double fx : {5.5, 11.0, 16.5})  // scattered dots along the scan line
     painter.drawEllipse(QPointF(fx, midY), 2.0, 2.0);
+
+  return QIcon(pixmap);
+}
+
+QIcon heatmapIcon() {
+  QPixmap pixmap = newCanvas();
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  const QRectF rect(3.0, 6.0, kSize - 6.0, kSize - 12.0);
+  QLinearGradient gradient(rect.topLeft(), rect.topRight());
+  gradient.setColorAt(0.0, QColor::fromHsv(240, 255, 255));  // синий
+  gradient.setColorAt(0.5, QColor::fromHsv(120, 255, 255));  // зелёный
+  gradient.setColorAt(1.0, QColor::fromHsv(0, 255, 255));    // красный
+
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(gradient);
+  painter.drawRoundedRect(rect, 2.0, 2.0);
+
+  return QIcon(pixmap);
+}
+
+QIcon isolinesIcon() {
+  QPixmap pixmap = newCanvas();
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  QPen pen(QColor(80, 160, 255));
+  pen.setWidth(1);
+  painter.setPen(pen);
+  painter.setBrush(Qt::NoBrush);
+
+  const QPointF center(kSize / 2.0, kSize / 2.0);
+  for (double r : {3.0, 6.0, 9.0})
+    painter.drawEllipse(center, r, r * 0.75);
 
   return QIcon(pixmap);
 }

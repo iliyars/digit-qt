@@ -19,5 +19,7 @@ QIcon shapeIcon(bool ellipse, const QColor &color, Qt::PenStyle penStyle);
 QIcon pointsEllipseIcon(const QColor &color);
 QIcon seedIcon();
 QIcon autoSeedIcon();
+QIcon heatmapIcon();
+QIcon isolinesIcon();
 
 }  // namespace digitqt::gui::icons
