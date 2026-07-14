@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/FringeTracingData.h"
+#include "core/ModalAnalysisResult.h"
 #include "core/PhaseMap.h"
 
 #include <QImage>
@@ -45,6 +46,19 @@ public:
   PhaseMap &phaseMap() { return m_phaseMap; }
   const PhaseMap &phaseMap() const { return m_phaseMap; }
 
+  // --- S4: длина волны и восстановленная карта волнового фронта ------
+  // (та же структура PhaseMap, но значения уже в физических единицах —
+  // нанометрах, а не в номерах полос).
+  double wavelengthNm() const { return m_wavelengthNm; }
+  void setWavelengthNm(double nm) { m_wavelengthNm = nm; }
+
+  PhaseMap &wavefrontMap() { return m_wavefrontMap; }
+  const PhaseMap &wavefrontMap() const { return m_wavefrontMap; }
+
+  // --- S5: подогнанные аберрации + остаток (реальная форма) ----------
+  ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
+  const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
+
   bool isModified() const { return m_modified; }
   void setModified(bool modified) { m_modified = modified; }
 
@@ -54,6 +68,10 @@ private:
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;
+  double m_wavelengthNm =
+      632.8;  // He-Ne laser -- самая распространённая длина волны в интерферометрии
+  PhaseMap m_wavefrontMap;
+  ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;
 };
 

@@ -15,7 +15,8 @@ class Measurement;
 }
 namespace digitqt::gui::canvas {
 class FringeTracingController;
-}
+class PhaseMapView;
+}  // namespace digitqt::gui::canvas
 
 namespace digitqt::gui {
 
@@ -36,6 +37,7 @@ public:
 
   void setMeasurement(digitqt::core::Measurement *measurement);
   void setFringeController(digitqt::gui::canvas::FringeTracingController *controller);
+  void setPhaseMapView(digitqt::gui::canvas::PhaseMapView *view);
   void setStage(digitqt::core::pipeline::StageId id);
 
   /// Re-reads whatever the current stage's page depends on (e.g.
@@ -46,11 +48,14 @@ private slots:
   void onAlgorithmChanged(int index);
   void onFringeCenterModeChanged(int index);
   void onFringeOrderSpinChanged(double value);
+  void onWavelengthChanged(double value);
+  void onIsolineStepChanged(double value);
   void refreshOrderEditor();
 
 private:
   digitqt::core::Measurement *m_measurement = nullptr;
   digitqt::gui::canvas::FringeTracingController *m_fringeController = nullptr;
+  digitqt::gui::canvas::PhaseMapView *m_phaseMapView = nullptr;
   digitqt::core::pipeline::StageId m_currentStage = digitqt::core::pipeline::StageId::Setup;
 
   QComboBox *m_algorithmCombo;
@@ -58,6 +63,12 @@ private:
 
   QWidget *m_orderEditorRow;
   QDoubleSpinBox *m_orderSpin;
+
+  QWidget *m_wavelengthRow;
+  QDoubleSpinBox *m_wavelengthSpin;
+
+  QWidget *m_isolineStepRow;
+  QDoubleSpinBox *m_isolineStepSpin;
 
   QLabel *m_label;
 };

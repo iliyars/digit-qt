@@ -11,7 +11,7 @@ set(CMAKE_AUTOUIC ON)
 
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization)
 
 # Needed by BinaryThinningTracker (Fringe Binary Method: adaptive
 # threshold + Zhang-Suen skeletonization). On MSYS2 UCRT64:

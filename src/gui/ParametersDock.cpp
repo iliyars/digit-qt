@@ -1,12 +1,15 @@
 #include "ParametersDock.h"
 
 #include "canvas/FringeTracingController.h"
+#include "canvas/PhaseMapView.h"
 #include "core/Measurement.h"
 
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <cmath>
+
 
 namespace digitqt::gui {
 
@@ -19,6 +22,8 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_algorithmCombo(new QComboBox(this)),
       m_fringeCenterCombo(new QComboBox(this)),
       m_orderSpin(new QDoubleSpinBox(this)),
+      m_wavelengthSpin(new QDoubleSpinBox(this)),
+      m_isolineStepSpin(new QDoubleSpinBox(this)),
       m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
 
@@ -47,6 +52,17 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_orderSpin->setDecimals(2);
   connect(m_orderSpin, &QDoubleSpinBox::valueChanged, this,
           &ParametersDock::onFringeOrderSpinChanged);
+
+  m_wavelengthSpin->setRange(1.0, 20000.0);
+  m_wavelengthSpin->setDecimals(1);
+  m_wavelengthSpin->setSuffix(tr(" nm"));
+  connect(m_wavelengthSpin, &QDoubleSpinBox::valueChanged, this,
+          &ParametersDock::onWavelengthChanged);
+
+  m_isolineStepSpin->setRange(0.001, 100000.0);
+  m_isolineStepSpin->setDecimals(3);
+  connect(m_isolineStepSpin, &QDoubleSpinBox::valueChanged, this,
+          &ParametersDock::onIsolineStepChanged);
 
   m_label->setWordWrap(true);
   m_label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -77,6 +93,26 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_orderEditorRow);
   m_orderEditorRow->setVisible(false);
 
+  m_wavelengthRow = new QWidget(container);
+  auto *wavelengthLayout = new QVBoxLayout(m_wavelengthRow);
+  wavelengthLayout->setContentsMargins(0, 0, 0, 0);
+  auto *wavelengthLabel = new QLabel(tr("<b>Wavelength</b>"), m_wavelengthRow);
+  wavelengthLabel->setContentsMargins(8, 8, 8, 0);
+  wavelengthLayout->addWidget(wavelengthLabel);
+  wavelengthLayout->addWidget(m_wavelengthSpin);
+  layout->addWidget(m_wavelengthRow);
+  m_wavelengthRow->setVisible(false);
+
+  m_isolineStepRow = new QWidget(container);
+  auto *isolineLayout = new QVBoxLayout(m_isolineStepRow);
+  isolineLayout->setContentsMargins(0, 0, 0, 0);
+  auto *isolineLabel = new QLabel(tr("<b>Isoline step</b>"), m_isolineStepRow);
+  isolineLabel->setContentsMargins(8, 8, 8, 0);
+  isolineLayout->addWidget(isolineLabel);
+  isolineLayout->addWidget(m_isolineStepSpin);
+  layout->addWidget(m_isolineStepRow);
+  m_isolineStepRow->setVisible(false);
+
   layout->addWidget(m_label);
   layout->addStretch();
   setWidget(container);
@@ -101,6 +137,9 @@ void ParametersDock::setMeasurement(digitqt::core::Measurement *measurement) {
     }
 
     m_fringeCenterCombo->setEnabled(tracingData.algorithm() == TracerAlgorithm::ScanlineExtremum);
+
+    const QSignalBlocker blocker(m_wavelengthSpin);
+    m_wavelengthSpin->setValue(m_measurement->wavelengthNm());
   }
   refreshOrderEditor();
   refresh();
@@ -118,8 +157,25 @@ void ParametersDock::setFringeController(
   refreshOrderEditor();
 }
 
+void ParametersDock::setPhaseMapView(digitqt::gui::canvas::PhaseMapView *view) {
+  m_phaseMapView = view;
+}
+
 void ParametersDock::setStage(StageId id) {
   m_currentStage = id;
+  m_wavelengthRow->setVisible(id == StageId::S4);
+
+  const bool showIsolineStep = (id == StageId::S2 || id == StageId::S4);
+  m_isolineStepRow->setVisible(showIsolineStep);
+  if (showIsolineStep && m_phaseMapView) {
+    // setSource() (called by MainWindow just before this) already
+    // auto-adjusted the step for the newly-selected map's units --
+    // just reflect that here, don't override it.
+    const QSignalBlocker blocker(m_isolineStepSpin);
+    m_isolineStepSpin->setValue(m_phaseMapView->isolineStep());
+    m_isolineStepSpin->setSuffix(id == StageId::S4 ? tr(" nm") : QString());
+  }
+
   refresh();
 }
 
@@ -145,6 +201,17 @@ void ParametersDock::onFringeOrderSpinChanged(double value) {
   if (!editingIndex)
     return;
   m_fringeController->setLineOrder(*editingIndex, value);
+}
+
+void ParametersDock::onWavelengthChanged(double value) {
+  if (!m_measurement)
+    return;
+  m_measurement->setWavelengthNm(value);
+}
+
+void ParametersDock::onIsolineStepChanged(double value) {
+  if (m_phaseMapView)
+    m_phaseMapView->setIsolineStep(value);
 }
 
 void ParametersDock::refreshOrderEditor() {
@@ -195,6 +262,78 @@ void ParametersDock::refresh() {
                   .arg(tracingData.tracedLines().size());
     } else {
       text += tr("No image loaded yet. Use File → Open Image.");
+    }
+  } else if (m_currentStage == StageId::S2 && m_measurement) {
+    const auto &phase = m_measurement->phaseMap();
+    if (phase.isEmpty()) {
+      text +=
+          tr("Not computed yet. Press ▶ Compute phase in the toolbar "
+             "(needs numbered fringe lines from Setup first).");
+    } else {
+      text += tr("Grid: %1 × %2<br><br>"
+                 "Values are in fringe-order units (not yet physical "
+                 "length) -- see S4 (Wavefront Reconstruction) for that.")
+                  .arg(phase.width())
+                  .arg(phase.height());
+    }
+  } else if (m_currentStage == StageId::S4 && m_measurement) {
+    const auto &wavefront = m_measurement->wavefrontMap();
+    if (wavefront.isEmpty()) {
+      text +=
+          tr("Not computed yet. Set the wavelength above, then press "
+             "▶ Compute wavefront in the toolbar (needs S2 first).");
+    } else {
+      text += tr("Grid: %1 × %2<br>"
+                 "Wavelength: %3 nm<br><br>"
+                 "height = fringe order × wavelength / 2")
+                  .arg(wavefront.width())
+                  .arg(wavefront.height())
+                  .arg(m_measurement->wavelengthNm());
+    }
+  } else if (m_currentStage == StageId::S5 && m_measurement) {
+    const auto &modal = m_measurement->modalAnalysis();
+    if (modal.isEmpty()) {
+      text +=
+          tr("Not computed yet. Press ▶ Fit aberrations in the toolbar "
+             "(needs a wavefront map from S4 first).");
+    } else {
+      const auto &c = modal.coefficients;
+      const double astigMag = std::sqrt(c.astigX * c.astigX + c.astigY * c.astigY);
+      const double astigAngleDeg =
+          0.5 * std::atan2(c.astigY, c.astigX) * 180.0 / 3.14159265358979323846;
+      const double comaMag = std::sqrt(c.comaX * c.comaX + c.comaY * c.comaY);
+      const double comaAngleDeg = std::atan2(c.comaY, c.comaX) * 180.0 / 3.14159265358979323846;
+      const double trefoilMag = std::sqrt(c.trefoilX * c.trefoilX + c.trefoilY * c.trefoilY);
+      const double trefoilAngleDeg =
+          std::atan2(c.trefoilY, c.trefoilX) * 180.0 / 3.14159265358979323846 / 3.0;
+
+      text += tr("Setup geometry (not a surface property):<br>"
+                 "Piston: %1<br>"
+                 "Tilt X: %2<br>"
+                 "Tilt Y: %3<br>"
+                 "Defocus: %4<br><br>"
+                 "Surface aberrations:<br>"
+                 "Astigmatism: %5 at %6°<br>"
+                 "Coma: %7 at %8°<br>"
+                 "Trefoil: %9 at %10°<br>"
+                 "Spherical (3rd order): %11<br><br>"
+                 "RMS before: %12 nm<br>"
+                 "RMS after: %13 nm<br><br>"
+                 "The 3D view shows what's left after subtracting all of "
+                 "the above -- drag to rotate, scroll to zoom.")
+                  .arg(c.piston, 0, 'f', 1)
+                  .arg(c.tiltX, 0, 'f', 1)
+                  .arg(c.tiltY, 0, 'f', 1)
+                  .arg(c.defocus, 0, 'f', 1)
+                  .arg(astigMag, 0, 'f', 1)
+                  .arg(astigAngleDeg, 0, 'f', 0)
+                  .arg(comaMag, 0, 'f', 1)
+                  .arg(comaAngleDeg, 0, 'f', 0)
+                  .arg(trefoilMag, 0, 'f', 1)
+                  .arg(trefoilAngleDeg, 0, 'f', 0)
+                  .arg(c.spherical, 0, 'f', 1)
+                  .arg(modal.rmsBefore, 0, 'f', 1)
+                  .arg(modal.rmsAfter, 0, 'f', 1);
     }
   } else {
     text += tr("No parameters yet — this stage is not implemented.");

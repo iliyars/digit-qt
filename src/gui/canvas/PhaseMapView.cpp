@@ -1,9 +1,11 @@
 #include "PhaseMapView.h"
 
 #include "core/Measurement.h"
+#include "core/PhaseMap.h"
 
 #include <QPainter>
 #include <QPixmap>
+#include <QResizeEvent>
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
@@ -38,6 +40,10 @@ PhaseMapView::PhaseMapView(QWidget *parent) : QGraphicsView(parent) {
   setScene(&m_scene);
   setRenderHint(QPainter::Antialiasing, true);
   setDragMode(QGraphicsView::NoDrag);
+
+  m_legend = new ColorLegendWidget(this);
+  m_legend->setNoData();
+  repositionLegend();
 }
 
 void PhaseMapView::setMeasurement(digitqt::core::Measurement *measurement) {
@@ -57,6 +63,32 @@ void PhaseMapView::setMeasurement(digitqt::core::Measurement *measurement) {
   refresh();
 }
 
+void PhaseMapView::setSource(Source source) {
+  if (m_source == source)
+    return;
+  m_source = source;
+
+  // Значения карты домножаются на λ/2 при переходе Phase -> Wavefront
+  // (порядок полосы, ~0-15, становится нанометрами, ~0-5000). Шаг
+  // изолиний, разумный для одних единиц, совершенно неадекватен для
+  // других: тот же шаг 1.0 в нанометрах даёт в сотни раз больше линий,
+  // чем реальных полос -- сплошное месиво вместо читаемых контуров.
+  // Пересчитываем шаг так, чтобы одна изолиния снова соответствовала
+  // ровно одной физической полосе.
+  if (m_source == Source::Wavefront && m_measurement)
+    m_isolineStep = m_measurement->wavelengthNm() / 2.0;
+  else if (m_source == Source::Phase)
+    m_isolineStep = 1.0;
+
+  refresh();
+}
+
+const digitqt::core::PhaseMap *PhaseMapView::currentMap() const {
+  if (!m_measurement)
+    return nullptr;
+  return (m_source == Source::Phase) ? &m_measurement->phaseMap() : &m_measurement->wavefrontMap();
+}
+
 void PhaseMapView::refresh() {
   rebuildHeatmap();
   rebuildIsolines();
@@ -64,14 +96,18 @@ void PhaseMapView::refresh() {
 
 void PhaseMapView::setHeatmapVisible(bool visible) {
   m_heatmapVisible = visible;
+  const auto *map = currentMap();
   if (m_heatmapItem)
-    m_heatmapItem->setVisible(visible && m_measurement && !m_measurement->phaseMap().isEmpty());
+    m_heatmapItem->setVisible(visible && map && !map->isEmpty());
+  if (m_legend)
+    m_legend->setVisible(visible && map && !map->isEmpty());
 }
 
 void PhaseMapView::setIsolinesVisible(bool visible) {
   m_isolinesVisible = visible;
+  const auto *map = currentMap();
   if (m_isolinesItem)
-    m_isolinesItem->setVisible(visible && m_measurement && !m_measurement->phaseMap().isEmpty());
+    m_isolinesItem->setVisible(visible && map && !map->isEmpty());
 }
 
 void PhaseMapView::setIsolineStep(double step) {
@@ -84,6 +120,20 @@ void PhaseMapView::wheelEvent(QWheelEvent *event) {
   scale(factor, factor);
 }
 
+void PhaseMapView::resizeEvent(QResizeEvent *event) {
+  QGraphicsView::resizeEvent(event);
+  repositionLegend();
+}
+
+void PhaseMapView::repositionLegend() {
+  if (!m_legend)
+    return;
+  const QSize size = m_legend->sizeHint();
+  m_legend->resize(size);
+  m_legend->move(width() - size.width() - 12, 12);
+  m_legend->raise();
+}
+
 void PhaseMapView::rebuildHeatmap() {
   if (!m_heatmapItem) {
     m_heatmapItem = m_scene.addPixmap(QPixmap());
@@ -92,18 +142,26 @@ void PhaseMapView::rebuildHeatmap() {
     m_heatmapItem->setTransformationMode(Qt::SmoothTransformation);
   }
 
-  if (!m_measurement || m_measurement->phaseMap().isEmpty()) {
+  const auto *mapPtr = currentMap();
+  if (!mapPtr || mapPtr->isEmpty()) {
     m_heatmapItem->hide();
+    if (m_legend)
+      m_legend->setNoData();
     return;
   }
-
-  const auto &map = m_measurement->phaseMap();
+  const auto &map = *mapPtr;
   double minV = 0.0, maxV = 0.0;
   if (!computeRange(map, minV, maxV)) {
     m_heatmapItem->hide();
+    if (m_legend)
+      m_legend->setNoData();
     return;
   }
   const double range = (maxV > minV) ? (maxV - minV) : 1.0;
+
+  if (m_legend)
+    m_legend->setRange(minV, maxV,
+                       m_source == Source::Wavefront ? QStringLiteral(" nm") : QString());
 
   const int w = map.width();
   const int h = map.height();
@@ -142,12 +200,12 @@ void PhaseMapView::rebuildIsolines() {
     m_scene.addItem(m_isolinesItem);
   }
 
-  if (!m_measurement || m_measurement->phaseMap().isEmpty() || m_isolineStep <= 0.0) {
+  const auto *mapPtr = currentMap();
+  if (!mapPtr || mapPtr->isEmpty() || m_isolineStep <= 0.0) {
     m_isolinesItem->hide();
     return;
   }
-
-  const auto &map = m_measurement->phaseMap();
+  const auto &map = *mapPtr;
   double minV = 0.0, maxV = 0.0;
   if (!computeRange(map, minV, maxV)) {
     m_isolinesItem->hide();
