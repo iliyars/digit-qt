@@ -9,6 +9,8 @@ target_sources(DigitQt
         FringeOrdering.h
         FringeOrdering.cpp
         PhaseMap.h
+        ModalAnalysisResult.h
+        ModalAnalysisResult.h
 )
 
 add_subdirectory(commands)

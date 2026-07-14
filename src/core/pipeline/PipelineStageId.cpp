@@ -8,8 +8,6 @@ QString shortName(StageId id) {
       return QStringLiteral("Setup");
     case StageId::S2:
       return QStringLiteral("S2");
-    case StageId::S3:
-      return QStringLiteral("S3");
     case StageId::S4:
       return QStringLiteral("S4");
     case StageId::S4b:
@@ -30,8 +28,6 @@ QString displayName(StageId id) {
       return QStringLiteral("Setup (Image, Aperture, Markers, Fringe Tracing)");
     case StageId::S2:
       return QStringLiteral("Phase Reconstruction");
-    case StageId::S3:
-      return QStringLiteral("Phase Unwrapping");
     case StageId::S4:
       return QStringLiteral("Wavefront Reconstruction");
     case StageId::S4b:

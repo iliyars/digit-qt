@@ -1,8 +1,10 @@
 #include "Pipeline.h"
 
 #include "core/pipeline/NotYetImplementedStage.h"
+#include "core/pipeline/stages/ModalAnalysisStage.h"
 #include "core/pipeline/stages/PhaseReconstructionStage.h"
 #include "core/pipeline/stages/SetupStage.h"
+#include "core/pipeline/stages/WavefrontReconstructionStage.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -23,6 +25,10 @@ Pipeline::Pipeline() {
       m_stages[i] = std::make_unique<SetupStage>();
     else if (id == StageId::S2)
       m_stages[i] = std::make_unique<PhaseReconstructionStage>();
+    else if (id == StageId::S4)
+      m_stages[i] = std::make_unique<WavefrontReconstructionStage>();
+    else if (id == StageId::S5)
+      m_stages[i] = std::make_unique<ModalAnalysisStage>();
     else
       m_stages[i] = std::make_unique<NotYetImplementedStage>(id);
   }

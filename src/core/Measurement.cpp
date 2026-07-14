@@ -1,6 +1,7 @@
 #include "Measurement.h"
 
 #include <utility>
+
 namespace digitqt::core {
 
 void Measurement::setImage(QImage image, QString path) {
@@ -9,6 +10,9 @@ void Measurement::setImage(QImage image, QString path) {
   m_boundaries.clear();
   m_fringeTracing.clear();
   m_phaseMap.clear();
+  m_wavefrontMap.clear();
+  m_modalAnalysis = ModalAnalysisResult{};
   m_modified = true;
 }
+
 }  // namespace digitqt::core

@@ -10,7 +10,7 @@ namespace digitqt::core::pipeline {
 /// Canonical order the spec defines the stages in; also the
 /// dependency/invalidation order.
 inline constexpr std::array<StageId, 8> kCanonicalOrder = {
-    StageId::Setup, StageId::S2, StageId::S3, StageId::S4,
+    StageId::Setup, StageId::S2,  StageId::S4,
     StageId::S4b,   StageId::S5, StageId::S6, StageId::S7,
 };
 

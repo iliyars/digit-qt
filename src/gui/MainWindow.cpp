@@ -42,10 +42,12 @@ MainWindow::MainWindow(QWidget *parent)
   m_centralStack = new QStackedWidget(this);
   m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController, this);
   m_phaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
+  m_surface3DView = new digitqt::gui::canvas::Surface3DView(this);
   m_notImplementedPage = new NotImplementedPage(this);
   m_centralStack->addWidget(m_canvas);              // index 0: Setup
-  m_centralStack->addWidget(m_phaseMapView);        // index 1: S2 (Phase Reconstruction)
-  m_centralStack->addWidget(m_notImplementedPage);  // index 2: everything else
+  m_centralStack->addWidget(m_phaseMapView);        // index 1: S2/S4 (Phase/Wavefront)
+  m_centralStack->addWidget(m_surface3DView);       // index 2: S5 (Modal Analysis, 3D residual)
+  m_centralStack->addWidget(m_notImplementedPage);  // index 3: everything else
   setCentralWidget(m_centralStack);
 
   m_statusLabel = new QLabel(this);
@@ -67,9 +69,11 @@ MainWindow::MainWindow(QWidget *parent)
   m_fringeController->setPipeline(m_pipeline.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
+  m_surface3DView->setMeasurement(m_measurement.get());
   m_pipelineDock->setPipeline(m_pipeline.get());
   m_parametersDock->setMeasurement(m_measurement.get());
   m_parametersDock->setFringeController(m_fringeController);
+  m_parametersDock->setPhaseMapView(m_phaseMapView);
   onStageSelected(StageId::Setup);
   updateStatusBar();
 }
@@ -215,6 +219,39 @@ void MainWindow::buildMenusAndToolbars() {
       phaseToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Compute phase"));
   computePhaseAction->setToolTip(tr("Reconstruct the phase map from the numbered fringe lines"));
   connect(computePhaseAction, &QAction::triggered, this, &MainWindow::computePhase);
+
+  // --- Wavefront toolbar (S4: same heatmap/isolines toggles, own
+  // Compute button -- see the shared QAction objects below, which keep
+  // the toggle state in sync between both toolbars automatically) ---
+  auto *wavefrontToolBar = addToolBar(tr("Wavefront"));
+  m_wavefrontToolBar = wavefrontToolBar;
+  wavefrontToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  wavefrontToolBar->setIconSize(QSize(22, 22));
+  wavefrontToolBar->setMovable(false);
+
+  wavefrontToolBar->addAction(heatmapAction);
+  wavefrontToolBar->addAction(isolinesAction);
+  wavefrontToolBar->addSeparator();
+
+  auto *computeWavefrontAction = wavefrontToolBar->addAction(
+      style()->standardIcon(QStyle::SP_MediaPlay), tr("Compute wavefront"));
+  computeWavefrontAction->setToolTip(
+      tr("Convert the phase map to physical wavefront height (needs S2 first)"));
+  connect(computeWavefrontAction, &QAction::triggered, this, &MainWindow::computeWavefront);
+
+  // --- Modal Analysis toolbar (S5: just Compute -- the 3D view has its
+  // own built-in mouse rotate/zoom, no heatmap/isoline toggles needed) ---
+  auto *modalToolBar = addToolBar(tr("Modal Analysis"));
+  m_modalToolBar = modalToolBar;
+  modalToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  modalToolBar->setIconSize(QSize(22, 22));
+  modalToolBar->setMovable(false);
+
+  auto *computeModalAction =
+      modalToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Fit aberrations"));
+  computeModalAction->setToolTip(
+      tr("Fit piston/tilt/defocus/astigmatism and subtract them (needs S4 first)"));
+  connect(computeModalAction, &QAction::triggered, this, &MainWindow::computeModalAnalysis);
 }
 
 void MainWindow::buildLanguageMenu() {
@@ -260,19 +297,30 @@ void MainWindow::buildDocks() {
 void MainWindow::onStageSelected(StageId id) {
   const bool isSetup = (id == StageId::Setup);
   const bool isPhase = (id == StageId::S2);
+  const bool isWavefront = (id == StageId::S4);
+  const bool isModal = (id == StageId::S5);
 
   if (isSetup)
     m_centralStack->setCurrentIndex(0);
-  else if (isPhase)
+  else if (isPhase || isWavefront)
     m_centralStack->setCurrentIndex(1);
-  else
+  else if (isModal)
     m_centralStack->setCurrentIndex(2);
+  else
+    m_centralStack->setCurrentIndex(3);
 
-  if (!isSetup && !isPhase)
+  if (!isSetup && !isPhase && !isWavefront && !isModal)
     m_notImplementedPage->setStage(id);
+
+  if (isPhase)
+    m_phaseMapView->setSource(digitqt::gui::canvas::PhaseMapView::Source::Phase);
+  else if (isWavefront)
+    m_phaseMapView->setSource(digitqt::gui::canvas::PhaseMapView::Source::Wavefront);
 
   m_setupToolBar->setEnabled(isSetup);
   m_phaseToolBar->setEnabled(isPhase);
+  m_wavefrontToolBar->setEnabled(isWavefront);
+  m_modalToolBar->setEnabled(isModal);
 
   m_parametersDock->setStage(id);
 }
@@ -295,6 +343,26 @@ void MainWindow::computePhase() {
   updateStatusBar();
 }
 
+void MainWindow::computeWavefront() {
+  auto &stage = m_pipeline->stage(StageId::S4);
+  if (!stage.compute(*m_measurement)) {
+    QMessageBox::warning(this, tr("Wavefront Reconstruction"),
+                         tr("Wavefront reconstruction failed:\n%1").arg(stage.errorMessage()));
+  }
+  m_phaseMapView->refresh();
+  updateStatusBar();
+}
+
+void MainWindow::computeModalAnalysis() {
+  auto &stage = m_pipeline->stage(StageId::S5);
+  if (!stage.compute(*m_measurement)) {
+    QMessageBox::warning(this, tr("Modal Analysis"),
+                         tr("Modal analysis failed:\n%1").arg(stage.errorMessage()));
+  }
+  m_surface3DView->refresh();
+  updateStatusBar();
+}
+
 void MainWindow::openImage() {
   const QString path = QFileDialog::getOpenFileName(
       this, tr("Open Interferogram Image"), QString(),
@@ -314,6 +382,7 @@ void MainWindow::openImage() {
   m_fringeController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
+  m_surface3DView->setMeasurement(m_measurement.get());
   updateStatusBar();
 }
 

@@ -12,6 +12,10 @@ target_sources(DigitQt
         FringeTracingController.cpp
         PhaseMapView.h
         PhaseMapView.cpp
+        ColorLegendWidget.h
+        ColorLegendWidget.cpp
+        Surface3DView.h
+        Surface3DView.cpp
         ImageCanvas.h
         ImageCanvas.cpp
 )
