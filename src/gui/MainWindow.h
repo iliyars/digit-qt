@@ -51,6 +51,8 @@ private:
   digitqt::gui::canvas::ImageCanvas *m_canvas;
   digitqt::gui::canvas::PhaseMapView *m_phaseMapView;
   digitqt::gui::canvas::Surface3DView *m_surface3DView;
+  digitqt::gui::canvas::PhaseMapView
+      *m_modalPhaseMapView;  // 2D-вид остатка на странице S5, рядом с 3D
 
   QStackedWidget *m_centralStack;
   NotImplementedPage *m_notImplementedPage;

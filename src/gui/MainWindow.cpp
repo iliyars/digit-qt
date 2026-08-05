@@ -5,6 +5,7 @@
 #include "gui/ParametersDock.h"
 #include "gui/PipelineTreeDock.h"
 #include "io/ImageLoader.h"
+#include "io/MtrExporter.h"
 
 #include <QActionGroup>
 #include <QFileDialog>
@@ -14,6 +15,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QSettings>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
@@ -43,10 +45,21 @@ MainWindow::MainWindow(QWidget *parent)
   m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController, this);
   m_phaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
   m_surface3DView = new digitqt::gui::canvas::Surface3DView(this);
+  m_modalPhaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
   m_notImplementedPage = new NotImplementedPage(this);
-  m_centralStack->addWidget(m_canvas);              // index 0: Setup
-  m_centralStack->addWidget(m_phaseMapView);        // index 1: S2/S4 (Phase/Wavefront)
-  m_centralStack->addWidget(m_surface3DView);       // index 2: S5 (Modal Analysis, 3D residual)
+
+  // S5 page: 3D residual (left) + 2D heatmap/isolines of the same
+  // residual (right), side by side -- matches the reference tool's
+  // "3D | 2D contour" layout.
+  auto *modalSplitter = new QSplitter(Qt::Horizontal, this);
+  modalSplitter->addWidget(m_surface3DView);
+  modalSplitter->addWidget(m_modalPhaseMapView);
+  modalSplitter->setStretchFactor(0, 1);
+  modalSplitter->setStretchFactor(1, 1);
+
+  m_centralStack->addWidget(m_canvas);        // index 0: Setup
+  m_centralStack->addWidget(m_phaseMapView);  // index 1: S2/S4 (Phase/Wavefront)
+  m_centralStack->addWidget(modalSplitter);   // index 2: S5 (Modal Analysis, 3D + 2D residual)
   m_centralStack->addWidget(m_notImplementedPage);  // index 3: everything else
   setCentralWidget(m_centralStack);
 
@@ -70,6 +83,8 @@ MainWindow::MainWindow(QWidget *parent)
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
+  m_modalPhaseMapView->setMeasurement(m_measurement.get());
+  m_modalPhaseMapView->setSource(digitqt::gui::canvas::PhaseMapView::Source::Residual);
   m_pipelineDock->setPipeline(m_pipeline.get());
   m_parametersDock->setMeasurement(m_measurement.get());
   m_parametersDock->setFringeController(m_fringeController);
@@ -82,6 +97,30 @@ void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
   auto *openAction = fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
+  auto *exportMtrAction = fileMenu->addAction(tr("Export &Wavefront (.mtr)..."));
+  connect(exportMtrAction, &QAction::triggered, this, [this] {
+    if (m_measurement->wavefrontMap().isEmpty()) {
+      QMessageBox::warning(this, tr("Export"), tr("No wavefront map yet -- run S4 first."));
+      return;
+    }
+    const QString path = QFileDialog::getSaveFileName(this, tr("Export Wavefront"), QString(),
+                                                      tr("WinFringe Matrix (*.mtr)"));
+    if (path.isEmpty())
+      return;
+
+    // WinFringe ожидает волны (Units=WAV), у нас wavefrontMap() в нанометрах.
+    const auto &waves = m_measurement->phaseMap();
+    // const auto &wf = m_measurement->wavefrontMap();
+    // digitqt::core::PhaseMap waves(wf.width(), wf.height());
+    // for (int y = 0; y < wf.height(); ++y)
+    //   for (int x = 0; x < wf.width(); ++x)
+    //     if (wf.hasValue(x, y))
+    //       waves.setValue(x, y, wf.value(x, y) / m_measurement->wavelengthNm());
+
+    QString err;
+    if (!digitqt::core::io::writeMtrFile(path, waves, err))
+      QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
+  });
   openAction->setShortcut(QKeySequence::Open);
   fileMenu->addSeparator();
   fileMenu->addAction(tr("E&xit"), this, &QWidget::close);
@@ -205,12 +244,16 @@ void MainWindow::buildMenusAndToolbars() {
   heatmapAction->setChecked(true);
   connect(heatmapAction, &QAction::toggled, m_phaseMapView,
           &digitqt::gui::canvas::PhaseMapView::setHeatmapVisible);
+  connect(heatmapAction, &QAction::toggled, m_modalPhaseMapView,
+          &digitqt::gui::canvas::PhaseMapView::setHeatmapVisible);
 
   auto *isolinesAction =
       phaseToolBar->addAction(digitqt::gui::icons::isolinesIcon(), tr("Show isolines"));
   isolinesAction->setCheckable(true);
   isolinesAction->setChecked(false);
   connect(isolinesAction, &QAction::toggled, m_phaseMapView,
+          &digitqt::gui::canvas::PhaseMapView::setIsolinesVisible);
+  connect(isolinesAction, &QAction::toggled, m_modalPhaseMapView,
           &digitqt::gui::canvas::PhaseMapView::setIsolinesVisible);
 
   phaseToolBar->addSeparator();
@@ -239,13 +282,18 @@ void MainWindow::buildMenusAndToolbars() {
       tr("Convert the phase map to physical wavefront height (needs S2 first)"));
   connect(computeWavefrontAction, &QAction::triggered, this, &MainWindow::computeWavefront);
 
-  // --- Modal Analysis toolbar (S5: just Compute -- the 3D view has its
-  // own built-in mouse rotate/zoom, no heatmap/isoline toggles needed) ---
+  // --- Modal Analysis toolbar (S5: same heatmap/isolines toggles as
+  // S2/S4, controlling the 2D residual view next to the 3D one; plus
+  // Compute -- the 3D view has its own built-in mouse rotate/zoom) ---
   auto *modalToolBar = addToolBar(tr("Modal Analysis"));
   m_modalToolBar = modalToolBar;
   modalToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
   modalToolBar->setIconSize(QSize(22, 22));
   modalToolBar->setMovable(false);
+
+  modalToolBar->addAction(heatmapAction);
+  modalToolBar->addAction(isolinesAction);
+  modalToolBar->addSeparator();
 
   auto *computeModalAction =
       modalToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Fit aberrations"));
@@ -360,6 +408,7 @@ void MainWindow::computeModalAnalysis() {
                          tr("Modal analysis failed:\n%1").arg(stage.errorMessage()));
   }
   m_surface3DView->refresh();
+  m_modalPhaseMapView->refresh();
   updateStatusBar();
 }
 
@@ -383,6 +432,7 @@ void MainWindow::openImage() {
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
+  m_modalPhaseMapView->setMeasurement(m_measurement.get());
   updateStatusBar();
 }
 

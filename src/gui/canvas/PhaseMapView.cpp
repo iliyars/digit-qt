@@ -77,6 +77,8 @@ void PhaseMapView::setSource(Source source) {
   // ровно одной физической полосе.
   if (m_source == Source::Wavefront && m_measurement)
     m_isolineStep = m_measurement->wavelengthNm() / 2.0;
+  else if (m_source == Source::Residual && m_measurement)
+    m_isolineStep = m_measurement->wavelengthNm() / 20.0;  // остаток куда мельче исходного размаха
   else if (m_source == Source::Phase)
     m_isolineStep = 1.0;
 
@@ -86,7 +88,15 @@ void PhaseMapView::setSource(Source source) {
 const digitqt::core::PhaseMap *PhaseMapView::currentMap() const {
   if (!m_measurement)
     return nullptr;
-  return (m_source == Source::Phase) ? &m_measurement->phaseMap() : &m_measurement->wavefrontMap();
+  switch (m_source) {
+    case Source::Phase:
+      return &m_measurement->phaseMap();
+    case Source::Wavefront:
+      return &m_measurement->wavefrontMap();
+    case Source::Residual:
+      return &m_measurement->modalAnalysis().residual;
+  }
+  return nullptr;
 }
 
 void PhaseMapView::refresh() {
@@ -160,8 +170,7 @@ void PhaseMapView::rebuildHeatmap() {
   const double range = (maxV > minV) ? (maxV - minV) : 1.0;
 
   if (m_legend)
-    m_legend->setRange(minV, maxV,
-                       m_source == Source::Wavefront ? QStringLiteral(" nm") : QString());
+    m_legend->setRange(minV, maxV, m_source != Source::Phase ? QStringLiteral(" nm") : QString());
 
   const int w = map.width();
   const int h = map.height();

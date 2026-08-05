@@ -3,15 +3,40 @@
 #include "canvas/FringeTracingController.h"
 #include "canvas/PhaseMapView.h"
 #include "core/Measurement.h"
+#include "core/PhaseMap.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <cmath>
-
+#include <limits>
 
 namespace digitqt::gui {
+
+namespace {
+
+/// Диапазон известных значений карты (NaN игнорируются); PV = max - min.
+bool computeRange(const digitqt::core::PhaseMap &map, double &outMin, double &outMax) {
+  outMin = std::numeric_limits<double>::max();
+  outMax = std::numeric_limits<double>::lowest();
+  bool any = false;
+  for (int y = 0; y < map.height(); ++y) {
+    for (int x = 0; x < map.width(); ++x) {
+      if (!map.hasValue(x, y))
+        continue;
+      const double v = map.value(x, y);
+      outMin = std::min(outMin, v);
+      outMax = std::max(outMax, v);
+      any = true;
+    }
+  }
+  return any;
+}
+
+}  // namespace
 
 using digitqt::core::FringeCenterMode;
 using digitqt::core::TracerAlgorithm;
@@ -113,6 +138,31 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_isolineStepRow);
   m_isolineStepRow->setVisible(false);
 
+  m_modalTermsRow = new QWidget(container);
+  auto *modalLayout = new QVBoxLayout(m_modalTermsRow);
+  modalLayout->setContentsMargins(0, 0, 0, 0);
+  auto *modalLabel = new QLabel(tr("<b>Aberrations to subtract</b>"), m_modalTermsRow);
+  modalLabel->setContentsMargins(8, 8, 8, 0);
+  modalLayout->addWidget(modalLabel);
+
+  auto addTermCheck = [&](const QString &text) {
+    auto *box = new QCheckBox(text, m_modalTermsRow);
+    box->setChecked(true);
+    box->setContentsMargins(8, 0, 8, 0);
+    connect(box, &QCheckBox::toggled, this, &ParametersDock::onModalTermToggled);
+    modalLayout->addWidget(box);
+    return box;
+  };
+  m_termTiltCheck = addTermCheck(tr("Tilt"));
+  m_termDefocusCheck = addTermCheck(tr("Defocus (Pow)"));
+  m_termAstigCheck = addTermCheck(tr("Astigmatism"));
+  m_termComaCheck = addTermCheck(tr("Coma"));
+  m_termTrefoilCheck = addTermCheck(tr("Trefoil"));
+  m_termSphericalCheck = addTermCheck(tr("Spherical (3rd order)"));
+
+  layout->addWidget(m_modalTermsRow);
+  m_modalTermsRow->setVisible(false);
+
   layout->addWidget(m_label);
   layout->addStretch();
   setWidget(container);
@@ -176,6 +226,24 @@ void ParametersDock::setStage(StageId id) {
     m_isolineStepSpin->setSuffix(id == StageId::S4 ? tr(" nm") : QString());
   }
 
+  const bool showModalTerms = (id == StageId::S5);
+  m_modalTermsRow->setVisible(showModalTerms);
+  if (showModalTerms && m_measurement) {
+    const auto &sel = m_measurement->modalTermSelection();
+    const QSignalBlocker b1(m_termTiltCheck);
+    const QSignalBlocker b2(m_termDefocusCheck);
+    const QSignalBlocker b3(m_termAstigCheck);
+    const QSignalBlocker b4(m_termComaCheck);
+    const QSignalBlocker b5(m_termTrefoilCheck);
+    const QSignalBlocker b6(m_termSphericalCheck);
+    m_termTiltCheck->setChecked(sel.tilt);
+    m_termDefocusCheck->setChecked(sel.defocus);
+    m_termAstigCheck->setChecked(sel.astigmatism);
+    m_termComaCheck->setChecked(sel.coma);
+    m_termTrefoilCheck->setChecked(sel.trefoil);
+    m_termSphericalCheck->setChecked(sel.spherical);
+  }
+
   refresh();
 }
 
@@ -212,6 +280,18 @@ void ParametersDock::onWavelengthChanged(double value) {
 void ParametersDock::onIsolineStepChanged(double value) {
   if (m_phaseMapView)
     m_phaseMapView->setIsolineStep(value);
+}
+
+void ParametersDock::onModalTermToggled() {
+  if (!m_measurement)
+    return;
+  auto &sel = m_measurement->modalTermSelection();
+  sel.tilt = m_termTiltCheck->isChecked();
+  sel.defocus = m_termDefocusCheck->isChecked();
+  sel.astigmatism = m_termAstigCheck->isChecked();
+  sel.coma = m_termComaCheck->isChecked();
+  sel.trefoil = m_termTrefoilCheck->isChecked();
+  sel.spherical = m_termSphericalCheck->isChecked();
 }
 
 void ParametersDock::refreshOrderEditor() {
@@ -283,12 +363,17 @@ void ParametersDock::refresh() {
           tr("Not computed yet. Set the wavelength above, then press "
              "▶ Compute wavefront in the toolbar (needs S2 first).");
     } else {
+      double minV = 0.0, maxV = 0.0;
+      computeRange(wavefront, minV, maxV);
       text += tr("Grid: %1 × %2<br>"
-                 "Wavelength: %3 nm<br><br>"
+                 "Wavelength: %3 nm<br>"
+                 "PV: %4 nm (%5 λ)<br><br>"
                  "height = fringe order × wavelength / 2")
                   .arg(wavefront.width())
                   .arg(wavefront.height())
-                  .arg(m_measurement->wavelengthNm());
+                  .arg(m_measurement->wavelengthNm())
+                  .arg(maxV - minV, 0, 'f', 2)
+                  .arg((maxV - minV) / m_measurement->wavelengthNm(), 0, 'f', 3);
     }
   } else if (m_currentStage == StageId::S5 && m_measurement) {
     const auto &modal = m_measurement->modalAnalysis();
@@ -298,6 +383,7 @@ void ParametersDock::refresh() {
              "(needs a wavefront map from S4 first).");
     } else {
       const auto &c = modal.coefficients;
+      const auto &sel = modal.selection;
       const double astigMag = std::sqrt(c.astigX * c.astigX + c.astigY * c.astigY);
       const double astigAngleDeg =
           0.5 * std::atan2(c.astigY, c.astigX) * 180.0 / 3.14159265358979323846;
@@ -307,33 +393,78 @@ void ParametersDock::refresh() {
       const double trefoilAngleDeg =
           std::atan2(c.trefoilY, c.trefoilX) * 180.0 / 3.14159265358979323846 / 3.0;
 
+      const QString notSubtracted = tr("not subtracted -- still in residual");
+      const QString tiltStr =
+          sel.tilt ? tr("%1 / %2").arg(c.tiltX, 0, 'f', 1).arg(c.tiltY, 0, 'f', 1) : notSubtracted;
+      const QString defocusStr = sel.defocus ? QString::number(c.defocus, 'f', 1) : notSubtracted;
+      const QString astigStr =
+          sel.astigmatism ? tr("%1 at %2°").arg(astigMag, 0, 'f', 1).arg(astigAngleDeg, 0, 'f', 0)
+                          : notSubtracted;
+      const QString comaStr =
+          sel.coma ? tr("%1 at %2°").arg(comaMag, 0, 'f', 1).arg(comaAngleDeg, 0, 'f', 0)
+                   : notSubtracted;
+      const QString trefoilStr =
+          sel.trefoil ? tr("%1 at %2°").arg(trefoilMag, 0, 'f', 1).arg(trefoilAngleDeg, 0, 'f', 0)
+                      : notSubtracted;
+      const QString sphericalStr =
+          sel.spherical ? QString::number(c.spherical, 'f', 1) : notSubtracted;
+
+      double pvBefore = 0.0, pvAfter = 0.0;
+      {
+        double minB = 0.0, maxB = 0.0, minA = 0.0, maxA = 0.0;
+        if (computeRange(m_measurement->wavefrontMap(), minB, maxB))
+          pvBefore = maxB - minB;
+        if (computeRange(modal.residual, minA, maxA))
+          pvAfter = maxA - minA;
+      }
+
+      // rmsAfter -- это RMS остатка карты ВЫСОТЫ поверхности (см. S4:
+      // высота = порядок × λ/2, коэффициент 2 -- двойной проход при
+      // отражении). Волновой фронт (OPD) вдвое больше высоты, поэтому
+      // для Струма нужен именно он, а не высота напрямую.
+      //
+      // Приближение Марешаля: Strehl ≈ exp(-(2π·RMS_wavefront/λ)²) --
+      // справедливо для хорошо скорректированных систем (RMS ≲ 0.15λ);
+      // при большем RMS число становится неточным, но порядок величины
+      // годится для быстрой оценки.
+      const double rmsWaves = modal.rmsAfter / m_measurement->wavelengthNm();
+      const double rmsWavefrontWaves = 2.0 * rmsWaves;
+      const double strehl =
+          std::exp(-std::pow(2.0 * 3.14159265358979323846 * rmsWavefrontWaves, 2.0));
+
       text += tr("Setup geometry (not a surface property):<br>"
                  "Piston: %1<br>"
-                 "Tilt X: %2<br>"
-                 "Tilt Y: %3<br>"
-                 "Defocus: %4<br><br>"
+                 "Tilt X/Y: %2<br>"
+                 "Defocus: %3<br><br>"
                  "Surface aberrations:<br>"
-                 "Astigmatism: %5 at %6°<br>"
-                 "Coma: %7 at %8°<br>"
-                 "Trefoil: %9 at %10°<br>"
-                 "Spherical (3rd order): %11<br><br>"
-                 "RMS before: %12 nm<br>"
-                 "RMS after: %13 nm<br><br>"
-                 "The 3D view shows what's left after subtracting all of "
-                 "the above -- drag to rotate, scroll to zoom.")
+                 "Astigmatism: %4<br>"
+                 "Coma: %5<br>"
+                 "Trefoil: %6<br>"
+                 "Spherical (3rd order): %7<br><br>"
+                 "RMS before: %8 nm (%9 λ)<br>"
+                 "RMS after: %10 nm (%11 λ)<br>"
+                 "PV before: %12 nm (%13 λ)<br>"
+                 "PV after: %14 nm (%15 λ)<br>"
+                 "Strehl (Maréchal est.): %16<br><br>"
+                 "Use the checkboxes above to control what gets "
+                 "subtracted before re-fitting. The 3D view shows the "
+                 "residual -- drag to rotate, scroll to zoom.")
                   .arg(c.piston, 0, 'f', 1)
-                  .arg(c.tiltX, 0, 'f', 1)
-                  .arg(c.tiltY, 0, 'f', 1)
-                  .arg(c.defocus, 0, 'f', 1)
-                  .arg(astigMag, 0, 'f', 1)
-                  .arg(astigAngleDeg, 0, 'f', 0)
-                  .arg(comaMag, 0, 'f', 1)
-                  .arg(comaAngleDeg, 0, 'f', 0)
-                  .arg(trefoilMag, 0, 'f', 1)
-                  .arg(trefoilAngleDeg, 0, 'f', 0)
-                  .arg(c.spherical, 0, 'f', 1)
+                  .arg(tiltStr)
+                  .arg(defocusStr)
+                  .arg(astigStr)
+                  .arg(comaStr)
+                  .arg(trefoilStr)
+                  .arg(sphericalStr)
                   .arg(modal.rmsBefore, 0, 'f', 1)
-                  .arg(modal.rmsAfter, 0, 'f', 1);
+                  .arg(modal.rmsBefore / m_measurement->wavelengthNm(), 0, 'f', 3)
+                  .arg(modal.rmsAfter, 0, 'f', 1)
+                  .arg(rmsWaves, 0, 'f', 3)
+                  .arg(pvBefore, 0, 'f', 1)
+                  .arg(pvBefore / m_measurement->wavelengthNm(), 0, 'f', 3)
+                  .arg(pvAfter, 0, 'f', 1)
+                  .arg(pvAfter / m_measurement->wavelengthNm(), 0, 'f', 3)
+                  .arg(strehl, 0, 'f', 3);
     }
   } else {
     text += tr("No parameters yet — this stage is not implemented.");

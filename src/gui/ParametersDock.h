@@ -8,6 +8,7 @@
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
+class QCheckBox;
 class QWidget;
 
 namespace digitqt::core {
@@ -50,6 +51,7 @@ private slots:
   void onFringeOrderSpinChanged(double value);
   void onWavelengthChanged(double value);
   void onIsolineStepChanged(double value);
+  void onModalTermToggled();
   void refreshOrderEditor();
 
 private:
@@ -69,6 +71,14 @@ private:
 
   QWidget *m_isolineStepRow;
   QDoubleSpinBox *m_isolineStepSpin;
+
+  QWidget *m_modalTermsRow;
+  QCheckBox *m_termTiltCheck;
+  QCheckBox *m_termDefocusCheck;
+  QCheckBox *m_termAstigCheck;
+  QCheckBox *m_termComaCheck;
+  QCheckBox *m_termTrefoilCheck;
+  QCheckBox *m_termSphericalCheck;
 
   QLabel *m_label;
 };
