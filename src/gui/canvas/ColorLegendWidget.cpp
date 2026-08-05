@@ -10,7 +10,7 @@ namespace {
 constexpr int kBarWidth = 20;
 constexpr int kBarHeight = 140;
 constexpr int kMargin = 8;
-constexpr int kLabelWidth = 64;
+constexpr int kLabelWidth = 78;
 }  // namespace
 
 ColorLegendWidget::ColorLegendWidget(QWidget *parent) : QWidget(parent) {
@@ -68,7 +68,10 @@ void ColorLegendWidget::paintEvent(QPaintEvent * /*event*/) {
   font.setPointSize(9);
   painter.setFont(font);
 
-  const int decimals = m_unitSuffix.isEmpty() ? 2 : 0;
+  // Раньше нанометры округлялись до целых -- значения вроде -0.3 nm
+  // визуально пропадали, показываясь как "0 nm", хотя реально не были
+  // нулём. 2 знака достаточно, чтобы это стало видно.
+  constexpr int decimals = 2;
   const auto formatValue = [&](double v) {
     return QString::number(v, 'f', decimals) + m_unitSuffix;
   };

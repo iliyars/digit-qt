@@ -3,6 +3,7 @@
 #include "core/Measurement.h"
 #include "core/PhaseMap.h"
 
+#include <QFont>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QWheelEvent>
@@ -92,6 +93,34 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
 
   const int srcW = m_map->width();
   const int srcH = m_map->height();
+
+  // Истинный диапазон значений -- по ПОЛНОМУ разрешению карты, не по
+  // прорежённой сетке ниже. Раньше min/max считались уже после
+  // прореживания, и острые локальные пики/впадины (видны на графике
+  // как отдельные иглы) могли просто не попасть ни в один узел
+  // прорежённой сетки -- отсюда расхождение диапазона легенды с 2D-видом
+  // (тот всегда честно проходит по всем пикселям).
+  double minV = std::numeric_limits<double>::max();
+  double maxV = std::numeric_limits<double>::lowest();
+  bool anyFullRes = false;
+  for (int y = 0; y < srcH; ++y) {
+    for (int x = 0; x < srcW; ++x) {
+      if (!m_map->hasValue(x, y))
+        continue;
+      const double v = m_map->value(x, y);
+      minV = std::min(minV, v);
+      maxV = std::max(maxV, v);
+      anyFullRes = true;
+    }
+  }
+  if (!anyFullRes) {
+    painter.setPen(Qt::white);
+    painter.drawText(rect(), Qt::AlignCenter, tr("No data"));
+    if (m_legend)
+      m_legend->setNoData();
+    return;
+  }
+
   const int stepX = std::max(1, srcW / kGridTarget);
   const int stepY = std::max(1, srcH / kGridTarget);
 
@@ -111,8 +140,6 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
 
   std::vector<double> grid(static_cast<size_t>(gw) * static_cast<size_t>(gh),
                            std::numeric_limits<double>::quiet_NaN());
-  double minV = std::numeric_limits<double>::max();
-  double maxV = std::numeric_limits<double>::lowest();
   bool any = false;
   for (int j = 0; j < gh; ++j) {
     for (int i = 0; i < gw; ++i) {
@@ -120,8 +147,6 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
         continue;
       const double v = m_map->value(xs[static_cast<size_t>(i)], ys[static_cast<size_t>(j)]);
       grid[static_cast<size_t>(j) * static_cast<size_t>(gw) + static_cast<size_t>(i)] = v;
-      minV = std::min(minV, v);
-      maxV = std::max(maxV, v);
       any = true;
     }
   }
@@ -246,6 +271,52 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
     painter.setPen(edgePen);
     painter.drawPolygon(poly);
   }
+
+  // --- Оси координат: X/Y -- нормализованное положение в апертуре
+  // (-1..+1), Z -- сама величина карты (нм). Рисуются поверх
+  // поверхности той же проекцией, что и сама сетка, чтобы совпадать
+  // по ориентации при повороте мышью. ---
+  auto axisPoint = [&](double x, double y, double h) -> QPointF {
+    const double x1 = x * cosA - y * sinA;
+    const double y1 = x * sinA + y * cosA;
+    const double h2 = y1 * sinE + h * cosE;
+    return QPointF(center.x() + x1 * scale, center.y() - h2 * scale);
+  };
+
+  const double hBottom = -kHeightExaggeration;
+  const double hTop = kHeightExaggeration;
+  const QPointF axisOrigin = axisPoint(-1.0, -1.0, hBottom);
+  const QPointF xEnd = axisPoint(1.0, -1.0, hBottom);
+  const QPointF yEnd = axisPoint(-1.0, 1.0, hBottom);
+  const QPointF zEnd = axisPoint(-1.0, -1.0, hTop);
+
+  QPen axisPen(QColor(200, 200, 200, 210));
+  axisPen.setWidthF(1.0);
+  axisPen.setCosmetic(true);
+  painter.setPen(axisPen);
+  painter.drawLine(axisOrigin, xEnd);
+  painter.drawLine(axisOrigin, yEnd);
+  painter.drawLine(axisOrigin, zEnd);
+
+  QFont axisFont = painter.font();
+  axisFont.setPointSize(8);
+  axisFont.setBold(true);
+  painter.setFont(axisFont);
+  painter.setPen(QColor(225, 225, 225));
+  painter.drawText(xEnd + QPointF(4, 2), tr("X"));
+  painter.drawText(yEnd + QPointF(4, 2), tr("Y"));
+  painter.drawText(zEnd + QPointF(4, -4), tr("Z, %1").arg(m_unitSuffix.trimmed()));
+
+  QFont tickFont = painter.font();
+  tickFont.setBold(false);
+  tickFont.setPointSize(7);
+  painter.setFont(tickFont);
+  painter.setPen(QColor(170, 170, 170));
+  painter.drawText(axisOrigin + QPointF(-16, 14), QStringLiteral("-1"));
+  painter.drawText(xEnd + QPointF(-8, 14), QStringLiteral("+1"));
+  painter.drawText(yEnd + QPointF(4, 8), QStringLiteral("+1"));
+  painter.drawText(axisOrigin + QPointF(4, 0), QString::number(minV, 'f', 1));
+  painter.drawText(zEnd + QPointF(4, 12), QString::number(maxV, 'f', 1));
 }
 
 }  // namespace digitqt::gui::canvas

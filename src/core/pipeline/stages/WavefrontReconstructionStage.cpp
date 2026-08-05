@@ -17,7 +17,7 @@ bool WavefrontReconstructionStage::doCompute(digitqt::core::Measurement &measure
     return false;
   }
 
-  const double heightPerOrder = measurement.wavelengthNm() / 2.0;
+  const double heightPerOrder = measurement.wavelengthNm() / 2;
 
   PhaseMap wavefront(phase.width(), phase.height());
   for (int y = 0; y < phase.height(); ++y) {

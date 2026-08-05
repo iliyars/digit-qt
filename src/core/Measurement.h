@@ -52,10 +52,21 @@ public:
   double wavelengthNm() const { return m_wavelengthNm; }
   void setWavelengthNm(double nm) { m_wavelengthNm = nm; }
 
+  // Схема измерения: двойной проход (тест на отражение -- свет идёт
+  // через неровность поверхности туда и обратно, высота = порядок ×
+  // λ/2) или одинарный проход (тест на просвет -- измеренная величина
+  // это сразу аберрация волнового фронта, порядок × λ). См.
+  // WavefrontReconstructionStage.
+  bool isDoublePass() const { return m_doublePass; }
+  void setDoublePass(bool doublePass) { m_doublePass = doublePass; }
+
   PhaseMap &wavefrontMap() { return m_wavefrontMap; }
   const PhaseMap &wavefrontMap() const { return m_wavefrontMap; }
 
   // --- S5: подогнанные аберрации + остаток (реальная форма) ----------
+  ModalTermSelection &modalTermSelection() { return m_modalTermSelection; }
+  const ModalTermSelection &modalTermSelection() const { return m_modalTermSelection; }
+
   ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
   const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
 
@@ -70,7 +81,9 @@ private:
   PhaseMap m_phaseMap;
   double m_wavelengthNm =
       632.8;  // He-Ne laser -- самая распространённая длина волны в интерферометрии
+  bool m_doublePass = true;
   PhaseMap m_wavefrontMap;
+  ModalTermSelection m_modalTermSelection;
   ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;
 };

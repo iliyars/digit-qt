@@ -28,14 +28,15 @@ namespace digitqt::gui::canvas {
 class PhaseMapView : public QGraphicsView {
   Q_OBJECT
 public:
-  enum class Source { Phase, Wavefront };
+  enum class Source { Phase, Wavefront, Residual };
 
   explicit PhaseMapView(QWidget *parent = nullptr);
 
   void setMeasurement(digitqt::core::Measurement *measurement);
 
-  /// Какую карту показывать -- Measurement::phaseMap() (S2) или
-  /// Measurement::wavefrontMap() (S4). По умолчанию Phase.
+  /// Какую карту показывать -- Measurement::phaseMap() (S2),
+  /// Measurement::wavefrontMap() (S4) или Measurement::modalAnalysis()
+  /// .residual (S5). По умолчанию Phase.
   void setSource(Source source);
 
   /// Перечитать текущую карту (см. setSource()) и перерисовать и
