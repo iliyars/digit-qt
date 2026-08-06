@@ -60,7 +60,10 @@ private:
   digitqt::gui::canvas::PhaseMapView *m_phaseMapView = nullptr;
   digitqt::core::pipeline::StageId m_currentStage = digitqt::core::pipeline::StageId::Setup;
 
+  QWidget *m_algorithmRow;
   QComboBox *m_algorithmCombo;
+
+  QWidget *m_fringeCenterRow;
   QComboBox *m_fringeCenterCombo;
 
   QWidget *m_orderEditorRow;
