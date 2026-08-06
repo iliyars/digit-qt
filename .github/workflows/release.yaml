@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qt6-datavis3d
+            mingw-w64-ucrt-x86_64-opencv
+            mingw-w64-ucrt-x86_64-eigen3
+            mingw-w64-ucrt-x86_64-ntldd
+            mingw-w64-ucrt-x86_64-7zip
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Prepare dist folder
+        run: |
+          mkdir dist
+          cp build/src/DigitQt.exe dist/
+          cp -r build/src/translations dist/
+
+      - name: Deploy Qt dependencies
+        run: /ucrt64/bin/windeployqt.exe dist/DigitQt.exe --release --no-translations
+
+      - name: Deploy OpenCV & mingw runtime
+        run: |
+          for dll in $(ntldd -R dist/DigitQt.exe | grep -oi '/ucrt64/bin/[^ ]*\.dll'); do
+            cp "$dll" dist/ || true
+          done
+
+      - name: Package zip
+        run: |
+          cd dist
+          7z a ../DigitQt-${{ github.ref_name }}-windows-x64.zip *
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DigitQt-${{ github.ref_name }}-windows-x64.zip
+          draft: false
+          generate_release_notes: true
