@@ -365,10 +365,10 @@ void MainWindow::onStageSelected(StageId id) {
   else if (isWavefront)
     m_phaseMapView->setSource(digitqt::gui::canvas::PhaseMapView::Source::Wavefront);
 
-  m_setupToolBar->setEnabled(isSetup);
-  m_phaseToolBar->setEnabled(isPhase);
-  m_wavefrontToolBar->setEnabled(isWavefront);
-  m_modalToolBar->setEnabled(isModal);
+  m_setupToolBar->setVisible(isSetup);
+  m_phaseToolBar->setVisible(isPhase);
+  m_wavefrontToolBar->setVisible(isWavefront);
+  m_modalToolBar->setVisible(isModal);
 
   m_parametersDock->setStage(id);
 }

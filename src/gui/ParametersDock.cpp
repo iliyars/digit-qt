@@ -97,15 +97,23 @@ ParametersDock::ParametersDock(QWidget *parent)
   auto *container = new QWidget(this);
   auto *layout = new QVBoxLayout(container);
 
-  auto *algorithmLabel = new QLabel(tr("<b>Fringe tracing algorithm</b>"), container);
+  m_algorithmRow = new QWidget(container);
+  auto *algorithmLayout = new QVBoxLayout(m_algorithmRow);
+  algorithmLayout->setContentsMargins(0, 0, 0, 0);
+  auto *algorithmLabel = new QLabel(tr("<b>Fringe tracing algorithm</b>"), m_algorithmRow);
   algorithmLabel->setContentsMargins(8, 8, 8, 0);
-  layout->addWidget(algorithmLabel);
-  layout->addWidget(m_algorithmCombo);
+  algorithmLayout->addWidget(algorithmLabel);
+  algorithmLayout->addWidget(m_algorithmCombo);
+  layout->addWidget(m_algorithmRow);
 
-  auto *fringeCenterLabel = new QLabel(tr("<b>Fringe center</b>"), container);
+  m_fringeCenterRow = new QWidget(container);
+  auto *fringeCenterLayout = new QVBoxLayout(m_fringeCenterRow);
+  fringeCenterLayout->setContentsMargins(0, 0, 0, 0);
+  auto *fringeCenterLabel = new QLabel(tr("<b>Fringe center</b>"), m_fringeCenterRow);
   fringeCenterLabel->setContentsMargins(8, 8, 8, 0);
-  layout->addWidget(fringeCenterLabel);
-  layout->addWidget(m_fringeCenterCombo);
+  fringeCenterLayout->addWidget(fringeCenterLabel);
+  fringeCenterLayout->addWidget(m_fringeCenterCombo);
+  layout->addWidget(m_fringeCenterRow);
 
   m_orderEditorRow = new QWidget(container);
   auto *orderLayout = new QVBoxLayout(m_orderEditorRow);
@@ -213,6 +221,8 @@ void ParametersDock::setPhaseMapView(digitqt::gui::canvas::PhaseMapView *view) {
 
 void ParametersDock::setStage(StageId id) {
   m_currentStage = id;
+  m_algorithmRow->setVisible(id == StageId::Setup);
+  m_fringeCenterRow->setVisible(id == StageId::Setup);
   m_wavelengthRow->setVisible(id == StageId::S4);
 
   const bool showIsolineStep = (id == StageId::S2 || id == StageId::S4);
