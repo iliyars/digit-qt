@@ -40,12 +40,11 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
-      # ВАЖНО: замените "DigitQt.exe" и путь на реальное имя таргета
-      # из вашего src/CMakeLists.txt (add_executable(...))
       - name: Prepare dist folder
         run: |
           mkdir dist
           cp build/src/DigitQt.exe dist/
+          cp -r build/src/translations dist/
 
       - name: Deploy Qt dependencies
         run: /ucrt64/bin/windeployqt.exe dist/DigitQt.exe --release --no-translations --compiler-runtime
