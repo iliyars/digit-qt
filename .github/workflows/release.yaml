@@ -47,7 +47,7 @@ jobs:
           cp -r build/src/translations dist/
 
       - name: Deploy Qt dependencies
-        run: /ucrt64/bin/windeployqt.exe dist/DigitQt.exe --release --no-translations
+        run: /ucrt64/bin/windeployqt.exe dist/DigitQt.exe --release --no-translations --compiler-runtime
 
       - name: Deploy OpenCV & mingw runtime
         run: |
