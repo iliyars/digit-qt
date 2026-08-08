@@ -61,8 +61,8 @@ ParametersDock::ParametersDock(QWidget *parent)
                             static_cast<int>(TracerAlgorithm::ScanlineExtremum));
   m_algorithmCombo->addItem(tr("Binary Thinning Method (FBM)"),
                             static_cast<int>(TracerAlgorithm::BinaryThinning));
-  connect(m_algorithmCombo, &QComboBox::currentIndexChanged, this,
-          &ParametersDock::onAlgorithmChanged);
+  connect(m_algorithmCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &ParametersDock::onAlgorithmChanged);
 
   m_fringeCenterCombo->addItem(tr("Bright fringes only (Max)"),
                                static_cast<int>(FringeCenterMode::Max));
@@ -71,23 +71,23 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_fringeCenterCombo->addItem(tr("Both, alternating (MinMax)"),
                                static_cast<int>(FringeCenterMode::MinMax));
   m_fringeCenterCombo->setToolTip(tr("Only used by Scanline Extremum Method"));
-  connect(m_fringeCenterCombo, &QComboBox::currentIndexChanged, this,
-          &ParametersDock::onFringeCenterModeChanged);
+  connect(m_fringeCenterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &ParametersDock::onFringeCenterModeChanged);
 
   m_orderSpin->setRange(-999.0, 999.0);
   m_orderSpin->setDecimals(2);
-  connect(m_orderSpin, &QDoubleSpinBox::valueChanged, this,
+  connect(m_orderSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
           &ParametersDock::onFringeOrderSpinChanged);
 
   m_wavelengthSpin->setRange(1.0, 20000.0);
   m_wavelengthSpin->setDecimals(1);
   m_wavelengthSpin->setSuffix(tr(" nm"));
-  connect(m_wavelengthSpin, &QDoubleSpinBox::valueChanged, this,
+  connect(m_wavelengthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
           &ParametersDock::onWavelengthChanged);
 
   m_isolineStepSpin->setRange(0.001, 100000.0);
   m_isolineStepSpin->setDecimals(3);
-  connect(m_isolineStepSpin, &QDoubleSpinBox::valueChanged, this,
+  connect(m_isolineStepSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
           &ParametersDock::onIsolineStepChanged);
 
   m_label->setWordWrap(true);
@@ -182,7 +182,8 @@ ParametersDock::ParametersDock(QWidget *parent)
                             static_cast<int>(digitqt::core::ModalFitMethod::AnalyticZernike));
   m_fitMethodCombo->addItem(tr("Gram-Schmidt по апертуре (для апертур произвольной формы)"),
                             static_cast<int>(digitqt::core::ModalFitMethod::GramSchmidtOnAperture));
-  connect(m_fitMethodCombo, &QComboBox::currentIndexChanged, this, [this](int) {
+  connect(m_fitMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, [this](int) {
     if (m_measurement)
       m_measurement->modalFitMethod() =
           static_cast<digitqt::core::ModalFitMethod>(m_fitMethodCombo->currentData().toInt());

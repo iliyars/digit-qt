@@ -106,7 +106,7 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event) {
   }
 
   const QPointF scenePos = mapToScene(event->pos());
-  updateCursorInfoTooltip(scenePos, event->globalPosition().toPoint());
+  updateCursorInfoTooltip(scenePos, event->globalPos());
 
   if (m_activeController == ActiveController::Boundary)
     m_boundaryController->handleMove(scenePos);
