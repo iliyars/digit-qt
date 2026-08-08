@@ -11,6 +11,7 @@ target_sources(DigitQt
         PhaseMap.h
         ModalAnalysisResult.h
         ModalAnalysisResult.h
+        ModalFitMethod.h
 )
 
 add_subdirectory(commands)

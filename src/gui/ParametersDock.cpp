@@ -49,6 +49,7 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_orderSpin(new QDoubleSpinBox(this)),
       m_wavelengthSpin(new QDoubleSpinBox(this)),
       m_isolineStepSpin(new QDoubleSpinBox(this)),
+      m_fitMethodCombo(new QComboBox(this)),
       m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
 
@@ -171,6 +172,25 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_modalTermsRow);
   m_modalTermsRow->setVisible(false);
 
+  m_fitMethodRow = new QWidget(container);
+  auto *fitMethodLayout = new QVBoxLayout(m_fitMethodRow);
+  fitMethodLayout->setContentsMargins(0, 0, 0, 0);
+  auto *fitMethodLabel = new QLabel(tr("<b>Fit method</b>"), m_fitMethodRow);
+  fitMethodLabel->setContentsMargins(8, 8, 8, 0);
+  fitMethodLayout->addWidget(fitMethodLabel);
+  m_fitMethodCombo->addItem(tr("Analytic Zernike (совместимо с DAPSSIM/WinFringe)"),
+                            static_cast<int>(digitqt::core::ModalFitMethod::AnalyticZernike));
+  m_fitMethodCombo->addItem(tr("Gram-Schmidt по апертуре (для апертур произвольной формы)"),
+                            static_cast<int>(digitqt::core::ModalFitMethod::GramSchmidtOnAperture));
+  connect(m_fitMethodCombo, &QComboBox::currentIndexChanged, this, [this](int) {
+    if (m_measurement)
+      m_measurement->modalFitMethod() =
+          static_cast<digitqt::core::ModalFitMethod>(m_fitMethodCombo->currentData().toInt());
+  });
+  fitMethodLayout->addWidget(m_fitMethodCombo);
+  layout->addWidget(m_fitMethodRow);
+  m_fitMethodRow->setVisible(false);
+
   layout->addWidget(m_label);
   layout->addStretch();
   setWidget(container);
@@ -238,7 +258,13 @@ void ParametersDock::setStage(StageId id) {
 
   const bool showModalTerms = (id == StageId::S5);
   m_modalTermsRow->setVisible(showModalTerms);
+  m_fitMethodRow->setVisible(showModalTerms);
   if (showModalTerms && m_measurement) {
+    const QSignalBlocker fitMethodBlocker(m_fitMethodCombo);
+    const int fitMethodIndex =
+        m_fitMethodCombo->findData(static_cast<int>(m_measurement->modalFitMethod()));
+    if (fitMethodIndex >= 0)
+      m_fitMethodCombo->setCurrentIndex(fitMethodIndex);
     const auto &sel = m_measurement->modalTermSelection();
     const QSignalBlocker b1(m_termTiltCheck);
     const QSignalBlocker b2(m_termDefocusCheck);

@@ -1,6 +1,9 @@
 # Build output
 /build/
+/build-release/
 /out/
+/dist/
+/DigitQt-*.zip
 
 # CMake generated
 CMakeCache.txt
