@@ -1,12 +1,14 @@
 #pragma once
 
 #include "core/FringeTracingData.h"
+#include "core/ModalFitMethod.h"
 #include "core/ModalAnalysisResult.h"
 #include "core/PhaseMap.h"
 
 #include <QImage>
 #include <QString>
 #include <aperture/include/visibility/ShapeCollection.h>
+
 
 namespace digitqt::core {
 
@@ -67,6 +69,9 @@ public:
   ModalTermSelection &modalTermSelection() { return m_modalTermSelection; }
   const ModalTermSelection &modalTermSelection() const { return m_modalTermSelection; }
 
+  digitqt::core::ModalFitMethod &modalFitMethod() { return m_modalFitMethod; }
+  const digitqt::core::ModalFitMethod &modalFitMethod() const { return m_modalFitMethod; }
+
   ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
   const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
 
@@ -86,6 +91,7 @@ private:
   ModalTermSelection m_modalTermSelection;
   ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;
+  digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::AnalyticZernike;
 };
 
 }  // namespace digitqt::core

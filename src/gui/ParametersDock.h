@@ -4,7 +4,6 @@
 
 #include <QDockWidget>
 
-
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
@@ -82,6 +81,9 @@ private:
   QCheckBox *m_termComaCheck;
   QCheckBox *m_termTrefoilCheck;
   QCheckBox *m_termSphericalCheck;
+
+  QWidget *m_fitMethodRow;
+  QComboBox *m_fitMethodCombo;
 
   QLabel *m_label;
 };
