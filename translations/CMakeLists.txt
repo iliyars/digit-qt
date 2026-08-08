@@ -1,6 +1,6 @@
 set(DIGITQT_TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/DigitQt_ru.ts)
 
-qt6_add_translation(DIGITQT_QM_FILES ${DIGITQT_TS_FILES})
+qt5_add_translation(DIGITQT_QM_FILES ${DIGITQT_TS_FILES})
 add_custom_target(translations ALL DEPENDS ${DIGITQT_QM_FILES})
 add_dependencies(DigitQt translations)
 

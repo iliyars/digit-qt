@@ -4,10 +4,10 @@ CompileFlags:
     - -IC:/Ilya/dev/cpp/qt/DigitQt/src
     - -IC:/Ilya/dev/cpp/qt/DigitQt/src/aperture/include
     - -isystem
-    - C:/msys64/ucrt64/include/qt6
+    - C:/msys64/mingw64/include
     - -isystem
-    - C:/msys64/ucrt64/include/qt6/QtCore
+    - C:/msys64/mingw64/include/QtCore
     - -isystem
-    - C:/msys64/ucrt64/include/qt6/QtGui
+    - C:/msys64/mingw64/include/QtGui
     - -isystem
-    - C:/msys64/ucrt64/include/qt6/QtWidgets
+    - C:/msys64/mingw64/include/QtWidgets
