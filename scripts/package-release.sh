@@ -2,8 +2,10 @@
 # Собирает автономный Release-дистрибутив DigitQt для Windows (x64,
 # mingw64/Qt5) в dist/ и упаковывает его в zip -- то же самое, что делает
 # .github/workflows/release.yaml, но локально, чтобы проверить упаковку
-# до пуша тега. Запускать из MSYS2 mingw64 shell или Git Bash с
-# C:\msys64\mingw64\bin в PATH.
+# до пуша тега. Запускать через настоящий MSYS2 bash (C:\msys64\usr\bin\
+# bash.exe -- например `bash scripts/package-release.sh` из PowerShell),
+# не через Git Bash: скрипт полагается на собственную точку монтирования
+# MSYS2 /mingw64, а не на одноимённую (но другую) в Git Bash.
 #
 # Использование: scripts/package-release.sh [версия]
 #   версия по умолчанию берётся из `git describe --tags --always --dirty`.
@@ -12,7 +14,11 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 REPO_ROOT="$(pwd)"
 
-MINGW64=/c/msys64/mingw64
+# /mingw64 is MSYS2's own stable mount point for the MINGW64 environment
+# -- it resolves correctly regardless of which drive/directory MSYS2 was
+# actually installed to (hardcoding /c/msys64/mingw64 broke on the
+# GitHub-hosted runner, which installs it elsewhere).
+MINGW64=/mingw64
 BUILD_DIR=build-release
 DIST_DIR=dist
 # Static, TBB/IPP-free OpenCV (core+imgproc only) built by
@@ -78,13 +84,18 @@ echo "==> Deploying Qt dependencies"
 "$MINGW64/bin/windeployqt-qt5.exe" "$DIST_DIR/DigitQt.exe" --release --no-translations --compiler-runtime --no-angle --no-opengl-sw
 
 echo "==> Deploying OpenCV & MinGW runtime"
-# ntldd prints resolved paths with backslashes (e.g.
-# "C:\msys64\mingw64\bin\libopencv_core-413.dll => ..."); normalize to
-# forward slashes for cp. `|| true` on the grep: no matches would
-# otherwise make the pipeline fail under `pipefail` and abort the script.
+# ntldd prints resolved paths with backslashes and the real Windows
+# drive/directory MSYS2 lives in (e.g.
+# "D:\msys64\mingw64\bin\libgcc_s_seh-1.dll => ..."), which we don't
+# know in advance -- ask cygpath instead of hardcoding it. Normalize
+# both sides to forward slashes so the comparison doesn't have to deal
+# with backslash regex-escaping. `|| true` on the grep: no matches
+# would otherwise make the pipeline fail under `pipefail` and abort the
+# script.
+MINGW64_WIN_FWD="$(cygpath -w "$MINGW64" | tr '\\' '/')"
 "$MINGW64/bin/ntldd.exe" -R "$DIST_DIR/DigitQt.exe" \
-  | { grep -oi 'C:\\msys64\\mingw64\\bin\\[^ ]*\.dll' || true; } \
   | tr '\\' '/' \
+  | { grep -oi "$MINGW64_WIN_FWD/bin/[^ ]*\.dll" || true; } \
   | while read -r dll; do
       cp "$dll" "$DIST_DIR/" 2>/dev/null || true
     done

@@ -23,7 +23,11 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 REPO_ROOT="$(pwd)"
 
-MINGW64=/c/msys64/mingw64
+# /mingw64 is MSYS2's own stable mount point for the MINGW64 environment
+# -- it resolves correctly regardless of which drive/directory MSYS2 was
+# actually installed to (hardcoding /c/msys64/mingw64 broke on the
+# GitHub-hosted runner, which installs it elsewhere).
+MINGW64=/mingw64
 export PATH="/usr/bin:$MINGW64/bin:$PATH"
 
 OPENCV_VERSION=4.13.0
