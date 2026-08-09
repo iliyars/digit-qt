@@ -25,73 +25,62 @@ bool isActive(const TermDef &term, const digitqt::core::ModalTermSelection &sel)
   return term.flag == nullptr || sel.*(term.flag);
 }
 
-/// Способ 1: аналитические (классические, ненормированные) полиномы
-/// Цернике на единичном круге -- фиксированные формулы, определены раз и
-/// навсегда независимо от формы конкретной апертуры. Проверено
-/// синтетическим тестом с заранее известными коэффициентами: астигматизм
-/// совпал с референсным инструментом (DAPSSIM) 1:1, кома -- с
-/// множителем 3 (что и предсказывает классическая формула
-/// (3ρ³-2ρ)cosθ), сферическая -- согласно 6ρ⁴-6ρ²+1. Трефойл у
-/// референсного инструмента экспериментально выходит вдвое больше
-/// "учебниковой" ρ³cos3θ -- причины отдельно не нашёл, множитель чисто
-/// эмпирический.
-std::vector<TermDef> buildAnalyticZernikeHierarchy() {
+/// Базис термов -- прямая транскрипция полиномов референсного
+/// инструмента (DAPPSIM, Includes/Fitting.cpp, метод Seregin:
+/// GetTiltSeregin/GetPowerSeregin/GetAstigSeregin/GetComaSeregin/
+/// GetS3Seregin), а не "учебниковых" нормированных полиномов Цернике --
+/// коэффициенты выходят в тех же единицах и с тем же знаком, что и у
+/// референсного инструмента.
+///
+/// DAPPSIM переворачивает ось Y перед вычислением термов
+/// (Y = -(y-y0)/r0 -- оптическое соглашение "Y вверх", тогда как
+/// нормализованная координата сэмпла y здесь растёт вниз по строкам
+/// изображения); тот же переворот сделан прямо в формулах ниже (там, где
+/// Y входит в нечётной степени: tiltY, astigY, comaY, trefoilY), не
+/// трогая сами координаты сэмплов.
+///
+/// Астигматизм у DAPPSIM/Seregin на самом деле подгоняется тремя
+/// коэффициентами ((3X²-1)/2, XY, (3Y²-1)/2), а не двумя -- первый и
+/// третий не ортогональны дефокусу (в сумме дают ещё один
+/// дефокус-подобный член), это исторический артефакт последовательной (а
+/// не Грам-Шмидт) схемы подгонки DAPPSIM. Здесь вместо третьего
+/// коэффициента используется разность двух Seregin-термов
+/// ((3X²-1)/2 - (3Y²-1)/2 = 1.5(X²-Y²)) -- эквивалент "чистого"
+/// астигматизма без дефокусной примеси; численно совпадает с суммой
+/// соответствующих коэффициентов Seregin, если их собственная дефокусная
+/// примесь в данных мала (как и должно быть). Крест-терм (XY, с тем же
+/// переворотом Y) переносится как есть.
+///
+/// Используется в обоих способах (см. Measurement::modalFitMethod()):
+/// AnalyticZernike решает по этому базису совместный МНК без
+/// ортогонализации (как и сам Seregin, только не по стадиям, а сразу для
+/// всех выбранных термов -- корректный суммарный остаток при любом
+/// подмножестве выбранных термов), а GramSchmidtOnAperture дополнительно
+/// ортогонализует этот же базис численно по фактическим точкам апертуры
+/// (см. doCompute) -- после чего коэффициенты уже не совпадают с DAPPSIM
+/// напрямую, только суммарный остаток (RMS/PV) совпадает с
+/// AnalyticZernike.
+std::vector<TermDef> buildTermHierarchy() {
   using digitqt::core::ModalCoefficients;
   using digitqt::core::ModalTermSelection;
   return {
       {[](double, double) { return 1.0; }, &ModalCoefficients::piston, nullptr},
       {[](double x, double) { return x; }, &ModalCoefficients::tiltX, &ModalTermSelection::tilt},
-      {[](double, double y) { return y; }, &ModalCoefficients::tiltY, &ModalTermSelection::tilt},
-      {[](double x, double y) { return 2.0 * (x * x + y * y) - 1.0; }, &ModalCoefficients::defocus,
-       &ModalTermSelection::defocus},
-      {[](double x, double y) { return x * x - y * y; }, &ModalCoefficients::astigX,
-       &ModalTermSelection::astigmatism},
-      {[](double x, double y) { return 2.0 * x * y; }, &ModalCoefficients::astigY,
-       &ModalTermSelection::astigmatism},
-      {[](double x, double y) { return (3.0 * (x * x + y * y) - 2.0) * x; },
-       &ModalCoefficients::comaX, &ModalTermSelection::coma},
-      {[](double x, double y) { return (3.0 * (x * x + y * y) - 2.0) * y; },
-       &ModalCoefficients::comaY, &ModalTermSelection::coma},
-      {[](double x, double y) { return 2.0 * (x * x * x - 3.0 * x * y * y); },
-       &ModalCoefficients::trefoilX, &ModalTermSelection::trefoil},
-      {[](double x, double y) { return 2.0 * (3.0 * x * x * y - y * y * y); },
-       &ModalCoefficients::trefoilY, &ModalTermSelection::trefoil},
-      {[](double x, double y) {
-         const double r2 = x * x + y * y;
-         return 6.0 * r2 * r2 - 6.0 * r2 + 1.0;
-       },
-       &ModalCoefficients::spherical, &ModalTermSelection::spherical},
-  };
-}
-
-/// Способ 2: те же самые простые мономы, что и раньше, ортогонализуются
-/// численно (Грам-Шмидт) ПРЯМО по фактическим точкам апертуры этого
-/// снимка -- не по аналитическим формулам для идеального круга. Работает
-/// для апертуры любой формы (с вырезами, неровным краем), и гарантирует
-/// независимость коэффициентов друг от друга именно на этих данных, но
-/// результат привязан к конкретной апертуре и не совпадёт напрямую с
-/// другими программами (см. ModalFitMethod::GramSchmidtOnAperture).
-std::vector<TermDef> buildMonomialHierarchy() {
-  using digitqt::core::ModalCoefficients;
-  using digitqt::core::ModalTermSelection;
-  return {
-      {[](double, double) { return 1.0; }, &ModalCoefficients::piston, nullptr},
-      {[](double x, double) { return x; }, &ModalCoefficients::tiltX, &ModalTermSelection::tilt},
-      {[](double, double y) { return y; }, &ModalCoefficients::tiltY, &ModalTermSelection::tilt},
+      {[](double, double y) { return -y; }, &ModalCoefficients::tiltY, &ModalTermSelection::tilt},
       {[](double x, double y) { return x * x + y * y; }, &ModalCoefficients::defocus,
        &ModalTermSelection::defocus},
-      {[](double x, double y) { return x * x - y * y; }, &ModalCoefficients::astigX,
+      {[](double x, double y) { return 1.5 * (x * x - y * y); }, &ModalCoefficients::astigX,
        &ModalTermSelection::astigmatism},
-      {[](double x, double y) { return x * y; }, &ModalCoefficients::astigY,
+      {[](double x, double y) { return -x * y; }, &ModalCoefficients::astigY,
        &ModalTermSelection::astigmatism},
-      {[](double x, double y) { return x * (x * x + y * y); }, &ModalCoefficients::comaX,
-       &ModalTermSelection::coma},
-      {[](double x, double y) { return y * (x * x + y * y); }, &ModalCoefficients::comaY,
-       &ModalTermSelection::coma},
-      {[](double x, double y) { return x * x * x - 3.0 * x * y * y; }, &ModalCoefficients::trefoilX,
-       &ModalTermSelection::trefoil},
-      {[](double x, double y) { return 3.0 * x * x * y - y * y * y; }, &ModalCoefficients::trefoilY,
-       &ModalTermSelection::trefoil},
+      {[](double x, double y) { return x * x * x + x * y * y - (2.0 / 3.0) * x; },
+       &ModalCoefficients::comaX, &ModalTermSelection::coma},
+      {[](double x, double y) { return (2.0 / 3.0) * y - y * (x * x + y * y); },
+       &ModalCoefficients::comaY, &ModalTermSelection::coma},
+      {[](double x, double y) { return 3.0 * x * y * y - x * x * x; },
+       &ModalCoefficients::trefoilX, &ModalTermSelection::trefoil},
+      {[](double x, double y) { return 3.0 * x * x * y - y * y * y; },
+       &ModalCoefficients::trefoilY, &ModalTermSelection::trefoil},
       {[](double x, double y) {
          const double r2 = x * x + y * y;
          return r2 * r2;
@@ -177,8 +166,8 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
   Eigen::VectorXd fit = Eigen::VectorXd::Zero(n);
 
   if (method == digitqt::core::ModalFitMethod::AnalyticZernike) {
-    // --- Способ 1: обычный МНК на фиксированном аналитическом базисе ---
-    const auto hierarchy = buildAnalyticZernikeHierarchy();
+    // --- Способ 1: обычный МНК на фиксированном базисе Seregin ---
+    const auto hierarchy = buildTermHierarchy();
 
     std::vector<const TermDef *> active;
     for (const auto &t : hierarchy)
@@ -205,7 +194,7 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
     fit = A * coeffs;
   } else {
     // --- Способ 2: Грам-Шмидт по фактическим точкам апертуры ---
-    const auto hierarchy = buildMonomialHierarchy();
+    const auto hierarchy = buildTermHierarchy();
     const auto numTerms = static_cast<Eigen::Index>(hierarchy.size());
 
     const auto activeCount =
