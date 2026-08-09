@@ -178,6 +178,58 @@ PhaseMap PhaseReconstructor::reconstruct(int width, int height,
     return {};
   }
 
+  // 2. Строки с <2 пересечений остаются NaN -- типично у полюса апертуры,
+  // где полосы слишком тесно сжаты для построчного метода. Если оставить
+  // как есть, граница "есть данные/нет данных" получается плоской
+  // горизонталью вместо повторения формы апертуры (целая строка пропадает
+  // разом), и WinFringe обводит этот искусственный обрыв отдельной
+  // изолинией, окрашенной по градиенту Z вдоль него -- выглядит как
+  // лишняя горизонтальная линия сверху/снизу. Подтягиваем такие пиксели
+  // по вертикали: линейно между ближайшими решёнными строками сверху и
+  // снизу в том же столбце (или просто ближайшим значением, если решённая
+  // строка есть только с одной стороны) -- край получается гладким, как у
+  // настоящей апертуры.
+  for (int x = 0; x < width; ++x) {
+    std::vector<double> aboveValue(height, std::numeric_limits<double>::quiet_NaN());
+    std::vector<int> aboveDist(height, -1);
+    double lastValue = std::numeric_limits<double>::quiet_NaN();
+    int lastDist = -1;
+    for (int y = 0; y < height; ++y) {
+      if (result.hasValue(x, y)) {
+        lastValue = result.value(x, y);
+        lastDist = 0;
+      } else if (lastDist >= 0) {
+        ++lastDist;
+      }
+      aboveValue[y] = lastValue;
+      aboveDist[y] = lastDist;
+    }
+
+    lastValue = std::numeric_limits<double>::quiet_NaN();
+    lastDist = -1;
+    for (int y = height - 1; y >= 0; --y) {
+      if (result.hasValue(x, y)) {
+        lastValue = result.value(x, y);
+        lastDist = 0;
+      } else if (lastDist >= 0) {
+        ++lastDist;
+      }
+      if (result.hasValue(x, y) || !isVisible(x, y))
+        continue;
+
+      const int dAbove = aboveDist[y];
+      const int dBelow = lastDist;
+      if (dAbove >= 0 && dBelow >= 0) {
+        result.setValue(x, y, (aboveValue[y] * dBelow + lastValue * dAbove) /
+                                  static_cast<double>(dAbove + dBelow));
+      } else if (dAbove >= 0) {
+        result.setValue(x, y, aboveValue[y]);
+      } else if (dBelow >= 0) {
+        result.setValue(x, y, lastValue);
+      }
+    }
+  }
+
   return result;
 }
 
