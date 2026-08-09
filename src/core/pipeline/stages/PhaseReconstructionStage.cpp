@@ -10,7 +10,11 @@
 namespace digitqt::core::pipeline {
 
 namespace {
-constexpr int kMaxGridDimension = 400;
+// Caps the solver grid's long side for speed. Keeps closely-spaced
+// fringe lines from aliasing onto the same grid row/column, which would
+// otherwise merge distinct fringe crossings in PhaseReconstructor's
+// per-row spline fit.
+constexpr int kMaxGridDimension = 5000;
 }
 
 bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement,

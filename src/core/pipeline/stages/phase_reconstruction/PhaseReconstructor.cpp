@@ -1,201 +1,181 @@
 /**
  * @file PhaseReconstructor.cpp
- * @brief Решение уравнения Лапласа для восстановления фазы между
- * пронумерованными линиями полос. По мотивам WavefrontSolver
- * /IsoLinesToTopogram из оригинального проекта Digit.
+ * @brief Построчная кубическая сплайн-интерполяция фазы по
+ * пронумерованным линиям полос. Порт
+ * WavefrontFromContoursSolver_HorizontalSpline из оригинального проекта
+ * Digit -- метода, которым там реально формируется .mtr при экспорте.
  */
 #include "PhaseReconstructor.h"
 
-#include <Eigen/IterativeLinearSolvers>
-#include <Eigen/Sparse>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <vector>
-
 
 namespace digitqt::core::pipeline {
 
 namespace {
 
-/// Растеризация отрезка (алгоритм Брезенхэма) со значением value в
-/// каждый проходимый пиксель сетки known (если он виден).
-void rasterizeSegment(std::vector<double> &known, const std::vector<char> &visible, int width,
-                      int height, int x0, int y0, int x1, int y1, double value) {
-  const int dx = std::abs(x1 - x0);
-  const int dy = -std::abs(y1 - y0);
-  const int sx = (x0 < x1) ? 1 : -1;
-  const int sy = (y0 < y1) ? 1 : -1;
-  int err = dx + dy;
+struct FringeCrossing {
+  double x;
+  double value;
+  bool operator<(const FringeCrossing &other) const { return x < other.x; }
+};
 
-  int x = x0, y = y0;
-  while (true) {
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-      const size_t idx =
-          static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      if (visible[idx])
-        known[idx] = value;
-    }
-    if (x == x1 && y == y1)
-      break;
-    const int e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y += sy;
+/// Точки пересечения всех пронумерованных линий с горизонталью y=worldY,
+/// отсортированные по X. Порт
+/// WavefrontFromContoursContext::findFringeCrossings: полуоткрытое
+/// правило [ymin, ymax) для наклонных сегментов, чтобы горизонталь,
+/// проходящая точно через общую вершину двух сегментов, не давала
+/// пересечение дважды.
+std::vector<FringeCrossing> findFringeCrossings(double worldY,
+                                                const std::vector<NumberedFringeLine> &lines) {
+  std::vector<FringeCrossing> crossings;
+  constexpr double eps = 1e-12;
+
+  for (const auto &line : lines) {
+    const auto &pts = line.points;
+    for (size_t i = 0; i + 1 < pts.size(); ++i) {
+      const double x0 = pts[i].x, y0 = pts[i].y;
+      const double x1 = pts[i + 1].x, y1 = pts[i + 1].y;
+
+      if (std::abs(y1 - y0) < eps) {
+        if (std::abs(worldY - y0) < eps)
+          crossings.push_back({0.5 * (x0 + x1), line.order});
+        continue;
+      }
+
+      const double ymin = std::min(y0, y1);
+      const double ymax = std::max(y0, y1);
+      if (worldY >= ymin - eps && worldY < ymax - eps) {
+        const double t = (worldY - y0) / (y1 - y0);
+        crossings.push_back({x0 + t * (x1 - x0), line.order});
+      }
     }
   }
+
+  std::sort(crossings.begin(), crossings.end());
+  return crossings;
 }
+
+/// Натуральный кубический сплайн через (x, value) точки пересечения,
+/// с экстраполяцией за крайние точки крайним сегментом. Требует не
+/// менее 2 точек. Порт
+/// WavefrontFromContoursSolver_HorizontalSpline::SplineCoefficients
+/// (метод Томаса для трёхдиагональной системы вторых производных).
+class NaturalCubicSpline {
+public:
+  explicit NaturalCubicSpline(const std::vector<FringeCrossing> &crossings) {
+    const int n = static_cast<int>(crossings.size());
+    m_x.resize(n);
+    m_a.resize(n);
+    for (int i = 0; i < n; ++i) {
+      m_x[i] = crossings[i].x;
+      m_a[i] = crossings[i].value;
+    }
+
+    if (n == 2) {
+      m_b.resize(1);
+      m_c.assign(1, 0.0);
+      m_d.assign(1, 0.0);
+      const double h = m_x[1] - m_x[0];
+      m_b[0] = (std::abs(h) > 1e-10) ? (m_a[1] - m_a[0]) / h : 0.0;
+      return;
+    }
+
+    std::vector<double> h(n - 1);
+    for (int i = 0; i < n - 1; ++i)
+      h[i] = m_x[i + 1] - m_x[i];
+
+    std::vector<double> alpha(n, 0.0);
+    for (int i = 1; i < n - 1; ++i)
+      alpha[i] = 3.0 * ((m_a[i + 1] - m_a[i]) / h[i] - (m_a[i] - m_a[i - 1]) / h[i - 1]);
+
+    std::vector<double> l(n, 1.0), mu(n, 0.0), z(n, 0.0);
+    for (int i = 1; i < n - 1; ++i) {
+      l[i] = 2.0 * (m_x[i + 1] - m_x[i - 1]) - h[i - 1] * mu[i - 1];
+      if (std::abs(l[i]) < 1e-10)
+        l[i] = 1e-10;  // избегаем деления на ноль на почти вырожденных узлах
+      mu[i] = h[i] / l[i];
+      z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+    }
+
+    // Натуральные граничные условия: c[0] = c[n-1] = 0.
+    m_c.assign(n, 0.0);
+    m_b.resize(n - 1);
+    m_d.resize(n - 1);
+    for (int j = n - 2; j >= 0; --j) {
+      m_c[j] = z[j] - mu[j] * m_c[j + 1];
+      m_b[j] = (m_a[j + 1] - m_a[j]) / h[j] - h[j] * (m_c[j + 1] + 2.0 * m_c[j]) / 3.0;
+      m_d[j] = (m_c[j + 1] - m_c[j]) / (3.0 * h[j]);
+    }
+  }
+
+  double evaluate(double xi) const {
+    const int n = static_cast<int>(m_x.size());
+
+    if (xi <= m_x[0]) {
+      const double dx = xi - m_x[0];
+      return m_a[0] + m_b[0] * dx + m_c[0] * dx * dx + m_d[0] * dx * dx * dx;
+    }
+    if (xi >= m_x[n - 1]) {
+      const int i = n - 2;
+      const double dx = xi - m_x[i];
+      return m_a[i] + m_b[i] * dx + m_c[i] * dx * dx + m_d[i] * dx * dx * dx;
+    }
+
+    int i = 0, j = n - 1;
+    while (j - i > 1) {
+      const int k = (i + j) / 2;
+      if (xi < m_x[k])
+        j = k;
+      else
+        i = k;
+    }
+    const double dx = xi - m_x[i];
+    return m_a[i] + m_b[i] * dx + m_c[i] * dx * dx + m_d[i] * dx * dx * dx;
+  }
+
+private:
+  std::vector<double> m_x, m_a, m_b, m_c, m_d;
+};
 
 }  // namespace
 
 PhaseMap PhaseReconstructor::reconstruct(int width, int height,
                                          const std::function<bool(int, int)> &isVisible,
-                                         const std::vector<NumberedFringeLine> &lines,
-                                         const PhaseReconstructionParams &params) {
+                                         const std::vector<NumberedFringeLine> &lines) {
   m_lastError.clear();
 
   if (width <= 0 || height <= 0) {
     m_lastError = QStringLiteral("Invalid grid size");
     return {};
   }
-
-  const size_t n = static_cast<size_t>(width) * static_cast<size_t>(height);
-
-  // 1. Маска видимости на сетке решения.
-  std::vector<char> visible(n, 0);
-  for (int y = 0; y < height; ++y)
-    for (int x = 0; x < width; ++x)
-      if (isVisible(x, y))
-        visible[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)] = 1;
-
-  // 2. Растеризация линий -- известные (Dirichlet) значения.
-  std::vector<double> known(n, std::numeric_limits<double>::quiet_NaN());
-  bool anyKnown = false;
-  for (const auto &line : lines) {
-    const auto &pts = line.points;
-    for (size_t i = 0; i + 1 < pts.size(); ++i) {
-      const int x0 = static_cast<int>(std::lround(pts[i].x));
-      const int y0 = static_cast<int>(std::lround(pts[i].y));
-      const int x1 = static_cast<int>(std::lround(pts[i + 1].x));
-      const int y1 = static_cast<int>(std::lround(pts[i + 1].y));
-      rasterizeSegment(known, visible, width, height, x0, y0, x1, y1, line.order);
-      anyKnown = true;
-    }
-    if (pts.size() == 1) {
-      const int x0 = static_cast<int>(std::lround(pts[0].x));
-      const int y0 = static_cast<int>(std::lround(pts[0].y));
-      if (x0 >= 0 && x0 < width && y0 >= 0 && y0 < height) {
-        const size_t idx =
-            static_cast<size_t>(y0) * static_cast<size_t>(width) + static_cast<size_t>(x0);
-        if (visible[idx]) {
-          known[idx] = line.order;
-          anyKnown = true;
-        }
-      }
-    }
-  }
-
-  if (!anyKnown) {
+  if (lines.empty()) {
     m_lastError = QStringLiteral("No numbered fringe lines to reconstruct from");
     return {};
   }
 
-  // 3. Индексация неизвестных (видимых, но не известных) пикселей.
-  std::vector<long> unknownIndex(n, -1);
-  long unknownCount = 0;
-  for (size_t i = 0; i < n; ++i) {
-    if (visible[i] && !(known[i] == known[i]))  // NaN != NaN
-      unknownIndex[i] = unknownCount++;
-  }
-
   PhaseMap result(width, height);
-
-  // Известные пиксели переносим в результат сразу.
-  for (int y = 0; y < height; ++y)
-    for (int x = 0; x < width; ++x) {
-      const size_t idx =
-          static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      if (visible[idx] && known[idx] == known[idx])
-        result.setValue(x, y, known[idx]);
-    }
-
-  if (unknownCount == 0)
-    return result;  // все видимые пиксели уже известны (или апертура пуста)
-
-  // 4. Сборка разреженной матрицы уравнения Лапласа: для каждого
-  // неизвестного пикселя p с соседями внутри апертуры:
-  //   (число видимых соседей) * z_p - sum(z_соседей-неизвестных) =
-  //     sum(значений соседей-известных)
-  // Соседи вне апертуры просто не учитываются -- это и есть
-  // естественное условие Неймана на краю апертуры.
-  using SpMat = Eigen::SparseMatrix<double>;
-  std::vector<Eigen::Triplet<double>> triplets;
-  triplets.reserve(static_cast<size_t>(unknownCount) * 5);
-  Eigen::VectorXd rhs = Eigen::VectorXd::Zero(unknownCount);
-
-  static const int dx4[4] = {1, -1, 0, 0};
-  static const int dy4[4] = {0, 0, 1, -1};
+  bool anyRow = false;
 
   for (int y = 0; y < height; ++y) {
+    const auto crossings = findFringeCrossings(static_cast<double>(y), lines);
+    if (crossings.size() < 2)
+      continue;  // недостаточно данных для сплайна -- строка остаётся NaN, как в оригинале
+
+    const NaturalCubicSpline spline(crossings);
+    anyRow = true;
     for (int x = 0; x < width; ++x) {
-      const size_t idx =
-          static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      const long row = unknownIndex[idx];
-      if (row < 0)
+      if (!isVisible(x, y))
         continue;
-
-      double diagonal = 0.0;
-      for (int k = 0; k < 4; ++k) {
-        const int nx = x + dx4[k];
-        const int ny = y + dy4[k];
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
-          continue;
-        const size_t nIdx =
-            static_cast<size_t>(ny) * static_cast<size_t>(width) + static_cast<size_t>(nx);
-        if (!visible[nIdx])
-          continue;
-
-        diagonal += 1.0;
-        if (known[nIdx] == known[nIdx]) {
-          rhs(row) += known[nIdx];
-        } else {
-          triplets.emplace_back(row, unknownIndex[nIdx], -1.0);
-        }
-      }
-
-      if (diagonal <= 0.0) {
-        // Полностью изолированный пиксель (нет ни одного видимого
-        // соседа) -- избегаем вырожденной строки, фиксируем в 0.
-        diagonal = 1.0;
-        rhs(row) = 0.0;
-      }
-      triplets.emplace_back(row, row, diagonal);
+      result.setValue(x, y, spline.evaluate(static_cast<double>(x)));
     }
   }
 
-  SpMat A(unknownCount, unknownCount);
-  A.setFromTriplets(triplets.begin(), triplets.end());
-
-  Eigen::ConjugateGradient<SpMat, Eigen::Lower | Eigen::Upper> solver;
-  solver.setTolerance(params.cgTolerance);
-  solver.setMaxIterations(params.maxIterations);
-  solver.compute(A);
-  const Eigen::VectorXd solution = solver.solve(rhs);
-
-  // 5. Записываем решение в результат (даже если решатель не сошёлся
-  // до заданного допуска -- частично сошедшийся результат обычно всё
-  // ещё осмысленный, а не фатальная ошибка).
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      const size_t idx =
-          static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      const long row = unknownIndex[idx];
-      if (row >= 0)
-        result.setValue(x, y, solution(row));
-    }
+  if (!anyRow) {
+    m_lastError = QStringLiteral("Not enough fringe crossings per row to reconstruct phase");
+    return {};
   }
 
   return result;
