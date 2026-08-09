@@ -4,11 +4,13 @@
 #include "gui/NotImplementedPage.h"
 #include "gui/ParametersDock.h"
 #include "gui/PipelineTreeDock.h"
+#include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
 #include "io/MtrExporter.h"
 
 #include <QActionGroup>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
@@ -119,6 +121,24 @@ void MainWindow::buildMenusAndToolbars() {
 
     QString err;
     if (!digitqt::core::io::writeMtrFile(path, waves, err))
+      QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
+  });
+  auto *exportFrnAction = fileMenu->addAction(tr("Export &Fringes (.frn)..."));
+  connect(exportFrnAction, &QAction::triggered, this, [this] {
+    const auto &lines = m_measurement->fringeTracing().tracedLines();
+    if (lines.empty()) {
+      QMessageBox::warning(this, tr("Export"), tr("No numbered fringe lines yet -- trace fringes first."));
+      return;
+    }
+    const QString path = QFileDialog::getSaveFileName(this, tr("Export Fringes"), QString(),
+                                                       tr("WinFringe Interferogram (*.frn)"));
+    if (path.isEmpty())
+      return;
+
+    QString err;
+    if (!digitqt::core::io::writeFrnFile(
+            path, m_measurement->boundaries(), lines, m_measurement->image().width(),
+            m_measurement->image().height(), QFileInfo(m_measurement->imagePath()).fileName(), err))
       QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
   });
   openAction->setShortcut(QKeySequence::Open);
