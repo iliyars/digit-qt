@@ -18,8 +18,8 @@ find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization)
 #   pacman -S mingw-w64-x86_64-opencv
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 
-# Needed by PhaseReconstructor (S2: Laplace/Poisson solve from numbered
-# fringe contours to a dense phase map). Header-only. On MSYS2 MINGW64:
+# Needed by ModalAnalysisStage (Zernike/Gram-Schmidt fit over the
+# aperture). Header-only. On MSYS2 MINGW64:
 #   pacman -S mingw-w64-x86_64-eigen3
 find_package(Eigen3 REQUIRED)
 

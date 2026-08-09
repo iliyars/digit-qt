@@ -167,7 +167,12 @@ bool writeMtrFile(const QString &path, const digitqt::core::PhaseMap &waves,
   const QString indent(7, QChar(' '));
 
   for (int row = 0; row < rows; ++row) {
-    const double yNorm = (row - yc) * ratio;
+    // Инвертируем Y: карта хранит строки в экранной системе (Y растёт
+    // вниз), а .mtr/WinFringe ожидает математическую (Y растёт вверх) --
+    // так же, как оригинальный Digit явно конвертирует SCREEN->MATH перед
+    // экспортом (WavefrontFromContoursContext). Без этого TiltY попадает
+    // в файл с обратным знаком.
+    const double yNorm = (yc - row) * ratio;
     if (yNorm > 1.0 || yNorm < -1.0)
       continue;  // за пределами -1..1 ломает расчёты WinFringe -- пропускаем строку целиком
 
