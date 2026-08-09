@@ -1,0 +1,4 @@
+# Force LF regardless of the checkout machine's git autocrlf setting --
+# CRLF in a bash script's shebang line breaks it outright, and Windows
+# CI runners commonly default to autocrlf=true.
+*.sh text eol=lf

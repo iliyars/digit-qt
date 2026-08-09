@@ -17,48 +17,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MSYS2 UCRT64
+      # MINGW64, not UCRT64: Qt6 dropped Windows 7 support, and UCRT
+      # itself isn't present on Windows 7 by default. Qt 5.15 LTS is the
+      # last release with official Win7 support, and mingw64 (msvcrt-
+      # based) can still target it -- see CMakeLists.txt. Keep this in
+      # sync with scripts/package-release.sh, which assumes the same
+      # MINGW64 environment at C:\msys64\mingw64.
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-ucrt-x86_64-toolchain
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-qt6-base
-            mingw-w64-ucrt-x86_64-qt6-tools
-            mingw-w64-ucrt-x86_64-qt6-datavis3d
-            mingw-w64-ucrt-x86_64-opencv
-            mingw-w64-ucrt-x86_64-eigen3
-            mingw-w64-ucrt-x86_64-ntldd
-            mingw-w64-ucrt-x86_64-7zip
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-datavis3d
+            mingw-w64-x86_64-eigen3
+            mingw-w64-x86_64-ntldd
+            mingw-w64-x86_64-7zip
 
-      - name: Configure
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      # The prebuilt mingw-w64-x86_64-opencv package pulls in TBB, which
+      # imports a Windows 8+-only kernel32 API -- see
+      # scripts/build-opencv-win7.sh for the full story. Cached because
+      # building OpenCV from source takes several minutes and its output
+      # only changes when that script's build flags do.
+      - name: Cache Win7-safe OpenCV
+        id: cache-opencv
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/../opencv-win7-mingw64/install
+          key: opencv-win7-mingw64-${{ hashFiles('scripts/build-opencv-win7.sh') }}
 
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Build Win7-safe OpenCV (core+imgproc, static, no TBB)
+        # Invoked via `bash` rather than relying on the executable bit:
+        # Windows git checkouts commonly have core.filemode=false, which
+        # would silently drop it.
+        run: bash scripts/build-opencv-win7.sh
 
-      - name: Prepare dist folder
-        run: |
-          mkdir dist
-          cp build/src/DigitQt.exe dist/
-          cp -r build/src/translations dist/
-
-      - name: Deploy Qt dependencies
-        run: /ucrt64/bin/windeployqt.exe dist/DigitQt.exe --release --no-translations --compiler-runtime
-
-      - name: Deploy OpenCV & mingw runtime
-        run: |
-          for dll in $(ntldd -R dist/DigitQt.exe | grep -oi '/ucrt64/bin/[^ ]*\.dll'); do
-            cp "$dll" dist/ || true
-          done
-
-      - name: Package zip
-        run: |
-          cd dist
-          7z a ../DigitQt-${{ github.ref_name }}-windows-x64.zip *
+      - name: Build and package release
+        run: bash scripts/package-release.sh ${{ github.ref_name }}
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
