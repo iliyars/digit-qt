@@ -7,6 +7,7 @@
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
 #include "io/MtrExporter.h"
+#include "io/MtrImporter.h"
 
 #include <QActionGroup>
 #include <QFileDialog>
@@ -99,6 +100,11 @@ void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
   auto *openAction = fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
+  auto *importMtrAction =
+      fileMenu->addAction(tr("&Import Wavefront (.mtr)..."), this, &MainWindow::importMtr);
+  importMtrAction->setToolTip(
+      tr("Load a WinFringe .mtr wavefront matrix directly into Phase/Wavefront/Modal "
+         "Analysis, skipping Setup and fringe tracing"));
   auto *exportMtrAction = fileMenu->addAction(tr("Export &Wavefront (.mtr)..."));
   connect(exportMtrAction, &QAction::triggered, this, [this] {
     if (m_measurement->wavefrontMap().isEmpty()) {
@@ -473,6 +479,42 @@ void MainWindow::openImage() {
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
   m_modalPhaseMapView->setMeasurement(m_measurement.get());
+  updateStatusBar();
+}
+
+void MainWindow::importMtr() {
+  const QString path = QFileDialog::getOpenFileName(this, tr("Import Wavefront"), QString(),
+                                                     tr("WinFringe Matrix (*.mtr)"));
+  if (path.isEmpty())
+    return;
+
+  digitqt::core::PhaseMap phase;
+  QString err;
+  if (!digitqt::core::io::readMtrFile(path, phase, err)) {
+    QMessageBox::warning(this, tr("Import"), tr("Import failed:\n%1").arg(err));
+    return;
+  }
+
+  // .mtr has no Setup/S1 behind it (no image, no boundaries, no fringe
+  // tracing) -- it drops straight into S2's slot. S4 and S5 only need
+  // phaseMap()/wavefrontMap() (see WavefrontReconstructionStage and
+  // ModalAnalysisStage, which derives the aperture from the map's own
+  // bounding box rather than Measurement::boundaries()), so running them
+  // right away fills the whole rest of the pipeline in one step.
+  m_measurement->setImportedPhaseMap(std::move(phase));
+  m_undoStack->clear();
+  m_controller->setMeasurement(m_measurement.get());
+  m_fringeController->setMeasurement(m_measurement.get());
+  m_canvas->setMeasurement(m_measurement.get());
+  m_phaseMapView->setMeasurement(m_measurement.get());
+  m_surface3DView->setMeasurement(m_measurement.get());
+  m_modalPhaseMapView->setMeasurement(m_measurement.get());
+
+  m_pipeline->stage(StageId::S2).markComputed();
+  computeWavefront();
+  computeModalAnalysis();
+
+  m_pipelineDock->selectStage(StageId::S5);
   updateStatusBar();
 }
 

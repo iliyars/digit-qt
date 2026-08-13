@@ -55,6 +55,15 @@ public:
    */
   bool compute(digitqt::core::Measurement &measurement);
 
+  /// Marks this stage Computed without running doCompute() -- for data
+  /// that arrived by other means than this stage's own algorithm (e.g.
+  /// importing a .mtr file directly supplies S2's phase map, bypassing
+  /// Setup/S1 entirely).
+  void markComputed() {
+    m_status = StageStatus::Computed;
+    m_errorMessage.clear();
+  }
+
   const QString &errorMessage() const { return m_errorMessage; }
 
 protected:
