@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <opencv2/geometry.hpp>  // cv::DIST_L2 (OpenCV 5 moved DistanceTypes out of imgproc.hpp)
 #include <opencv2/imgproc.hpp>
 #include <utility>
 

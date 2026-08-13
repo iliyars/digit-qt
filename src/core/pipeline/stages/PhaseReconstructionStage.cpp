@@ -1,7 +1,9 @@
 #include "PhaseReconstructionStage.h"
 
 #include "core/Measurement.h"
+#include "core/pipeline/stages/phase_reconstruction/FourierPhaseExtractor.h"
 #include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
+#include "core/pipeline/stages/phase_reconstruction/WaveletPhaseExtractor.h"
 
 #include <algorithm>
 #include <aperture/include/visibility/VisibilityChecker.h>
@@ -13,7 +15,9 @@ namespace {
 // Caps the solver grid's long side for speed. Keeps closely-spaced
 // fringe lines from aliasing onto the same grid row/column, which would
 // otherwise merge distinct fringe crossings in PhaseReconstructor's
-// per-row spline fit.
+// per-row spline fit. Only applies to HorizontalSpline -- FourierPhase
+// Extractor needs real pixel intensities, not scaled line geometry, so
+// it always runs at native image resolution.
 constexpr int kMaxGridDimension = 5000;
 }
 
@@ -22,6 +26,41 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
   if (!measurement.hasImage()) {
     errorMessage = QStringLiteral("No image loaded");
     return false;
+  }
+
+  const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
+  if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
+      phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform) {
+    aperture::VisibilityChecker checker(measurement.boundaries());
+    auto isVisible = [&checker](int x, int y) {
+      return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
+    };
+
+    bool ok = false;
+    QString extractError;
+    digitqt::core::PhaseMap phaseMap;
+    if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform) {
+      FourierPhaseExtractor extractor;
+      auto result = extractor.extract(measurement.image(), isVisible);
+      ok = result.ok;
+      extractError = result.errorMessage;
+      phaseMap = std::move(result.phaseMap);
+    } else {
+      WaveletPhaseExtractor extractor;
+      auto result = extractor.extract(measurement.image(), isVisible);
+      ok = result.ok;
+      extractError = result.errorMessage;
+      phaseMap = std::move(result.phaseMap);
+    }
+
+    if (!ok) {
+      errorMessage = extractError.isEmpty() ? QStringLiteral("Phase reconstruction failed")
+                                            : extractError;
+      return false;
+    }
+
+    measurement.phaseMap() = std::move(phaseMap);
+    return true;
   }
 
   const auto &lines = measurement.fringeTracing().tracedLines();

@@ -18,6 +18,16 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
     return false;
   }
 
+  // Методы Фурье- и вейвлет-анализа полос (S2) работают прямо по
+  // изображению + маске апертуры, им не нужны пронумерованные линии --
+  // трассировка здесь просто не запускается.
+  const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
+  if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
+      phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform) {
+    measurement.fringeTracing().tracedLines().clear();
+    return true;
+  }
+
   auto &tracingData = measurement.fringeTracing();
   const auto algorithm = tracingData.algorithm();
   const bool needsSeeds = (algorithm == digitqt::core::TracerAlgorithm::SequentialTracking ||
