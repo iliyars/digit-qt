@@ -4,6 +4,7 @@
 #include "core/ModalFitMethod.h"
 #include "core/ModalAnalysisResult.h"
 #include "core/PhaseMap.h"
+#include "core/PhaseReconstructionAlgorithm.h"
 
 #include <QImage>
 #include <QString>
@@ -48,6 +49,20 @@ public:
   PhaseMap &phaseMap() { return m_phaseMap; }
   const PhaseMap &phaseMap() const { return m_phaseMap; }
 
+  /// Заменяет S2 картой фазы, полученной не из Setup/S1 (например,
+  /// импортом .mtr), а откуда-то ещё. Сбрасывает всё, что относится к
+  /// исходному изображению (его для такой карты просто нет) и всё, что
+  /// ниже по конвейеру -- ровно как setImage(), только без самого
+  /// изображения.
+  void setImportedPhaseMap(PhaseMap phase);
+
+  PhaseReconstructionAlgorithm phaseReconstructionAlgorithm() const {
+    return m_phaseReconstructionAlgorithm;
+  }
+  void setPhaseReconstructionAlgorithm(PhaseReconstructionAlgorithm algorithm) {
+    m_phaseReconstructionAlgorithm = algorithm;
+  }
+
   // --- S4: длина волны и восстановленная карта волнового фронта ------
   // (та же структура PhaseMap, но значения уже в физических единицах —
   // нанометрах, а не в номерах полос).
@@ -84,6 +99,8 @@ private:
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;
+  PhaseReconstructionAlgorithm m_phaseReconstructionAlgorithm =
+      PhaseReconstructionAlgorithm::HorizontalSpline;
   double m_wavelengthNm =
       632.8;  // He-Ne laser -- самая распространённая длина волны в интерферометрии
   bool m_doublePass = true;

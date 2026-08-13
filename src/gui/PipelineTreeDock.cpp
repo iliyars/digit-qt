@@ -75,4 +75,14 @@ void PipelineTreeDock::refreshStatuses() {
   }
 }
 
+void PipelineTreeDock::selectStage(StageId id) {
+  for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+    auto *item = m_tree->topLevelItem(i);
+    if (static_cast<StageId>(item->data(0, kStageIdRole).toInt()) == id) {
+      m_tree->setCurrentItem(item);
+      return;
+    }
+  }
+}
+
 }  // namespace digitqt::gui

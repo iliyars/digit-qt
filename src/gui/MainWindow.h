@@ -30,6 +30,7 @@ public:
 
 private slots:
   void openImage();
+  void importMtr();
   void updateStatusBar();
   void onStageSelected(digitqt::core::pipeline::StageId id);
   void runTracing();

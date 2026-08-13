@@ -30,6 +30,12 @@ public:
   /// Call after anything that might change a stage's status.
   void refreshStatuses();
 
+  /// Programmatically selects a stage's tree node (e.g. jump to S5 right
+  /// after an import that filled several stages at once). Goes through
+  /// the same QTreeWidget::currentItemChanged path as a user click, so it
+  /// still emits stageSelected().
+  void selectStage(digitqt::core::pipeline::StageId id);
+
 signals:
   void stageSelected(digitqt::core::pipeline::StageId id);
 

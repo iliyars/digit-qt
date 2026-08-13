@@ -4,6 +4,8 @@ target_sources(DigitQt
         ImageLoader.cpp
         MtrExporter.h
         MtrExporter.cpp
+        MtrImporter.h
+        MtrImporter.cpp
         FrnExporter.h
         FrnExporter.cpp
 )
