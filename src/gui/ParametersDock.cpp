@@ -39,6 +39,7 @@ bool computeRange(const digitqt::core::PhaseMap &map, double &outMin, double &ou
 }  // namespace
 
 using digitqt::core::FringeCenterMode;
+using digitqt::core::PhaseReconstructionAlgorithm;
 using digitqt::core::TracerAlgorithm;
 using digitqt::core::pipeline::StageId;
 
@@ -49,6 +50,7 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_orderSpin(new QDoubleSpinBox(this)),
       m_wavelengthSpin(new QDoubleSpinBox(this)),
       m_isolineStepSpin(new QDoubleSpinBox(this)),
+      m_phaseAlgorithmCombo(new QComboBox(this)),
       m_fitMethodCombo(new QComboBox(this)),
       m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
@@ -89,6 +91,22 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_isolineStepSpin->setDecimals(3);
   connect(m_isolineStepSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
           &ParametersDock::onIsolineStepChanged);
+
+  m_phaseAlgorithmCombo->addItem(tr("Horizontal Spline (traced lines)"),
+                                 static_cast<int>(PhaseReconstructionAlgorithm::HorizontalSpline));
+  m_phaseAlgorithmCombo->addItem(tr("Fourier Transform Method (Takeda)"),
+                                 static_cast<int>(PhaseReconstructionAlgorithm::FourierTransform));
+  m_phaseAlgorithmCombo->addItem(tr("Wavelet Transform Method (Zhong-Weng)"),
+                                 static_cast<int>(PhaseReconstructionAlgorithm::WaveletTransform));
+  m_phaseAlgorithmCombo->setToolTip(
+      tr("Fourier and Wavelet Transform Methods work directly from the image + "
+         "aperture -- no fringe tracing needed in Setup"));
+  connect(m_phaseAlgorithmCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          [this](int) {
+            if (m_measurement)
+              m_measurement->setPhaseReconstructionAlgorithm(static_cast<PhaseReconstructionAlgorithm>(
+                  m_phaseAlgorithmCombo->currentData().toInt()));
+          });
 
   m_label->setWordWrap(true);
   m_label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -146,6 +164,17 @@ ParametersDock::ParametersDock(QWidget *parent)
   isolineLayout->addWidget(m_isolineStepSpin);
   layout->addWidget(m_isolineStepRow);
   m_isolineStepRow->setVisible(false);
+
+  m_phaseAlgorithmRow = new QWidget(container);
+  auto *phaseAlgorithmLayout = new QVBoxLayout(m_phaseAlgorithmRow);
+  phaseAlgorithmLayout->setContentsMargins(0, 0, 0, 0);
+  auto *phaseAlgorithmLabel =
+      new QLabel(tr("<b>Phase reconstruction algorithm</b>"), m_phaseAlgorithmRow);
+  phaseAlgorithmLabel->setContentsMargins(8, 8, 8, 0);
+  phaseAlgorithmLayout->addWidget(phaseAlgorithmLabel);
+  phaseAlgorithmLayout->addWidget(m_phaseAlgorithmCombo);
+  layout->addWidget(m_phaseAlgorithmRow);
+  m_phaseAlgorithmRow->setVisible(false);
 
   m_modalTermsRow = new QWidget(container);
   auto *modalLayout = new QVBoxLayout(m_modalTermsRow);
@@ -245,6 +274,15 @@ void ParametersDock::setStage(StageId id) {
   m_algorithmRow->setVisible(id == StageId::Setup);
   m_fringeCenterRow->setVisible(id == StageId::Setup);
   m_wavelengthRow->setVisible(id == StageId::S4);
+
+  m_phaseAlgorithmRow->setVisible(id == StageId::S2);
+  if (id == StageId::S2 && m_measurement) {
+    const QSignalBlocker blocker(m_phaseAlgorithmCombo);
+    const int phaseAlgoIndex = m_phaseAlgorithmCombo->findData(
+        static_cast<int>(m_measurement->phaseReconstructionAlgorithm()));
+    if (phaseAlgoIndex >= 0)
+      m_phaseAlgorithmCombo->setCurrentIndex(phaseAlgoIndex);
+  }
 
   const bool showIsolineStep = (id == StageId::S2 || id == StageId::S4);
   m_isolineStepRow->setVisible(showIsolineStep);
@@ -383,9 +421,17 @@ void ParametersDock::refresh() {
   } else if (m_currentStage == StageId::S2 && m_measurement) {
     const auto &phase = m_measurement->phaseMap();
     if (phase.isEmpty()) {
-      text +=
-          tr("Not computed yet. Press ▶ Compute phase in the toolbar "
-             "(needs numbered fringe lines from Setup first).");
+      const bool needsNoTracing =
+          m_measurement->phaseReconstructionAlgorithm() ==
+              digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
+          m_measurement->phaseReconstructionAlgorithm() ==
+              digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform;
+      text += needsNoTracing
+                  ? tr("Not computed yet. Press ▶ Compute phase in the toolbar "
+                       "(needs the aperture set up in Setup first -- no fringe "
+                       "tracing needed for this algorithm).")
+                  : tr("Not computed yet. Press ▶ Compute phase in the toolbar "
+                       "(needs numbered fringe lines from Setup first).");
     } else {
       text += tr("Grid: %1 × %2<br><br>"
                  "Values are in fringe-order units (not yet physical "

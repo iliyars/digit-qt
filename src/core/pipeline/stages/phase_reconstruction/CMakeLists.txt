@@ -2,4 +2,8 @@ target_sources(DigitQt
     PRIVATE
         PhaseReconstructor.h
         PhaseReconstructor.cpp
+        FourierPhaseExtractor.h
+        FourierPhaseExtractor.cpp
+        WaveletPhaseExtractor.h
+        WaveletPhaseExtractor.cpp
 )

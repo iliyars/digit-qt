@@ -74,6 +74,9 @@ private:
   QWidget *m_isolineStepRow;
   QDoubleSpinBox *m_isolineStepSpin;
 
+  QWidget *m_phaseAlgorithmRow;
+  QComboBox *m_phaseAlgorithmCombo;
+
   QWidget *m_modalTermsRow;
   QCheckBox *m_termTiltCheck;
   QCheckBox *m_termDefocusCheck;
