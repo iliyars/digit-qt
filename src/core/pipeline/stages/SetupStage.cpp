@@ -46,6 +46,10 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
   };
 
   std::unique_ptr<tracing::IFringeTracer> tracer;
+  // Set only for TracerAlgorithm::ScanlineExtremum -- lets us read back its
+  // FringeConstructor-computed fringe numbers after extract() without
+  // widening the shared IFringeTracer contract for every other algorithm.
+  tracing::ScanlineExtremumTracker *scanlineTracerRaw = nullptr;
   switch (algorithm) {
     case digitqt::core::TracerAlgorithm::SequentialTracking:
       tracer = std::make_unique<tracing::SequentialFringeTracker>();
@@ -68,8 +72,10 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
           params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::MinMax;
           break;
       }
+      params.hasInternalObstruction = !measurement.boundaries().getInternal().empty();
       scanlineTracer->setParams(params);
 
+      scanlineTracerRaw = scanlineTracer.get();
       tracer = std::move(scanlineTracer);
       break;
     }
@@ -92,7 +98,25 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
     numbered.points = std::move(line);
     numberedLines.push_back(std::move(numbered));
   }
-  digitqt::core::autoAssignFringeOrder(numberedLines);
+
+  // ScanlineExtremumTracker already computed a real, globally-consistent
+  // fringe number per line (FringeConstructor's chain propagation from a
+  // single main-scanline seed) -- use it directly instead of the generic
+  // mean-X fallback, which would silently discard it and get curved or
+  // obstruction-interrupted fringes wrong.
+  if (scanlineTracerRaw != nullptr) {
+    const auto &numbers = scanlineTracerRaw->lastFringeNumbers();
+    if (numbers.size() == numberedLines.size()) {
+      for (size_t i = 0; i < numberedLines.size(); ++i) {
+        if (!numberedLines[i].orderIsManual)
+          numberedLines[i].order = numbers[i];
+      }
+    } else {
+      digitqt::core::autoAssignFringeOrder(numberedLines);
+    }
+  } else {
+    digitqt::core::autoAssignFringeOrder(numberedLines);
+  }
   tracingData.tracedLines() = std::move(numberedLines);
 
   if (tracingData.tracedLines().empty()) {

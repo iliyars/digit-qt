@@ -7,6 +7,7 @@
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
+class QSpinBox;
 class QCheckBox;
 class QWidget;
 
@@ -51,6 +52,7 @@ private slots:
   void onWavelengthChanged(double value);
   void onIsolineStepChanged(double value);
   void onModalTermToggled();
+  void onEdgeErosionChanged(int value);
   void refreshOrderEditor();
 
 private:
@@ -87,6 +89,9 @@ private:
 
   QWidget *m_fitMethodRow;
   QComboBox *m_fitMethodCombo;
+
+  QWidget *m_edgeErosionRow;
+  QSpinBox *m_edgeErosionSpin;
 
   QLabel *m_label;
 };

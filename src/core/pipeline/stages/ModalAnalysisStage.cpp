@@ -136,6 +136,25 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
   if (radius <= 0.0)
     radius = std::max(w, h) / 2.0;
 
+  // Эрозия края апертуры на пару пикселей перед подгонкой: самый
+  // крайний ободок карты фазы -- систематически наименее надёжные
+  // данные во всей карте (вертикальная докомпенсация полюса,
+  // экстраполяция построчного сплайна и т.п. концентрируются именно
+  // там). Одна аномальная точка на глобальном МНК не "усредняется", а
+  // даёт локальный выброс ровно в этой точке -- на 3D-графике остатка
+  // это видно как одиночные иглы у края. Отбрасываем пиксели, у которых
+  // хоть один сосед в радиусе kEdgeErosionPixels не имеет данных --
+  // такая точка гарантированно граничная, даже если сама по себе она
+  // формально входит в апертуру.
+  const int edgeErosionPixels = std::max(0, measurement.edgeErosionPixels());
+  auto isCore = [&](int x, int y) {
+    for (int dy = -edgeErosionPixels; dy <= edgeErosionPixels; ++dy)
+      for (int dx = -edgeErosionPixels; dx <= edgeErosionPixels; ++dx)
+        if (!wavefront.hasValue(x + dx, y + dy))
+          return false;
+    return true;
+  };
+
   // Нормализованные координаты (x, y в [-1, 1] относительно апертуры).
   struct Sample {
     double x, y, z;
@@ -146,7 +165,7 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
 
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
-      if (!wavefront.hasValue(x, y))
+      if (!isCore(x, y))
         continue;
       const double nx = (x - centerX) / radius;
       const double ny = (y - centerY) / radius;

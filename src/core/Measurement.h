@@ -90,6 +90,13 @@ public:
   ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
   const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
 
+  /// Сколько пикселей от края апертуры исключаются из подгонки (см.
+  /// ModalAnalysisStage): крайний ободок карты фазы систематически
+  /// наименее надёжен, один аномальный пиксель там даёт локальный
+  /// выброс на глобальном МНК. 0 отключает эрозию.
+  int edgeErosionPixels() const { return m_edgeErosionPixels; }
+  void setEdgeErosionPixels(int pixels) { m_edgeErosionPixels = pixels; }
+
   bool isModified() const { return m_modified; }
   void setModified(bool modified) { m_modified = modified; }
 
@@ -109,6 +116,7 @@ private:
   ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;
   digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::AnalyticZernike;
+  int m_edgeErosionPixels = 2;
 };
 
 }  // namespace digitqt::core

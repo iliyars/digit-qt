@@ -460,8 +460,11 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
         ss = buf;
         k = 0;
       } else {
+        if (k == 0) {
+          floorEstimate = ss;  // fix the floor -- once, at the valley
+          floorFonud = true;
+        }
         ++k;
-        floorEstimate = ss;  // fix the floor
         ss = buf;
       }
     }
@@ -470,7 +473,13 @@ bool SequentialFringeTracker::measureWidth(int x, int y, float &outWidth,
     axisFloor[i] = floorEstimate;
   }
 
-  m_average = (axisFloor[0] + axisFloor[1] + axisFloor[2] + axisFloor[3]) / 4.0f;
+  // Matches the documented original behavior (see the warning on
+  // measureWidth() in the header): m_average comes from the LAST axis
+  // only, not an average of all 4. Averaging in an axis that happens to
+  // run along the fringe (parallel, not across it) drags the background
+  // threshold up toward peak brightness -- exactly what was happening for
+  // near-vertical fringes and axis 0 (0,1).
+  m_average = axisFloor[3];
 
   // --- Phase 2: measure width in 4 directions, take the minimum -------
   float minWide = static_cast<float>(m_width) / 6.0f;
