@@ -24,6 +24,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
     const std::vector<SeedPoint> & /*seeds*/) {
   // Global algorithm -- seeds are not used, see IFringeTracer's contract.
   std::vector<TracedLine> result;
+  m_lastFringeNumbers.clear();
 
   if (m_grayImage.isNull()) {
     m_lastError =
@@ -50,7 +51,8 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
 
   auto fringes = scanline_extremum::FringeConstructor::constructFringes(
       scanlines, input.imageWidth, input.imageHeight, m_isVisible,
-      m_params.fringeCenterAs, m_params.fringeStep, m_params.toleranceFactor);
+      m_params.fringeCenterAs, m_params.fringeStep, m_params.toleranceFactor,
+      m_params.hasInternalObstruction);
 
   if (fringes.empty()) {
     m_lastError = QStringLiteral(
@@ -59,6 +61,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
   }
 
   result.reserve(fringes.size());
+  m_lastFringeNumbers.reserve(fringes.size());
   for (const auto &fringe : fringes) {
     TracedLine line;
     line.reserve(fringe.points.size());
@@ -76,6 +79,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
       line.push_back(tp);
     }
     result.push_back(std::move(line));
+    m_lastFringeNumbers.push_back(fringe.number);
   }
 
   m_lastError.clear();

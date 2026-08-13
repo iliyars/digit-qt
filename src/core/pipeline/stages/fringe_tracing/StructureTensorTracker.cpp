@@ -163,11 +163,19 @@ float StructureTensorTracker::estimateWidth(double x, double y, double dirX,
 
   const float centerIntensity = sampleBilinear(x, y);
 
+  // Scan out to kProbeDistance and take the MINIMUM intensity seen along
+  // the way, not just the value at that one fixed endpoint -- for dense
+  // fringes (period well under 2*kProbeDistance), sampling a single fixed
+  // distance can land on a neighboring bright ridge instead of a dark
+  // valley, purely depending on phase. Scanning for the minimum finds a
+  // real valley regardless of exactly where the period boundaries fall.
   constexpr double kProbeDistance = 25.0;
-  const float bgPlus =
-      sampleBilinear(x + px * kProbeDistance, y + py * kProbeDistance);
-  const float bgMinus =
-      sampleBilinear(x - px * kProbeDistance, y - py * kProbeDistance);
+  float bgPlus = centerIntensity;
+  for (double t = 1.0; t <= kProbeDistance; t += 1.0)
+    bgPlus = std::min(bgPlus, sampleBilinear(x + px * t, y + py * t));
+  float bgMinus = centerIntensity;
+  for (double t = 1.0; t <= kProbeDistance; t += 1.0)
+    bgMinus = std::min(bgMinus, sampleBilinear(x - px * t, y - py * t));
   const float background = std::min(bgPlus, bgMinus);
   outBackground = background;
 

@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
+#include <QSpinBox>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <cmath>
@@ -52,6 +53,7 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_isolineStepSpin(new QDoubleSpinBox(this)),
       m_phaseAlgorithmCombo(new QComboBox(this)),
       m_fitMethodCombo(new QComboBox(this)),
+      m_edgeErosionSpin(new QSpinBox(this)),
       m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
 
@@ -107,6 +109,16 @@ ParametersDock::ParametersDock(QWidget *parent)
               m_measurement->setPhaseReconstructionAlgorithm(static_cast<PhaseReconstructionAlgorithm>(
                   m_phaseAlgorithmCombo->currentData().toInt()));
           });
+
+  m_edgeErosionSpin->setRange(0, 20);
+  m_edgeErosionSpin->setSuffix(tr(" px"));
+  m_edgeErosionSpin->setToolTip(
+      tr("Excludes pixels within this many pixels of the aperture edge from the "
+         "modal fit -- the edge ring is the least reliable data in the whole map, "
+         "and a single bad edge pixel shows up as a needle-like spike in the "
+         "residual"));
+  connect(m_edgeErosionSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
+          &ParametersDock::onEdgeErosionChanged);
 
   m_label->setWordWrap(true);
   m_label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -221,6 +233,16 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_fitMethodRow);
   m_fitMethodRow->setVisible(false);
 
+  m_edgeErosionRow = new QWidget(container);
+  auto *edgeErosionLayout = new QVBoxLayout(m_edgeErosionRow);
+  edgeErosionLayout->setContentsMargins(0, 0, 0, 0);
+  auto *edgeErosionLabel = new QLabel(tr("<b>Edge erosion</b>"), m_edgeErosionRow);
+  edgeErosionLabel->setContentsMargins(8, 8, 8, 0);
+  edgeErosionLayout->addWidget(edgeErosionLabel);
+  edgeErosionLayout->addWidget(m_edgeErosionSpin);
+  layout->addWidget(m_edgeErosionRow);
+  m_edgeErosionRow->setVisible(false);
+
   layout->addWidget(m_label);
   layout->addStretch();
   setWidget(container);
@@ -298,12 +320,15 @@ void ParametersDock::setStage(StageId id) {
   const bool showModalTerms = (id == StageId::S5);
   m_modalTermsRow->setVisible(showModalTerms);
   m_fitMethodRow->setVisible(showModalTerms);
+  m_edgeErosionRow->setVisible(showModalTerms);
   if (showModalTerms && m_measurement) {
     const QSignalBlocker fitMethodBlocker(m_fitMethodCombo);
     const int fitMethodIndex =
         m_fitMethodCombo->findData(static_cast<int>(m_measurement->modalFitMethod()));
     if (fitMethodIndex >= 0)
       m_fitMethodCombo->setCurrentIndex(fitMethodIndex);
+    const QSignalBlocker edgeErosionBlocker(m_edgeErosionSpin);
+    m_edgeErosionSpin->setValue(m_measurement->edgeErosionPixels());
     const auto &sel = m_measurement->modalTermSelection();
     const QSignalBlocker b1(m_termTiltCheck);
     const QSignalBlocker b2(m_termDefocusCheck);
@@ -367,6 +392,12 @@ void ParametersDock::onModalTermToggled() {
   sel.coma = m_termComaCheck->isChecked();
   sel.trefoil = m_termTrefoilCheck->isChecked();
   sel.spherical = m_termSphericalCheck->isChecked();
+}
+
+void ParametersDock::onEdgeErosionChanged(int value) {
+  if (!m_measurement)
+    return;
+  m_measurement->setEdgeErosionPixels(value);
 }
 
 void ParametersDock::refreshOrderEditor() {

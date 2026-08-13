@@ -114,14 +114,24 @@ public:
   double evaluate(double xi) const {
     const int n = static_cast<int>(m_x.size());
 
+    // Extrapolation beyond the outermost crossing is linear (tangent at
+    // the endpoint), not cubic. A natural spline's cubic term outside
+    // [x0, x_{n-1}] is driven by curvature at the *adjacent interior*
+    // knot, not by anything happening beyond the data -- so a small,
+    // ordinary difference in how far a neighboring row's traced lines
+    // reach the aperture edge gets amplified into a visible hook/curl in
+    // that extrapolated region. Linear extrapolation is bounded and keeps
+    // the reconstructed edge visually straight regardless of that jitter.
     if (xi <= m_x[0]) {
       const double dx = xi - m_x[0];
-      return m_a[0] + m_b[0] * dx + m_c[0] * dx * dx + m_d[0] * dx * dx * dx;
+      return m_a[0] + m_b[0] * dx;
     }
     if (xi >= m_x[n - 1]) {
       const int i = n - 2;
-      const double dx = xi - m_x[i];
-      return m_a[i] + m_b[i] * dx + m_c[i] * dx * dx + m_d[i] * dx * dx * dx;
+      const double h = m_x[i + 1] - m_x[i];
+      const double slopeAtEnd = m_b[i] + 2.0 * m_c[i] * h + 3.0 * m_d[i] * h * h;
+      const double dx = xi - m_x[n - 1];
+      return m_a[n - 1] + slopeAtEnd * dx;
     }
 
     int i = 0, j = n - 1;

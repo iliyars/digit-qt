@@ -43,11 +43,12 @@ public:
       std::vector<Section> &scanlines, int imageWidth, int imageHeight,
       const std::function<bool(int, int)> &isVisible,
       FringeCenterMode fringeCenterAs, double fringeStep,
-      double toleranceFactor);
+      double toleranceFactor, bool hasInternalObstruction = false);
 
 private:
   static int selectMainScanline(const std::vector<Section> &scanlines,
-                                double fringeStep, double toleranceFactor);
+                                double fringeStep, double toleranceFactor,
+                                bool hasInternalObstruction);
 
   static int findMatchingExtremum(const ExtremumPoint &extremum,
                                   double currentX,

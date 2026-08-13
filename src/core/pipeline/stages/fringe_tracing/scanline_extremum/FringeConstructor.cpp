@@ -11,16 +11,17 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
     std::vector<Section> &scanlines, int imageWidth, int imageHeight,
     const std::function<bool(int, int)> &isVisible,
     FringeCenterMode fringeCenterAs, double fringeStep,
-    double toleranceFactor) {
+    double toleranceFactor, bool hasInternalObstruction) {
   (void)imageWidth;
   (void)isVisible;
 
   if (scanlines.empty() || imageHeight <= 0 || fringeStep <= 0.0)
     return {};
 
-  // Average step for each scanline; pick the "median" (by row order --
-  // matches the original, which does not actually sort before indexing
-  // the middle element).
+  // Average step for each scanline; pick the true median. Matches
+  // production legacy SelectFringeStep() (DigitInfoExt.hxx: SortDouble()
+  // then SortedSteps[nS/2]) -- an earlier version of this port copied
+  // legacy's own disabled/unused prototype, which skips the sort.
   std::vector<double> steps;
   for (auto &scanline : scanlines) {
     if (scanline.points.size() < 2)
@@ -36,10 +37,11 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
   }
   if (steps.empty())
     return {};
+  std::sort(steps.begin(), steps.end());
   const double medianStep = steps[steps.size() / 2];
 
-  const int mainIdx =
-      selectMainScanline(scanlines, medianStep, toleranceFactor);
+  const int mainIdx = selectMainScanline(scanlines, medianStep, toleranceFactor,
+                                         hasInternalObstruction);
   if (mainIdx < 0 || scanlines[static_cast<size_t>(mainIdx)].points.empty())
     return {};
 
@@ -55,15 +57,29 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
 
   const double tolerance = medianStep * toleranceFactor;
 
-  // How many consecutive rows a fringe is allowed to have gone
-  // completely undetected (sensor noise, film grain, a hair/dust speck
-  // in one row) before treating its reappearance as a genuinely new
-  // fringe. A single-row lookback cannot recover from even one missed
-  // row on an otherwise perfectly continuous fringe -- this bridges
-  // that without any notion of "minimum trace length".
-  constexpr int kMaxRowGap = 6;
+  // Persistent across the *entire* propagation (both passes), exactly
+  // like legacy CreateNumLines()/ProcessSectionPropagation()'s minN/maxN/
+  // leftX/rightX (DigitMode/CreateNumLines.hxx): never reset per row.
+  // This is what makes every newly-invented "new fringe" number globally
+  // unique, and lets a row tell a genuine edge fringe (beyond anything
+  // seen so far) apart from an interior orphan. leftX/rightX start
+  // unbounded (matching legacy's INT_MAX/INT_MIN) rather than seeded from
+  // the main scanline -- the very first unmatched point processed always
+  // counts as "new", same quirk as the original.
+  double minNum = scanlines[static_cast<size_t>(mainIdx)].points.front().number;
+  double maxNum = scanlines[static_cast<size_t>(mainIdx)].points.back().number;
+  double leftX = std::numeric_limits<double>::max();
+  double rightX = std::numeric_limits<double>::lowest();
 
-  auto propagate = [&](int from, int to, int step) {
+  // searchBound: how far back (toward already-numbered territory) a row
+  // may look for a match, with NO fixed row-gap cap -- matches legacy
+  // SelectNumber(), which searches every remaining section until it finds
+  // one within tolerance or runs out. For the upward pass that's bounded
+  // by mainIdx (nothing beyond it is numbered yet); for the downward
+  // pass it's bounded by 0, since by then the *entire* upward pass has
+  // already completed -- legacy relies on exactly this (its two passes
+  // run sequentially, sharing the same Sections array).
+  auto propagate = [&](int from, int to, int step, int searchBound) {
     for (int y = from; step > 0 ? y < to : y > to; y += step) {
       auto &currentScanline = scanlines[static_cast<size_t>(y)];
 
@@ -74,11 +90,9 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
         int matchIdx = -1;
         const Section *matchedScanline = nullptr;
 
-        for (int gap = 1; gap <= kMaxRowGap; ++gap) {
-          const int adjacentY = y - step * gap;
-          if (step > 0 ? adjacentY < mainIdx : adjacentY > mainIdx)
-            break;  // ran past the already-processed range
-
+        for (int adjacentY = y - step;
+             step > 0 ? adjacentY >= searchBound : adjacentY <= searchBound;
+             adjacentY -= step) {
           const auto &candidate = scanlines[static_cast<size_t>(adjacentY)];
           const int idx = findMatchingExtremum(ne, ne.position.x, candidate,
                                                tolerance, fringeCenterAs);
@@ -106,55 +120,50 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
           ne.number = matched.number;
           ne.assigned = true;
           ne.chainId = matched.chainId;
-        }
-      }
-
-      // Unmatched extrema at the edges get new numbers, extending
-      // the numbering range outward.
-      double minNum = std::numeric_limits<double>::max();
-      double maxNum = std::numeric_limits<double>::lowest();
-      for (const auto &ne : currentScanline.points) {
-        if (ne.assigned) {
+          leftX = std::min(leftX, ne.position.x);
+          rightX = std::max(rightX, ne.position.x);
           minNum = std::min(minNum, ne.number);
           maxNum = std::max(maxNum, ne.number);
         }
       }
 
+      // Unmatched points only get a new number if they're genuinely
+      // beyond the spatial range numbered so far (a real edge fringe);
+      // otherwise they're an orphan -- an interior fringe that failed to
+      // match -- and are left unassigned/dropped, same as legacy's
+      // unhandled "orphan case" in ProcessSectionPropagation.
       for (auto &ne : currentScanline.points) {
         if (ne.assigned)
           continue;
 
-        bool isLeftmost = true;
-        for (const auto &other : currentScanline.points) {
-          if (other.assigned && other.position.x < ne.position.x) {
-            isLeftmost = false;
-            break;
-          }
-        }
-
-        if (isLeftmost) {
+        if (ne.position.x < leftX) {
           ne.number = minNum - fringeStep;
+          ne.assigned = true;
+          ne.chainId = nextChainId++;
+          leftX = ne.position.x;
           minNum = ne.number;
-        } else {
+        } else if (ne.position.x > rightX) {
           ne.number = maxNum + fringeStep;
+          ne.assigned = true;
+          ne.chainId = nextChainId++;
+          rightX = ne.position.x;
           maxNum = ne.number;
         }
-        ne.assigned = true;
-        ne.chainId =
-            nextChainId++;  // new physical fringe segment, not a continuation
+        // else: orphan, dropped.
       }
     }
   };
 
-  propagate(mainIdx - 1, -1, -1);          // upward
-  propagate(mainIdx + 1, imageHeight, 1);  // downward
+  propagate(mainIdx - 1, -1, -1, mainIdx);      // upward
+  propagate(mainIdx + 1, imageHeight, 1, 0);    // downward
 
   return convertToFringes(scanlines);
 }
 
 int FringeConstructor::selectMainScanline(const std::vector<Section> &scanlines,
                                           double fringeStep,
-                                          double toleranceFactor) {
+                                          double toleranceFactor,
+                                          bool hasInternalObstruction) {
   const double minStep = fringeStep * (1.0 - toleranceFactor);
   const double maxStep = fringeStep * (1.0 + toleranceFactor);
 
@@ -188,8 +197,13 @@ int FringeConstructor::selectMainScanline(const std::vector<Section> &scanlines,
     }
   }
 
+  // Matches production legacy SelectMainSection() (DigitInfoExt.hxx:79):
+  // only split the difference between the forward/backward candidates
+  // when there's no internal obstruction. With one, the aperture isn't
+  // symmetric around it, so the two candidates aren't interchangeable --
+  // take the forward-scan one instead, same as legacy's else-branch.
   if (idx1 >= 0 && idx2 >= 0 && idx1 != idx2 &&
-      maxFringeCount1 == maxFringeCount2)
+      maxFringeCount1 == maxFringeCount2 && !hasInternalObstruction)
     return idx1 + (idx2 - idx1) / 2;
 
   return idx1 >= 0 ? idx1 : idx2;
