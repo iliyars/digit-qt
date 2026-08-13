@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsPathItem>
+#include <QPen>
 #include <aperture/include/geometry/Shape.h>
 
 namespace digitqt::gui::canvas {
@@ -32,6 +33,7 @@ private:
   const aperture::Shape *m_shape;
   size_t m_index;
   double m_baseZ = 0.0;
+  QPen m_basePen;  // un-selected pen, restored when selection is cleared
 };
 
 }  // namespace digitqt::gui::canvas

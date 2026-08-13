@@ -80,6 +80,15 @@ public:
   std::optional<size_t> selection() const { return m_selection; }
   std::optional<size_t> editingLineIndex() const { return m_editingLineIndex; }
 
+  /// True if a seed sits under pos, without changing selection. Used by
+  /// ImageCanvas's unified select tool to decide whether a click belongs
+  /// to this controller or to the boundary one.
+  bool hasSeedAt(const QPointF &pos) const { return hitTestSeed(pos).has_value(); }
+
+  /// Clears the current selection (e.g. because the unified select tool
+  /// determined the click belongs to the other controller instead).
+  void clearSelection();
+
   /// The point currently selected within the line under edit (set by
   /// clicking on it -- see handlePress). Deleted by deleteSelection()
   /// while a line is being edited.
@@ -100,6 +109,8 @@ private:
   void updatePointDrag(const QPointF &pos);
   void commitPointDrag();
   void insertPointOnEditingLine(const QPointF &pos);
+  void extendEditingLine(const QPointF &pos, bool atStart);
+  void replaceEditingLinePoints(digitqt::core::tracing::TracedLine after);
   void deleteSelectedPoint();
 
   QUndoStack *m_undoStack;

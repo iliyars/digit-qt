@@ -50,15 +50,26 @@ void BoundaryItem::applyBaseStyle() {
       m_baseZ = 12.0;
       break;
   }
+  m_basePen = pen;
   setPen(pen);
   setZValue(m_baseZ);
 }
 
 void BoundaryItem::setSelectedStyle(bool selected) {
-  QPen p = pen();
-  p.setWidth(selected ? 3 : 2);
+  if (!selected) {
+    setPen(m_basePen);
+    setZValue(m_baseZ);
+    return;
+  }
+  // A clearly different color (not just a thicker line) so the selected
+  // boundary is unmistakable even against an internal boundary, whose
+  // un-selected color is already a dark red.
+  QPen p(QColor(255, 0, 0));
+  p.setCosmetic(true);
+  p.setWidth(3);
+  p.setStyle(Qt::SolidLine);
   setPen(p);
-  setZValue(selected ? m_baseZ + 5.0 : m_baseZ);
+  setZValue(m_baseZ + 5.0);
 }
 
 }  // namespace digitqt::gui::canvas
