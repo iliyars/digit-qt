@@ -198,9 +198,30 @@ void MainWindow::buildMenusAndToolbars() {
     return action;
   };
 
+  // --- Unified select tool: clicking a boundary selects/moves it,
+  // clicking a seed selects it instead -- no need to pick which kind of
+  // element you're about to click beforehand (see ImageCanvas's
+  // resolveUnifiedSelection, which hit-tests to decide). ---
+  auto *selectAction = toolBar->addAction(cursorIcon(), tr("Select / move / delete"));
+  selectAction->setToolTip(
+      tr("Select / move / delete a boundary or a seed point (click one directly)"));
+  selectAction->setCheckable(true);
+  selectAction->setChecked(true);
+  modeGroup->addAction(selectAction);
+  auto activateSelectTool = [this] {
+    m_canvas->setActiveController(ActiveController::Boundary);
+    m_controller->setMode(EditMode::Select);
+    m_fringeController->setMode(FringeEditMode::Select);
+  };
+  connect(selectAction, &QAction::triggered, this, activateSelectTool);
+  // The action starts pre-checked (it's the default tool), which does NOT
+  // emit triggered() -- apply the mode sync once up front so unified
+  // select actually works before the user has toggled to another tool
+  // and back.
+  activateSelectTool();
+  toolBar->addSeparator();
+
   // --- Boundaries (aperture) ---
-  addBoundaryModeAction(cursorIcon(), tr("Select / move / delete a boundary"), EditMode::Select,
-                        true);
   addBoundaryModeAction(shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
                         tr("Add external boundary (ellipse)"), EditMode::AddExternalEllipse);
   addBoundaryModeAction(shapeIcon(/*ellipse=*/false, externalColor, Qt::SolidLine),
@@ -223,7 +244,6 @@ void MainWindow::buildMenusAndToolbars() {
   // --- Fringe tracing (seed points + run tracer) ---
   addFringeModeAction(seedIcon(), tr("Add seed point (click on a fringe)"),
                       FringeEditMode::AddSeed);
-  addFringeModeAction(cursorIcon(), tr("Select / delete a seed point"), FringeEditMode::Select);
 
   auto *autoSeedAction =
       toolBar->addAction(digitqt::gui::icons::autoSeedIcon(), tr("Auto-place seeds"));

@@ -37,6 +37,23 @@ double pointSegmentDistance(const QPointF &p, const QPointF &a, const QPointF &b
   return std::sqrt(QPointF::dotProduct(d, d));
 }
 
+/// Unclamped projection of p onto the line through a/b, as a fraction of
+/// ab's length (0 = at a, 1 = at b, <0/>1 = beyond either end). Used to
+/// tell "click beyond the line's first/last point" apart from "click
+/// near the interior of the end segment".
+double segmentParamT(const QPointF &p, const QPointF &a, const QPointF &b) {
+  const QPointF ab = b - a;
+  const double lenSq = QPointF::dotProduct(ab, ab);
+  if (lenSq < 1e-9)
+    return 0.0;
+  return QPointF::dotProduct(p - a, ab) / lenSq;
+}
+
+double distance(const QPointF &a, const QPointF &b) {
+  const QPointF d = a - b;
+  return std::sqrt(QPointF::dotProduct(d, d));
+}
+
 }  // namespace
 
 FringeTracingController::FringeTracingController(QUndoStack *undoStack, QObject *parent)
@@ -84,6 +101,13 @@ void FringeTracingController::handlePress(const QPointF &pos, bool isPrimaryButt
     m_selection = hit;
     emit selectionChanged();
   }
+}
+
+void FringeTracingController::clearSelection() {
+  if (!m_selection)
+    return;
+  m_selection.reset();
+  emit selectionChanged();
 }
 
 void FringeTracingController::handleMove(const QPointF &pos) {
@@ -243,6 +267,27 @@ void FringeTracingController::insertPointOnEditingLine(const QPointF &pos) {
   if (points.size() < 2)
     return;
 
+  // Extending past either end takes priority over interior insertion when
+  // the click clearly falls beyond that end -- its unclamped projection
+  // onto the end segment lies outside [0, 1] -- and is still close enough
+  // to the endpoint to plausibly be "continue the line from here" rather
+  // than a stray click.
+  constexpr double kExtendTolerance = 25.0;
+
+  const QPointF first(points.front().x, points.front().y);
+  const QPointF second(points[1].x, points[1].y);
+  if (segmentParamT(pos, first, second) < 0.0 && distance(pos, first) <= kExtendTolerance) {
+    extendEditingLine(pos, /*atStart=*/true);
+    return;
+  }
+
+  const QPointF last(points.back().x, points.back().y);
+  const QPointF secondLast(points[points.size() - 2].x, points[points.size() - 2].y);
+  if (segmentParamT(pos, secondLast, last) > 1.0 && distance(pos, last) <= kExtendTolerance) {
+    extendEditingLine(pos, /*atStart=*/false);
+    return;
+  }
+
   constexpr double kInsertTolerance = 15.0;
   size_t bestSegment = 0;
   double bestDist = kInsertTolerance;
@@ -262,20 +307,44 @@ void FringeTracingController::insertPointOnEditingLine(const QPointF &pos) {
   if (!found)
     return;
 
-  auto before = points;
   auto after = points;
-
   digitqt::core::tracing::TracedPoint newPoint;
   newPoint.x = pos.x();
   newPoint.y = pos.y();
   newPoint.width = (points[bestSegment].width + points[bestSegment + 1].width) / 2.0f;
   newPoint.intensity = (points[bestSegment].intensity + points[bestSegment + 1].intensity) / 2.0f;
-
   after.insert(after.begin() + static_cast<long>(bestSegment) + 1, newPoint);
 
+  replaceEditingLinePoints(std::move(after));
+}
+
+void FringeTracingController::extendEditingLine(const QPointF &pos, bool atStart) {
+  auto &lines = m_measurement->fringeTracing().tracedLines();
+  const auto &points = lines[*m_editingLineIndex].points;
+
+  digitqt::core::tracing::TracedPoint newPoint;
+  newPoint.x = pos.x();
+  newPoint.y = pos.y();
+  newPoint.width = atStart ? points.front().width : points.back().width;
+  newPoint.intensity = atStart ? points.front().intensity : points.back().intensity;
+
+  auto after = points;
+  if (atStart)
+    after.insert(after.begin(), newPoint);
+  else
+    after.push_back(newPoint);
+
+  replaceEditingLinePoints(std::move(after));
+}
+
+void FringeTracingController::replaceEditingLinePoints(
+    digitqt::core::tracing::TracedLine after) {
+  auto &lines = m_measurement->fringeTracing().tracedLines();
+  auto before = lines[*m_editingLineIndex].points;
+
   m_selectedPointIndex.reset();
-  m_undoStack->push(
-      new ReplaceTracedLineCommand(*m_measurement, *m_editingLineIndex, before, after));
+  m_undoStack->push(new ReplaceTracedLineCommand(*m_measurement, *m_editingLineIndex,
+                                                 std::move(before), std::move(after)));
   emit tracedLinesChanged();
 }
 

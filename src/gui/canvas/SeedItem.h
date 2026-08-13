@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QBrush>
 #include <QGraphicsEllipseItem>
+#include <QPen>
 
 namespace digitqt::gui::canvas {
 
@@ -14,6 +16,8 @@ public:
 
 private:
   size_t m_index;
+  QPen m_basePen;      // un-selected pen, restored when selection is cleared
+  QBrush m_baseBrush;  // un-selected brush, restored when selection is cleared
 };
 
 }  // namespace digitqt::gui::canvas

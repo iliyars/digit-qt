@@ -9,12 +9,47 @@
 #include <algorithm>
 #include <aperture/include/geometry/Ellipse.h>
 #include <aperture/include/geometry/Rectangle.h>
+#include <cmath>
+#include <limits>
 
 namespace digitqt::gui::canvas {
 
 using digitqt::commands::AddShapeCommand;
 using digitqt::commands::RemoveShapeCommand;
 using digitqt::commands::ReplaceShapeCommand;
+
+namespace {
+
+// Boundaries are drawn as outlines only (no fill -- see BoundaryItem's
+// Qt::NoBrush), so hit-testing against the filled interior (shape::isInside)
+// would treat almost the entire image as "on" a large aperture. Testing
+// distance to the actual contour instead matches what's visually there,
+// and keeps a big aperture from swallowing clicks meant for a seed point
+// that happens to sit inside it.
+constexpr double kHitTolerance = 10.0;
+
+double distanceToContour(const aperture::Shape &shape, const QPointF &pos) {
+  const auto contour = shape.getContour(3.0);
+  if (contour.empty())
+    return std::numeric_limits<double>::infinity();
+
+  double best = std::numeric_limits<double>::infinity();
+  for (size_t i = 0; i < contour.size(); ++i) {
+    const QPointF a(contour[i].x, contour[i].y);
+    const QPointF b(contour[(i + 1) % contour.size()].x, contour[(i + 1) % contour.size()].y);
+    const QPointF ab = b - a;
+    const double lenSq = QPointF::dotProduct(ab, ab);
+    double t = 0.0;
+    if (lenSq > 1e-9)
+      t = std::clamp(QPointF::dotProduct(pos - a, ab) / lenSq, 0.0, 1.0);
+    const QPointF proj = a + ab * t;
+    const QPointF d = pos - proj;
+    best = std::min(best, std::sqrt(QPointF::dotProduct(d, d)));
+  }
+  return best;
+}
+
+}  // namespace
 
 BoundaryEditController::BoundaryEditController(QUndoStack *undoStack,
                                                QObject *parent)
@@ -104,6 +139,13 @@ void BoundaryEditController::handlePress(const QPointF &pos,
   }
   if (hit)
     beginMoveDrag(*hit, pos);
+}
+
+void BoundaryEditController::clearSelection() {
+  if (!m_selection)
+    return;
+  m_selection.reset();
+  emit selectionChanged();
 }
 
 void BoundaryEditController::handleDoubleClick(const QPointF & /*pos*/) {
@@ -207,19 +249,18 @@ std::optional<BoundaryEditController::Selection>
 BoundaryEditController::hitTest(const QPointF &pos) const {
   if (!m_measurement)
     return std::nullopt;
-  const aperture::Point p{pos.x(), pos.y()};
   const auto &boundaries = m_measurement->boundaries();
 
   // Internal boundaries are searched first: they are typically drawn on
   // top of, and nested inside, external ones.
   const auto &internalShapes = boundaries.getInternal();
   for (size_t i = internalShapes.size(); i-- > 0;) {
-    if (internalShapes[i]->isInside(p))
+    if (distanceToContour(*internalShapes[i], pos) <= kHitTolerance)
       return Selection{aperture::TypeLimits::INTERNAL, i};
   }
   const auto &externalShapes = boundaries.getExternal();
   for (size_t i = externalShapes.size(); i-- > 0;) {
-    if (externalShapes[i]->isInside(p))
+    if (distanceToContour(*externalShapes[i], pos) <= kHitTolerance)
       return Selection{aperture::TypeLimits::EXTERNAL, i};
   }
   return std::nullopt;

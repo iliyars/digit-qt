@@ -72,6 +72,18 @@ private slots:
 private:
   void updateCursorInfoTooltip(const QPointF &scenePos,
                                const QPoint &globalPos);
+
+  /// True when both controllers are in their plain "Select" mode -- i.e.
+  /// the unified select tool is active, and clicks should be routed by
+  /// hit-testing rather than by whichever controller was active last.
+  bool isUnifiedSelectMode() const;
+
+  /// In unified select mode: hit-tests pos against seeds first (small,
+  /// precise radius) then boundaries (interior test), sets
+  /// m_activeController to whichever matched, and clears the other
+  /// controller's stale selection. Neither matching deselects both.
+  void resolveUnifiedSelection(const QPointF &pos);
+
   BoundaryEditController *m_boundaryController;
   FringeTracingController *m_fringeController;
   ActiveController m_activeController = ActiveController::Boundary;

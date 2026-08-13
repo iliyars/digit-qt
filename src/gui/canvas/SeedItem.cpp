@@ -16,15 +16,25 @@ SeedItem::SeedItem(double x, double y, size_t index)
   QPen pen(QColor(255, 200, 0));
   pen.setCosmetic(true);
   pen.setWidth(2);
+  m_basePen = pen;
+  m_baseBrush = QBrush(QColor(255, 200, 0, 120));
   setPen(pen);
-  setBrush(QColor(255, 200, 0, 120));
+  setBrush(m_baseBrush);
 }
 
 void SeedItem::setSelectedStyle(bool selected) {
-  QPen p = pen();
-  p.setWidth(selected ? 3 : 2);
+  if (!selected) {
+    setPen(m_basePen);
+    setBrush(m_baseBrush);
+    setZValue(30.0);
+    return;
+  }
+  QPen p(QColor(255, 0, 0));
+  p.setCosmetic(true);
+  p.setWidth(3);
   setPen(p);
-  setZValue(selected ? 35.0 : 30.0);
+  setBrush(QColor(255, 0, 0, 150));
+  setZValue(35.0);
 }
 
 }  // namespace digitqt::gui::canvas

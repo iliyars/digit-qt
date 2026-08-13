@@ -80,6 +80,25 @@ void ImageCanvas::setActiveController(ActiveController controller) {
   m_activeController = controller;
 }
 
+bool ImageCanvas::isUnifiedSelectMode() const {
+  return m_boundaryController->mode() == EditMode::Select &&
+        m_fringeController->mode() == FringeEditMode::Select &&
+        !m_fringeController->editingLineIndex();
+}
+
+void ImageCanvas::resolveUnifiedSelection(const QPointF &pos) {
+  if (m_fringeController->hasSeedAt(pos)) {
+    m_activeController = ActiveController::FringeTracing;
+    m_boundaryController->clearSelection();
+  } else if (m_boundaryController->hasShapeAt(pos)) {
+    m_activeController = ActiveController::Boundary;
+    m_fringeController->clearSelection();
+  } else {
+    m_boundaryController->clearSelection();
+    m_fringeController->clearSelection();
+  }
+}
+
 void ImageCanvas::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::RightButton) {
     m_panning = true;
@@ -90,6 +109,8 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event) {
 
   const QPointF pos = mapToScene(event->pos());
   const bool primary = event->button() == Qt::LeftButton;
+  if (primary && isUnifiedSelectMode())
+    resolveUnifiedSelection(pos);
   if (m_activeController == ActiveController::Boundary)
     m_boundaryController->handlePress(pos, primary);
   else
@@ -131,10 +152,25 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event) {
 
 void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event) {
   const QPointF pos = mapToScene(event->pos());
-  if (m_activeController == ActiveController::Boundary)
-    m_boundaryController->handleDoubleClick(pos);
-  else
+  // Editing a traced line by double-click is a fringe-tracing-only
+  // feature; in unified select mode try it regardless of which
+  // controller last handled a click (the boundary controller's own
+  // double-click handling only matters mid-ellipse-by-points, which
+  // can't be the case while in plain Select mode).
+  if (isUnifiedSelectMode()) {
     m_fringeController->handleDoubleClick(pos);
+    // If that double-click just entered line-edit mode, later presses
+    // (selecting/dragging/inserting points) must keep reaching the fringe
+    // controller too -- isUnifiedSelectMode() turns itself off while a
+    // line is being edited, so press/move/release fall back to routing
+    // by m_activeController alone from here on.
+    if (m_fringeController->editingLineIndex())
+      m_activeController = ActiveController::FringeTracing;
+  } else if (m_activeController == ActiveController::Boundary) {
+    m_boundaryController->handleDoubleClick(pos);
+  } else {
+    m_fringeController->handleDoubleClick(pos);
+  }
   QGraphicsView::mouseDoubleClickEvent(event);
 }
 

@@ -80,6 +80,15 @@ public:
   };
   std::optional<Selection> selection() const { return m_selection; }
 
+  /// True if a boundary shape sits under pos, without changing selection.
+  /// Used by ImageCanvas's unified select tool to decide whether a click
+  /// belongs to this controller or to the fringe-tracing one.
+  bool hasShapeAt(const QPointF &pos) const { return hitTest(pos).has_value(); }
+
+  /// Clears the current selection (e.g. because the unified select tool
+  /// determined the click belongs to the other controller instead).
+  void clearSelection();
+
 signals:
   void boundariesChanged();  // ShapeCollection content changed -> view should
                              // re-render
