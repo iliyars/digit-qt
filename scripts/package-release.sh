@@ -92,12 +92,25 @@ echo "==> Deploying OpenCV & MinGW runtime"
 # with backslash regex-escaping. `|| true` on the grep: no matches
 # would otherwise make the pipeline fail under `pipefail` and abort the
 # script.
+#
+# Scanning only DigitQt.exe here missed DLLs that are dependencies of
+# *plugins* rather than of the exe itself -- e.g. imageformats/qjpeg.dll
+# needs libjpeg-8.dll, but DigitQt.exe never links libjpeg directly (Qt
+# loads the plugin dynamically via QPluginLoader), so ntldd on the exe
+# alone never sees it. That DLL was then missing from dist/ entirely on
+# a clean machine (a dev box with MSYS2 on PATH masks this -- Windows
+# falls back to finding it there). Scan every .exe/.dll windeployqt
+# already placed under DIST_DIR (including imageformats/, platforms/,
+# styles/, ...), not just the main executable, so plugin-only
+# dependencies get picked up too.
 MINGW64_WIN_FWD="$(cygpath -w "$MINGW64" | tr '\\' '/')"
-"$MINGW64/bin/ntldd.exe" -R "$DIST_DIR/DigitQt.exe" \
+find "$DIST_DIR" \( -iname "*.exe" -o -iname "*.dll" \) -print0 \
+  | xargs -0 "$MINGW64/bin/ntldd.exe" -R \
   | tr '\\' '/' \
   | { grep -oi "$MINGW64_WIN_FWD/bin/[^ ]*\.dll" || true; } \
+  | sort -u \
   | while read -r dll; do
-      cp "$dll" "$DIST_DIR/" 2>/dev/null || true
+      cp -n "$dll" "$DIST_DIR/" 2>/dev/null || true
     done
 
 echo "==> Packaging $ZIP_NAME"
