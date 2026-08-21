@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      # MINGW64/Qt5, matching release.yaml -- catches build breaks on
+      # every push instead of only when a release tag is pushed. Uses
+      # the system mingw-w64-x86_64-opencv package (dynamic, TBB and
+      # all) rather than the Win7-safe static build release.yaml links
+      # against: this workflow only needs to compile and run the test
+      # suite, not produce a Windows 7-safe binary, and building OpenCV
+      # from source on every push would make it far slower for no
+      # benefit here.
+      - name: Setup MSYS2 MINGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-datavis3d
+            mingw-w64-x86_64-eigen3
+            mingw-w64-x86_64-opencv
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_PREFIX_PATH=/mingw64 \
+            -DCMAKE_CXX_COMPILER=/mingw64/bin/g++.exe \
+            -DDIGITQT_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
