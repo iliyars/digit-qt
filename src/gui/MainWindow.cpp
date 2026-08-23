@@ -4,6 +4,7 @@
 #include "gui/NotImplementedPage.h"
 #include "gui/ParametersDock.h"
 #include "gui/PipelineTreeDock.h"
+#include "core/ImagePadding.h"
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
 #include "io/MtrExporter.h"
@@ -160,6 +161,20 @@ void MainWindow::buildMenusAndToolbars() {
   editMenu->addAction(undoAction);
   editMenu->addAction(redoAction);
 
+  // QUndoCommand::undo()/redo() mutate Measurement directly and have no
+  // way to emit Qt signals themselves, so an undo/redo triggered from
+  // here (Ctrl+Z/Ctrl+Shift+Z, or these menu actions) bypasses the
+  // controllers entirely -- without this, the canvas would never learn
+  // the data changed and would keep showing stale boundaries/seeds/lines.
+  // indexChanged() fires for every push()/undo()/redo()/clear(), so this
+  // also re-fires after a normal push (redundant with the controller's
+  // own emit right after push(), but harmless -- rebuilding view items
+  // twice from the same data is a no-op visually).
+  connect(m_undoStack, &QUndoStack::indexChanged, this, [this](int) {
+    m_controller->notifyExternalChange();
+    m_fringeController->notifyExternalChange();
+  });
+
   // --- Setup toolbar: boundaries + fringe tracing, all in one place ---
   // (both are part of the single merged "Setup" pipeline stage/screen)
   auto *toolBar = addToolBar(tr("Setup"));
@@ -227,6 +242,25 @@ void MainWindow::buildMenusAndToolbars() {
   activateSelectTool();
   toolBar->addSeparator();
 
+  // Every Setup-toolbar tool is single-shot: once it has actually placed
+  // or removed something, hand control back to Select instead of leaving
+  // an Add-mode active for the next click. boundariesChanged()/
+  // seedsChanged() fire exactly at that point (shape/seed added, moved,
+  // or deleted -- see BoundaryEditController/FringeTracingController), so
+  // hooking them here also covers move/delete for free; those already
+  // only happen while Select is active, so switching to it again is a
+  // harmless no-op.
+  auto switchToSelectTool = [this, selectAction, activateSelectTool] {
+    selectAction->setChecked(true);
+    activateSelectTool();
+  };
+  connect(m_controller, &digitqt::gui::canvas::BoundaryEditController::boundariesChanged, this,
+          switchToSelectTool);
+  connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::seedsChanged, this,
+          switchToSelectTool);
+  connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::tracedLineAdded,
+          this, switchToSelectTool);
+
   // --- Boundaries (aperture) ---
   addBoundaryModeAction(shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
                         tr("Add external boundary (ellipse)"), EditMode::AddExternalEllipse);
@@ -250,6 +284,10 @@ void MainWindow::buildMenusAndToolbars() {
   // --- Fringe tracing (seed points + run tracer) ---
   addFringeModeAction(seedIcon(), tr("Add seed point (click on a fringe)"),
                       FringeEditMode::AddSeed);
+  addFringeModeAction(
+      digitqt::gui::icons::lineByPointsIcon(),
+      tr("Add fringe line manually (click along the fringe, double-click to finish)"),
+      FringeEditMode::AddLineByPoints);
 
   auto *autoSeedAction =
       toolBar->addAction(digitqt::gui::icons::autoSeedIcon(), tr("Auto-place seeds"));
@@ -275,7 +313,10 @@ void MainWindow::buildMenusAndToolbars() {
   auto *traceAction =
       toolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
   traceAction->setToolTip(tr("Run the fringe tracer on all seed points"));
-  connect(traceAction, &QAction::triggered, this, &MainWindow::runTracing);
+  connect(traceAction, &QAction::triggered, this, [this, switchToSelectTool] {
+    runTracing();
+    switchToSelectTool();
+  });
 
   // --- Phase toolbar (S2: heatmap/isolines display + compute) ---
   auto *phaseToolBar = addToolBar(tr("Phase"));
@@ -471,7 +512,7 @@ void MainWindow::openImage() {
                          tr("Failed to load image:\n%1").arg(result.errorMessage));
     return;
   }
-  m_measurement->setImage(result.image, path);
+  m_measurement->setImage(digitqt::core::padImageBackground(result.image), path);
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());

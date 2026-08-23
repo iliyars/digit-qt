@@ -111,6 +111,31 @@ QIcon autoSeedIcon() {
   return QIcon(pixmap);
 }
 
+QIcon lineByPointsIcon() {
+  QPixmap pixmap = newCanvas();
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  const QColor seedColor(255, 200, 0);
+  const QPointF a(4.0, kSize - 5.0);
+  const QPointF b(11.0, 7.0);
+  const QPointF c(20.0, 13.0);
+
+  QPen linePen(seedColor);
+  linePen.setWidth(2);
+  linePen.setStyle(Qt::DotLine);
+  painter.setPen(linePen);
+  painter.drawLine(a, b);
+  painter.drawLine(b, c);
+
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(seedColor);
+  for (const auto &p : {a, b, c})
+    painter.drawEllipse(p, 2.2, 2.2);
+
+  return QIcon(pixmap);
+}
+
 QIcon heatmapIcon() {
   QPixmap pixmap = newCanvas();
   QPainter painter(&pixmap);

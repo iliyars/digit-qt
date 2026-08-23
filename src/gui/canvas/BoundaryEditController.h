@@ -89,6 +89,13 @@ public:
   /// determined the click belongs to the other controller instead).
   void clearSelection();
 
+  /// Re-emits boundariesChanged() -- undo/redo mutate
+  /// Measurement::boundaries() directly via QUndoCommand::undo()/redo(),
+  /// bypassing this controller entirely, so the view (which only listens
+  /// to this signal) would otherwise go stale after Ctrl+Z/Ctrl+Shift+Z.
+  /// See MainWindow's QUndoStack::indexChanged hookup.
+  void notifyExternalChange() { emit boundariesChanged(); }
+
 signals:
   void boundariesChanged();  // ShapeCollection content changed -> view should
                              // re-render

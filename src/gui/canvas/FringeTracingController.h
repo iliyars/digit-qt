@@ -7,6 +7,7 @@
 #include <QString>
 #include <QUndoStack>
 #include <optional>
+#include <vector>
 
 
 namespace digitqt::core {
@@ -21,6 +22,7 @@ namespace digitqt::gui::canvas {
 enum class FringeEditMode {
   Select,
   AddSeed,
+  AddLineByPoints,
 };
 
 /**
@@ -47,7 +49,7 @@ public:
   void setMeasurement(digitqt::core::Measurement *measurement);
   void setPipeline(digitqt::core::pipeline::Pipeline *pipeline);
 
-  void setMode(FringeEditMode mode) { m_mode = mode; }
+  void setMode(FringeEditMode mode);
   FringeEditMode mode() const { return m_mode; }
 
   void handlePress(const QPointF &pos, bool isPrimaryButton);
@@ -59,13 +61,22 @@ public:
   /// each one found (see core::findRowSeeds), as a single undo step.
   void autoPlaceSeeds();
 
-  /// Double-click: enters line-edit mode for the traced line under the
-  /// cursor (any line, regardless of current FringeEditMode), or does
-  /// nothing if no line is close enough.
+  /// Double-click: in AddLineByPoints mode, finalizes the line being
+  /// collected (see finalizeLineByPoints()). Otherwise enters line-edit
+  /// mode for the traced line under the cursor (any line, regardless of
+  /// current FringeEditMode), or does nothing if no line is close enough.
   void handleDoubleClick(const QPointF &pos);
 
   /// Leaves line-edit mode (bound to Escape). No-op if not editing.
   void exitLineEditMode();
+
+  /// Discards any in-progress AddLineByPoints collection (e.g. bound to
+  /// the Escape key). No-op if nothing is being collected.
+  void cancelPointCollection();
+
+  /// Points collected so far for an in-progress AddLineByPoints line.
+  /// Empty outside of that mode.
+  const std::vector<QPointF> &lineBufferPreview() const { return m_pointBuffer; }
 
   /// Manually sets the fringe order for the line under edit (or any
   /// line by index). Marks it as manually numbered so a subsequent
@@ -80,14 +91,30 @@ public:
   std::optional<size_t> selection() const { return m_selection; }
   std::optional<size_t> editingLineIndex() const { return m_editingLineIndex; }
 
+  /// The traced line selected as a whole in plain Select mode (single
+  /// click on a line, as opposed to double-click's per-point edit mode).
+  /// deleteSelection() removes it entirely when set.
+  std::optional<size_t> selectedLineIndex() const { return m_selectedLineIndex; }
+
   /// True if a seed sits under pos, without changing selection. Used by
   /// ImageCanvas's unified select tool to decide whether a click belongs
   /// to this controller or to the boundary one.
   bool hasSeedAt(const QPointF &pos) const { return hitTestSeed(pos).has_value(); }
 
+  /// True if a traced line sits under pos, without changing selection.
+  /// Same purpose as hasSeedAt() for the unified select tool.
+  bool hasLineAt(const QPointF &pos) const { return hitTestAnyLine(pos).has_value(); }
+
   /// Clears the current selection (e.g. because the unified select tool
   /// determined the click belongs to the other controller instead).
   void clearSelection();
+
+  /// Re-emits seedsChanged()/tracedLinesChanged() -- undo/redo mutate
+  /// Measurement::fringeTracing() directly via QUndoCommand::undo()/
+  /// redo(), bypassing this controller entirely, so the view (which only
+  /// listens to these signals) would otherwise go stale after Ctrl+Z/
+  /// Ctrl+Shift+Z. See MainWindow's QUndoStack::indexChanged hookup.
+  void notifyExternalChange();
 
   /// The point currently selected within the line under edit (set by
   /// clicking on it -- see handlePress). Deleted by deleteSelection()
@@ -99,6 +126,14 @@ signals:
   void tracedLinesChanged();
   void selectionChanged();
   void lineEditModeChanged();
+  void previewChanged();  // AddLineByPoints buffer changed -> view should redraw preview
+
+  /// A manually-drawn line was just finalized (see finalizeLineByPoints())
+  /// -- distinct from tracedLinesChanged(), which also fires for
+  /// in-progress line-edit drags/inserts; listeners that only care about
+  /// "a new line was just added by a single-shot tool" (e.g. MainWindow
+  /// switching the active tool back to Select) should use this instead.
+  void tracedLineAdded();
 
 private:
   std::optional<size_t> hitTestSeed(const QPointF &pos) const;
@@ -112,13 +147,18 @@ private:
   void extendEditingLine(const QPointF &pos, bool atStart);
   void replaceEditingLinePoints(digitqt::core::tracing::TracedLine after);
   void deleteSelectedPoint();
+  void finalizeLineByPoints();
 
   QUndoStack *m_undoStack;
   digitqt::core::Measurement *m_measurement = nullptr;
   digitqt::core::pipeline::Pipeline *m_pipeline = nullptr;
   FringeEditMode m_mode = FringeEditMode::AddSeed;
   std::optional<size_t> m_selection;
+  std::optional<size_t> m_selectedLineIndex;
   QString m_lastError;
+
+  // AddLineByPoints collection state
+  std::vector<QPointF> m_pointBuffer;
 
   // Line-edit mode state
   std::optional<size_t> m_editingLineIndex;

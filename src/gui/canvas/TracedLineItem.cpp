@@ -25,7 +25,7 @@ QString formatOrder(double order) {
 
 TracedLineItem::TracedLineItem(const digitqt::core::tracing::TracedLine &line, size_t index,
                                double order)
-    : m_orderLabel(new QGraphicsSimpleTextItem(this)) {
+    : m_index(index), m_orderLabel(new QGraphicsSimpleTextItem(this)) {
   setZValue(25.0);
 
   QPainterPath path;
@@ -64,6 +64,16 @@ void TracedLineItem::setEditing(bool editing) {
   }
   setPen(pen);
   setZValue(editing ? 26.0 : 25.0);
+}
+
+void TracedLineItem::setSelectedStyle(bool selected) {
+  QPen pen = m_basePen;
+  if (selected) {
+    pen.setWidth(3);
+    pen.setColor(QColor(255, 0, 0));
+  }
+  setPen(pen);
+  setZValue(selected ? 26.0 : 25.0);
 }
 
 }  // namespace digitqt::gui::canvas

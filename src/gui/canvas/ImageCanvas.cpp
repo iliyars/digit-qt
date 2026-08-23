@@ -54,6 +54,8 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
           &ImageCanvas::updateFringeSelectionHighlight);
   connect(m_fringeController, &FringeTracingController::lineEditModeChanged, this,
           &ImageCanvas::updateLineEditOverlay);
+  connect(m_fringeController, &FringeTracingController::previewChanged, this,
+          &ImageCanvas::updatePreviewItem);
 }
 
 void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
@@ -87,7 +89,7 @@ bool ImageCanvas::isUnifiedSelectMode() const {
 }
 
 void ImageCanvas::resolveUnifiedSelection(const QPointF &pos) {
-  if (m_fringeController->hasSeedAt(pos)) {
+  if (m_fringeController->hasSeedAt(pos) || m_fringeController->hasLineAt(pos)) {
     m_activeController = ActiveController::FringeTracing;
     m_boundaryController->clearSelection();
   } else if (m_boundaryController->hasShapeAt(pos)) {
@@ -184,6 +186,7 @@ void ImageCanvas::keyPressEvent(QKeyEvent *event) {
   }
   if (event->key() == Qt::Key_Escape) {
     m_boundaryController->cancelPointCollection();
+    m_fringeController->cancelPointCollection();
     m_fringeController->exitLineEditMode();
     return;
   }
@@ -268,8 +271,15 @@ void ImageCanvas::updatePreviewItem() {
     m_previewItem->hide();
   }
 
-  const auto &points = m_boundaryController->pointBufferPreview();
-  if (!points.empty() && m_boundariesVisible) {
+  // Boundary ellipse-by-points and fringe line-by-points are mutually
+  // exclusive modes, so at most one of these is ever non-empty.
+  const auto &boundaryPoints = m_boundaryController->pointBufferPreview();
+  const auto &fringePoints = m_fringeController->lineBufferPreview();
+  const bool showBoundaryPoints = !boundaryPoints.empty() && m_boundariesVisible;
+  const bool showFringePoints = !fringePoints.empty() && m_fringeVisible;
+  const auto &points = showBoundaryPoints ? boundaryPoints : fringePoints;
+
+  if ((showBoundaryPoints || showFringePoints) && !points.empty()) {
     QPainterPath path;
     path.moveTo(points.front());
     for (size_t i = 1; i < points.size(); ++i)
@@ -332,6 +342,10 @@ void ImageCanvas::updateFringeSelectionHighlight() {
   auto sel = m_fringeController->selection();
   for (auto *item : m_seedItems)
     item->setSelectedStyle(sel && item->seedIndex() == *sel);
+
+  auto lineSel = m_fringeController->selectedLineIndex();
+  for (auto *item : m_lineItems)
+    item->setSelectedStyle(lineSel && item->lineIndex() == *lineSel);
 }
 
 void ImageCanvas::updateLineEditOverlay() {

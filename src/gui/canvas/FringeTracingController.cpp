@@ -4,12 +4,15 @@
 #include "core/Measurement.h"
 #include "core/commands/AddSeedCommand.h"
 #include "core/commands/AddSeedsCommand.h"
+#include "core/commands/AddTracedLineCommand.h"
 #include "core/commands/RemoveSeedCommand.h"
+#include "core/commands/RemoveTracedLineCommand.h"
 #include "core/commands/ReplaceTracedLineCommand.h"
 #include "core/commands/SetFringeOrderCommand.h"
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
 
+#include <QImage>
 #include <algorithm>
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <cmath>
@@ -19,7 +22,9 @@ namespace digitqt::gui::canvas {
 
 using digitqt::commands::AddSeedCommand;
 using digitqt::commands::AddSeedsCommand;
+using digitqt::commands::AddTracedLineCommand;
 using digitqt::commands::RemoveSeedCommand;
+using digitqt::commands::RemoveTracedLineCommand;
 using digitqt::commands::ReplaceTracedLineCommand;
 using digitqt::commands::SetFringeOrderCommand;
 
@@ -62,6 +67,7 @@ FringeTracingController::FringeTracingController(QUndoStack *undoStack, QObject 
 void FringeTracingController::setMeasurement(digitqt::core::Measurement *measurement) {
   m_measurement = measurement;
   m_selection.reset();
+  m_selectedLineIndex.reset();
   m_editingLineIndex.reset();
   m_selectedPointIndex.reset();
   m_draggingPoint = false;
@@ -75,9 +81,23 @@ void FringeTracingController::setPipeline(digitqt::core::pipeline::Pipeline *pip
   m_pipeline = pipeline;
 }
 
+void FringeTracingController::setMode(FringeEditMode mode) {
+  if (m_mode == mode)
+    return;
+  m_pointBuffer.clear();
+  m_mode = mode;
+  emit previewChanged();
+}
+
 void FringeTracingController::handlePress(const QPointF &pos, bool isPrimaryButton) {
   if (!m_measurement || !isPrimaryButton)
     return;
+
+  if (m_mode == FringeEditMode::AddLineByPoints) {
+    m_pointBuffer.push_back(pos);
+    emit previewChanged();
+    return;
+  }
 
   if (m_editingLineIndex) {
     auto pointHit = hitTestPointInEditingLine(pos);
@@ -96,18 +116,35 @@ void FringeTracingController::handlePress(const QPointF &pos, bool isPrimaryButt
     return;
   }
 
-  auto hit = hitTestSeed(pos);
-  if (hit != m_selection) {
-    m_selection = hit;
+  auto seedHit = hitTestSeed(pos);
+  if (seedHit) {
+    if (seedHit != m_selection || m_selectedLineIndex) {
+      m_selection = seedHit;
+      m_selectedLineIndex.reset();
+      emit selectionChanged();
+    }
+    return;
+  }
+
+  auto lineHit = hitTestAnyLine(pos);
+  if (lineHit != m_selectedLineIndex || m_selection) {
+    m_selectedLineIndex = lineHit;
+    m_selection.reset();
     emit selectionChanged();
   }
 }
 
 void FringeTracingController::clearSelection() {
-  if (!m_selection)
+  if (!m_selection && !m_selectedLineIndex)
     return;
   m_selection.reset();
+  m_selectedLineIndex.reset();
   emit selectionChanged();
+}
+
+void FringeTracingController::notifyExternalChange() {
+  emit seedsChanged();
+  emit tracedLinesChanged();
 }
 
 void FringeTracingController::handleMove(const QPointF &pos) {
@@ -123,9 +160,19 @@ void FringeTracingController::handleRelease(const QPointF & /*pos*/) {
 void FringeTracingController::handleDoubleClick(const QPointF &pos) {
   if (!m_measurement)
     return;
+
+  if (m_mode == FringeEditMode::AddLineByPoints) {
+    finalizeLineByPoints();
+    return;
+  }
+
   m_editingLineIndex = hitTestAnyLine(pos);
   m_selectedPointIndex.reset();
   m_draggingPoint = false;
+  if (m_selectedLineIndex) {
+    m_selectedLineIndex.reset();
+    emit selectionChanged();
+  }
   emit lineEditModeChanged();
 }
 
@@ -136,6 +183,43 @@ void FringeTracingController::exitLineEditMode() {
   m_selectedPointIndex.reset();
   m_draggingPoint = false;
   emit lineEditModeChanged();
+}
+
+void FringeTracingController::cancelPointCollection() {
+  if (m_pointBuffer.empty())
+    return;
+  m_pointBuffer.clear();
+  emit previewChanged();
+}
+
+void FringeTracingController::finalizeLineByPoints() {
+  if (m_pointBuffer.size() < 2)
+    return;  // not enough points yet -- keep collecting
+
+  const QImage gray = m_measurement->image().convertToFormat(QImage::Format_Grayscale8);
+  const int width = gray.width();
+  const int height = gray.height();
+
+  digitqt::core::tracing::TracedLine line;
+  line.reserve(m_pointBuffer.size());
+  for (const auto &p : m_pointBuffer) {
+    digitqt::core::tracing::TracedPoint tp;
+    tp.x = p.x();
+    tp.y = p.y();
+    const int px = static_cast<int>(p.x() + 0.5);
+    const int py = static_cast<int>(p.y() + 0.5);
+    tp.intensity = (px >= 0 && px < width && py >= 0 && py < height)
+                       ? static_cast<float>(gray.constScanLine(py)[px])
+                       : 0.0f;
+    line.push_back(tp);
+  }
+
+  m_pointBuffer.clear();
+  emit previewChanged();
+
+  m_undoStack->push(new AddTracedLineCommand(*m_measurement, std::move(line)));
+  emit tracedLinesChanged();
+  emit tracedLineAdded();
 }
 
 std::optional<size_t> FringeTracingController::hitTestSeed(const QPointF &pos) const {
@@ -351,6 +435,14 @@ void FringeTracingController::replaceEditingLinePoints(
 void FringeTracingController::deleteSelection() {
   if (m_editingLineIndex && m_selectedPointIndex) {
     deleteSelectedPoint();
+    return;
+  }
+
+  if (m_measurement && m_selectedLineIndex) {
+    m_undoStack->push(new RemoveTracedLineCommand(*m_measurement, *m_selectedLineIndex));
+    m_selectedLineIndex.reset();
+    emit tracedLinesChanged();
+    emit selectionChanged();
     return;
   }
 

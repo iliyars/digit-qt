@@ -26,3 +26,21 @@ set_target_properties(digitqt_tests PROPERTIES
 )
 
 add_test(NAME ModalAnalysisStageTest COMMAND digitqt_tests)
+
+# Separate executable: each QTEST_MAIN(...) defines its own main(), so
+# distinct test classes can't share one binary.
+add_executable(digitqt_image_padding_tests
+    ImagePaddingTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ImagePadding.cpp
+)
+
+target_include_directories(digitqt_image_padding_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+target_link_libraries(digitqt_image_padding_tests PRIVATE Qt5::Test Qt5::Widgets)
+
+set_target_properties(digitqt_image_padding_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME ImagePaddingTest COMMAND digitqt_image_padding_tests)

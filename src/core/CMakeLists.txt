@@ -5,6 +5,8 @@ target_sources(DigitQt
         ShapeCollectionAccess.h
         AutoSeedPlacement.h
         AutoSeedPlacement.cpp
+        ImagePadding.h
+        ImagePadding.cpp
         NumberedFringeLine.h
         FringeOrdering.h
         FringeOrdering.cpp
