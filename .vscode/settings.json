@@ -26,7 +26,8 @@
         "MSYSTEM": "MINGW64",
         "CHERE_INVOKING": "1"
       },
-      "icon": "terminal-bash"
+      "icon": "terminal-bash",
+      "useConpty": false
     }
   }
 }
