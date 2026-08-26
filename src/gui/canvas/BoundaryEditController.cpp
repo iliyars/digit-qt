@@ -61,6 +61,7 @@ void BoundaryEditController::setMeasurement(
   m_selection.reset();
   m_creating = false;
   m_moving = false;
+  m_resizingHandle = false;
   emit boundariesChanged();
   emit selectionChanged();
 }
@@ -70,6 +71,7 @@ void BoundaryEditController::setMode(EditMode mode) {
     return;
   m_creating = false;
   m_moving = false;
+  m_resizingHandle = false;
   m_pointBuffer.clear();
   m_mode = mode;
   emit previewChanged();
@@ -130,6 +132,13 @@ void BoundaryEditController::handlePress(const QPointF &pos,
     m_createCurrent = pos;
     emit previewChanged();
     return;
+  }
+
+  if (m_selection) {
+    if (auto handleHit = hitTestSelectedHandle(pos)) {
+      beginHandleDrag(*handleHit, pos);
+      return;
+    }
   }
 
   auto hit = hitTest(pos);
@@ -208,6 +217,8 @@ void BoundaryEditController::handleMove(const QPointF &pos) {
   if (m_creating) {
     m_createCurrent = pos;
     emit previewChanged();
+  } else if (m_resizingHandle) {
+    updateHandleDrag(pos);
   } else if (m_moving) {
     updateMoveDrag(pos);
   }
@@ -224,6 +235,8 @@ void BoundaryEditController::handleRelease(const QPointF &pos) {
     m_undoStack->push(new AddShapeCommand(m_measurement->boundaries(),
                                           addModeType(), std::move(shape)));
     emit boundariesChanged();
+  } else if (m_resizingHandle) {
+    commitHandleDrag();
   } else if (m_moving) {
     commitMoveDrag();
   }
@@ -235,6 +248,7 @@ void BoundaryEditController::deleteSelection() {
   m_undoStack->push(new RemoveShapeCommand(
       m_measurement->boundaries(), m_selection->type, m_selection->index));
   m_selection.reset();
+  m_resizingHandle = false;
   emit boundariesChanged();
   emit selectionChanged();
 }
@@ -315,6 +329,118 @@ void BoundaryEditController::commitMoveDrag() {
         std::move(m_moveOriginal), std::move(after)));
   }
   m_moving = false;
+  emit boundariesChanged();
+}
+
+const aperture::Shape *BoundaryEditController::selectedShape() const {
+  if (!m_measurement || !m_selection)
+    return nullptr;
+  const auto &boundaries = m_measurement->boundaries();
+  const auto &container = (m_selection->type == aperture::TypeLimits::EXTERNAL)
+                              ? boundaries.getExternal()
+                          : (m_selection->type == aperture::TypeLimits::INTERNAL)
+                              ? boundaries.getInternal()
+                              : boundaries.getApertures();
+  if (m_selection->index >= container.size())
+    return nullptr;
+  return container[m_selection->index].get();
+}
+
+std::vector<aperture::HandleDesc> BoundaryEditController::resizeHandles() const {
+  std::vector<aperture::HandleDesc> result;
+  const aperture::Shape *shape = selectedShape();
+  if (!shape)
+    return result;
+
+  std::vector<aperture::HandleDesc> all;
+  shape->EnumerateHandles(all);
+  for (auto &h : all) {
+    // Move/Rotate are already covered by dragging the shape's contour
+    // directly (see beginMoveDrag). Exactly 4 resize points, one per
+    // length/width axis -- AxisResize for the ellipse's semi-axes,
+    // EdgeResize for the rectangle's sides (corner handles are skipped:
+    // they'd change both dimensions at once instead of one at a time).
+    if (h.type == aperture::HandleType::AxisResize ||
+        h.type == aperture::HandleType::EdgeResize)
+      result.push_back(h);
+  }
+  return result;
+}
+
+std::optional<aperture::HandleDesc> BoundaryEditController::hitTestSelectedHandle(
+    const QPointF &pos) const {
+  const auto handles = resizeHandles();
+  if (handles.empty())
+    return std::nullopt;
+
+  // Matches ImageCanvas's on-screen handle marker size (kHandleSize = 12)
+  // plus a little slack, so the whole visible square is clickable.
+  constexpr double kHandleHitTolerance = 8.0;
+  std::optional<aperture::HandleDesc> best;
+  double bestDist = kHandleHitTolerance;
+  for (const auto &h : handles) {
+    const double dx = pos.x() - h.localPos.x;
+    const double dy = pos.y() - h.localPos.y;
+    const double dist = std::sqrt(dx * dx + dy * dy);
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = h;
+    }
+  }
+  return best;
+}
+
+void BoundaryEditController::beginHandleDrag(const aperture::HandleDesc &handle,
+                                             const QPointF &pos) {
+  const aperture::Shape *shape = selectedShape();
+  if (!shape)
+    return;
+
+  m_resizingHandle = true;
+  m_activeHandle = handle;
+  m_handleDragAnchor = pos;
+  m_resizeOriginal = shape->clone();
+}
+
+void BoundaryEditController::updateHandleDrag(const QPointF &pos) {
+  if (!m_selection || !m_resizeOriginal)
+    return;
+  auto &container = digitqt::core::mutableContainer(m_measurement->boundaries(),
+                                                    m_selection->type);
+  if (m_selection->index >= container.size())
+    return;
+
+  aperture::DragContext drag;
+  drag.handle = m_activeHandle;
+  drag.dragStartWorld = {m_handleDragAnchor.x(), m_handleDragAnchor.y()};
+  drag.dragCurrentWorld = {pos.x(), pos.y()};
+  drag.deltaWorld = {pos.x() - m_handleDragAnchor.x(),
+                     pos.y() - m_handleDragAnchor.y()};
+
+  auto preview = m_resizeOriginal->clone();
+  preview->ApplyHandleDrag(m_activeHandle, drag);
+  container[m_selection->index] = std::move(preview);
+  m_measurement->boundaries().notifyShapeModified();
+  emit boundariesChanged();
+}
+
+void BoundaryEditController::commitHandleDrag() {
+  if (!m_selection || !m_resizeOriginal) {
+    m_resizingHandle = false;
+    return;
+  }
+  auto &container = digitqt::core::mutableContainer(m_measurement->boundaries(),
+                                                    m_selection->type);
+  if (m_selection->index < container.size()) {
+    auto after = container[m_selection->index]->clone();
+    // Roll the live preview mutation back first; ReplaceShapeCommand's
+    // redo() will (re)apply it, so the whole drag lands as one undo step.
+    container[m_selection->index] = m_resizeOriginal->clone();
+    m_undoStack->push(new ReplaceShapeCommand(
+        m_measurement->boundaries(), m_selection->type, m_selection->index,
+        std::move(m_resizeOriginal), std::move(after)));
+  }
+  m_resizingHandle = false;
   emit boundariesChanged();
 }
 

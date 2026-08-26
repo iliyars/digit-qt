@@ -30,6 +30,12 @@ REPO_ROOT="$(pwd)"
 MINGW64=/mingw64
 export PATH="/usr/bin:$MINGW64/bin:$PATH"
 
+# CMake determines CMAKE_SYSTEM_PROCESSOR from this env var on Windows; in
+# some shells (e.g. this repo's CI/sandboxed invocations) it doesn't get
+# inherited, which makes OpenCV's install layout fall back to x86/mingw
+# instead of x64/mingw (see OpenCVDetectCXXCompiler.cmake). Force it.
+export PROCESSOR_ARCHITECTURE=AMD64
+
 OPENCV_VERSION=4.13.0
 WORKDIR="$REPO_ROOT/../opencv-win7-mingw64"
 SRC_DIR="$WORKDIR/src"

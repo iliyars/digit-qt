@@ -166,7 +166,19 @@ void FringeTracingController::handleDoubleClick(const QPointF &pos) {
     return;
   }
 
-  m_editingLineIndex = hitTestAnyLine(pos);
+  // A double-click that doesn't land on any line must NOT touch the
+  // current edit session -- while adding/removing points along a line,
+  // two clicks placed close together in time (e.g. two points added in
+  // quick succession) are reported by Qt as a double-click, and if that
+  // click falls outside hitTestAnyLine's tolerance (e.g. extending the
+  // line past its current endpoint) this would otherwise silently kick
+  // the user out of edit mode. Edit mode is only meant to be left via
+  // Escape (see exitLineEditMode()).
+  const auto hit = hitTestAnyLine(pos);
+  if (!hit)
+    return;
+
+  m_editingLineIndex = hit;
   m_selectedPointIndex.reset();
   m_draggingPoint = false;
   if (m_selectedLineIndex) {

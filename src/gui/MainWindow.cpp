@@ -251,6 +251,14 @@ void MainWindow::buildMenusAndToolbars() {
   // only happen while Select is active, so switching to it again is a
   // harmless no-op.
   auto switchToSelectTool = [this, selectAction, activateSelectTool] {
+    // Never hijack routing away from the fringe controller while a line
+    // is being edited (double-click sub-mode, exited only via Escape --
+    // see FringeTracingController) -- seedsChanged()/tracedLinesChanged()
+    // also fire for every undo-stack push made while editing (inserting/
+    // dragging/deleting a point), and activateSelectTool() would
+    // otherwise switch ImageCanvas's active controller to Boundary mid-edit.
+    if (m_fringeController->editingLineIndex())
+      return;
     selectAction->setChecked(true);
     activateSelectTool();
   };

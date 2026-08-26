@@ -41,10 +41,14 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
 
   connect(m_boundaryController, &BoundaryEditController::boundariesChanged, this,
           &ImageCanvas::rebuildBoundaryItems);
+  connect(m_boundaryController, &BoundaryEditController::boundariesChanged, this,
+          &ImageCanvas::updateBoundaryHandleOverlay);
   connect(m_boundaryController, &BoundaryEditController::previewChanged, this,
           &ImageCanvas::updatePreviewItem);
   connect(m_boundaryController, &BoundaryEditController::selectionChanged, this,
           &ImageCanvas::updateSelectionHighlight);
+  connect(m_boundaryController, &BoundaryEditController::selectionChanged, this,
+          &ImageCanvas::updateBoundaryHandleOverlay);
 
   connect(m_fringeController, &FringeTracingController::seedsChanged, this,
           &ImageCanvas::rebuildFringeItems);
@@ -70,6 +74,7 @@ void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
     fitImageToView();
   }
   rebuildBoundaryItems();
+  updateBoundaryHandleOverlay();
   rebuildFringeItems();
 }
 
@@ -206,6 +211,7 @@ void ImageCanvas::setBoundariesVisible(bool visible) {
     m_previewItem->hide();
     m_pointsPreviewItem->hide();
   }
+  updateBoundaryHandleOverlay();
 }
 
 void ImageCanvas::setFringeTracingVisible(bool visible) {
@@ -299,6 +305,32 @@ void ImageCanvas::updateSelectionHighlight() {
     const bool isSelected =
         sel && item->shapeType() == sel->type && item->shapeIndex() == sel->index;
     item->setSelectedStyle(isSelected);
+  }
+}
+
+void ImageCanvas::updateBoundaryHandleOverlay() {
+  for (auto *item : m_boundaryHandleItems) {
+    m_scene.removeItem(item);
+    delete item;
+  }
+  m_boundaryHandleItems.clear();
+
+  if (!m_boundariesVisible)
+    return;
+
+  constexpr double kHandleSize = 12.0;
+  for (const auto &handle : m_boundaryController->resizeHandles()) {
+    auto *item = new QGraphicsRectItem(handle.localPos.x - kHandleSize / 2.0,
+                                       handle.localPos.y - kHandleSize / 2.0,
+                                       kHandleSize, kHandleSize);
+    QPen pen(Qt::white);
+    pen.setCosmetic(true);  // constant on-screen border regardless of view zoom
+    pen.setWidth(1);
+    item->setPen(pen);
+    item->setBrush(QColor(255, 0, 0));
+    item->setZValue(50.0);
+    m_scene.addItem(item);
+    m_boundaryHandleItems.push_back(item);
   }
 }
 

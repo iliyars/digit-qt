@@ -4,6 +4,7 @@
 #include <QPointF>
 #include <QRectF>
 #include <QUndoStack>
+#include <aperture/include/geometry/Handle.h>
 #include <aperture/include/geometry/Shape.h>
 #include <aperture/include/visibility/TypeLimits.h>
 #include <optional>
@@ -80,6 +81,13 @@ public:
   };
   std::optional<Selection> selection() const { return m_selection; }
 
+  /// Resize handles (radius/edge endpoints -- Move and Rotate excluded) for
+  /// the currently selected shape, in scene coordinates. Empty if nothing
+  /// is selected. Used by ImageCanvas to draw draggable resize markers;
+  /// dragging one is handled internally by handlePress()/handleMove()/
+  /// handleRelease() like any other pointer interaction.
+  std::vector<aperture::HandleDesc> resizeHandles() const;
+
   /// True if a boundary shape sits under pos, without changing selection.
   /// Used by ImageCanvas's unified select tool to decide whether a click
   /// belongs to this controller or to the fringe-tracing one.
@@ -113,9 +121,16 @@ private:
   void finalizePointsEllipse();
   std::optional<Selection> hitTest(const QPointF &pos) const;
 
+  const aperture::Shape *selectedShape() const;
+  std::optional<aperture::HandleDesc> hitTestSelectedHandle(const QPointF &pos) const;
+
   void beginMoveDrag(const Selection &sel, const QPointF &pos);
   void updateMoveDrag(const QPointF &pos);
   void commitMoveDrag();
+
+  void beginHandleDrag(const aperture::HandleDesc &handle, const QPointF &pos);
+  void updateHandleDrag(const QPointF &pos);
+  void commitHandleDrag();
 
   QUndoStack *m_undoStack;
   digitqt::core::Measurement *m_measurement = nullptr;
@@ -133,6 +148,12 @@ private:
   bool m_moving = false;
   QPointF m_moveAnchor;
   std::unique_ptr<aperture::Shape> m_moveOriginal;  // clone taken at drag start
+
+  // Select-mode drag (resize via handle) state
+  bool m_resizingHandle = false;
+  aperture::HandleDesc m_activeHandle;  // frozen at drag start
+  QPointF m_handleDragAnchor;
+  std::unique_ptr<aperture::Shape> m_resizeOriginal;  // clone taken at drag start
 
   std::optional<Selection> m_selection;
 };

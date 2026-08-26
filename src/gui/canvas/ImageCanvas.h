@@ -65,6 +65,7 @@ private slots:
   void rebuildBoundaryItems();
   void updatePreviewItem();
   void updateSelectionHighlight();
+  void updateBoundaryHandleOverlay();
   void rebuildFringeItems();
   void updateFringeSelectionHighlight();
   void updateLineEditOverlay();
@@ -95,6 +96,8 @@ private:
   QGraphicsPathItem *m_pointsPreviewItem = nullptr;
   std::vector<BoundaryItem *> m_boundaryItems;
   bool m_boundariesVisible = true;
+  std::vector<QGraphicsRectItem *>
+      m_boundaryHandleItems;  // resize handles for the selected boundary
 
   std::vector<SeedItem *> m_seedItems;
   std::vector<TracedLineItem *> m_lineItems;
