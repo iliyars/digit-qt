@@ -204,11 +204,20 @@ void ModalAnalysisStageTest::sequentialSereginDoesNotCrash() {
   digitqt::core::pipeline::ModalAnalysisStage stage;
   QVERIFY(stage.compute(measurement));
 
-  const auto &fitted = measurement.modalAnalysis().coefficients;
-  const double tol = 1e-6;
-  QVERIFY(std::abs(fitted.piston - coeffs.piston) < tol);
-  QVERIFY(std::abs(fitted.tiltX - coeffs.tiltX) < tol);
-  QVERIFY(std::abs(fitted.tiltY - coeffs.tiltY) < tol);
+  // ВАЖНО: в отличие от JointLeastSquares (exactRecoveryMatchesSereginBasis
+  // выше), последовательная схема НЕ обязана точно восстановить piston/
+  // tiltX/tiltY -- они подгоняются на самой первой стадии, ДО того как
+  // убраны дефокус/астигматизм/кома/сферическая, поэтому неизбежно
+  // "цепляют" часть их вклада (та же неортогональность термов, из-за
+  // которой сам DAPPSIM даёт другие числа в Sequential vs Joint режиме --
+  // см. ModalFitMethod::SequentialSeregin). Проверяем то, что
+  // действительно гарантировано: конечный остаток должен сойтись к ~0 на
+  // данных, которые целиком лежат в 22-мерном пространстве термов схемы
+  // (наша синтетика построена ровно из этих формул) -- если он застревает
+  // на заметной величине, это значит, что где-то теряется вклад
+  // отброшенного интерсепта одной из стадий 2-7 (см. комментарий в
+  // fitSequentialSeregin и SequentialSereginResult::discardedIntercepts).
+  QVERIFY(measurement.modalAnalysis().rmsAfter < 1e-6);
 }
 
 QTEST_MAIN(ModalAnalysisStageTest)

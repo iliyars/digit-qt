@@ -165,6 +165,8 @@ bool writeModalReport(const QString &path, const digitqt::core::Measurement &mea
     out << line("ρ⁴ (stage 7, S7)", sq.s7rho4);
     out << line("ρ⁶ (stage 7, S7)", sq.s7rho6);
     out << line("ρ⁸ (stage 7, S7)", sq.s7rho8);
+    out << line("Discarded stage intercepts (2-7, kept in residual calc only)",
+                sq.discardedIntercepts);
     out << "\n";
     out << "RMS(W) initial: " << QString::number(waves(sq.rmsInitial), 'f', 3) << " " << lambda
         << "\n";

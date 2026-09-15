@@ -185,6 +185,21 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
 
   out.rmsInitial = rms(z);
 
+  // ВАЖНО: с стадии 2 и далее DAPPSIM (Includes/Fitting.cpp) считает
+  // локальный МНК-интерсепт каждой стадии, но сохраняет в m_Coeff и
+  // переносит в "aber" следующих стадий ТОЛЬКО перечисленные
+  // коэффициенты -- сам интерсепт даже не читается (Coeff_mnk.Get(0,0)
+  // просто отбрасывается). У ρ²/ρ⁴/ρ⁶/ρ⁸ ненулевое среднее по кругу,
+  // поэтому этот интерсепт почти никогда не ноль -- если его не учитывать
+  // вообще, остаток (RMS after) искусственно растёт и застревает,
+  // хотя реальный DAPPSIM (и на практике, и по логике МНК) сходится к
+  // ~0. Поэтому здесь интерсепт КАЖДОЙ стадии со 2-й и далее всё равно
+  // накапливается в "aber" (чтобы остаток считался честно), просто ОТДЕЛЬНО
+  // от репортируемых B0-B8-подобных коэффициентов -- те остаются точно
+  // такими же, как если бы интерсепт был отброшен (и как подтверждено
+  // побайтово против report.txt), их эта поправка не трогает.
+  double discardedIntercepts = 0.0;
+
   // GetTiltSeregin: {1, x, -y} -- единственная стадия, где интерсепт
   // (пистон) действительно сохраняется и переносится дальше.
   const Eigen::VectorXd negY = -y;
@@ -197,18 +212,21 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
     aber += out.piston * cols[0] + out.tiltX * cols[1] + out.tiltY * cols[2];
   }
 
-  // GetPowerSeregin: {1, ρ²} -- интерсепт отбрасывается.
+  // GetPowerSeregin: {1, ρ²} -- в отчёт идёт только коэффициент при ρ²
+  // (как у DAPPSIM), но интерсепт этой стадии всё равно добавляется в
+  // aber, чтобы не терять его при подсчёте остатка (см. комментарий выше).
   const Eigen::VectorXd rho2 = x.array().square() + y.array().square();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2};
     const Eigen::VectorXd c = solveStage(cols);
     out.defocus = c(1);
-    aber += out.defocus * rho2;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.defocus * rho2;
   }
   out.rmsAfterTiltDefocus = rms(z - aber);
 
-  // GetAstigSeregin: {1, x, -y, (3x²-1)/2, -xy, (3y²-1)/2} -- только
-  // последние 3 коэффициента сохраняются и переносятся дальше.
+  // GetAstigSeregin: {1, x, -y, (3x²-1)/2, -xy, (3y²-1)/2} -- в отчёт
+  // идут только последние 3 коэффициента, интерсепт -- в aber (см. выше).
   const Eigen::VectorXd a4 = (3.0 * x.array().square() - 1.0) / 2.0;
   const Eigen::VectorXd a5 = -(x.array() * y.array());
   const Eigen::VectorXd a6 = (3.0 * y.array().square() - 1.0) / 2.0;
@@ -218,14 +236,15 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
     out.astig4 = c(3);
     out.astig5 = c(4);
     out.astig6 = c(5);
-    aber += out.astig4 * a4 + out.astig5 * a5 + out.astig6 * a6;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.astig4 * a4 + out.astig5 * a5 + out.astig6 * a6;
   }
   out.rmsAfterAstig = rms(z - aber);
 
   // GetComaSeregin: {1, x, -y, comaX, comaY, trefoilX, trefoilY} --
-  // интерсепт отбрасывается, но остаточные x/-y ЗДЕСЬ сохраняются и
-  // переносятся дальше (в отличие от предыдущих стадий) -- ровно как в
-  // оригинале (m_Coeff[7]/[8] входят в "aber" следующих стадий).
+  // остаточные x/-y ЗДЕСЬ сохраняются и переносятся дальше (в отличие от
+  // предыдущих стадий) -- ровно как в оригинале (m_Coeff[7]/[8] входят в
+  // "aber" следующих стадий); интерсепт -- в aber отдельно (см. выше).
   const Eigen::VectorXd comaXCol =
       x.array().cube() + x.array() * y.array().square() - (2.0 / 3.0) * x.array();
   const Eigen::VectorXd comaYCol =
@@ -241,19 +260,23 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
     out.comaY = c(4);
     out.trefoilX = c(5);
     out.trefoilY = c(6);
-    aber += out.comaResidualX * cols[1] + out.comaResidualY * cols[2] + out.comaX * comaXCol +
-            out.comaY * comaYCol + out.trefoilX * trefXCol + out.trefoilY * trefYCol;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.comaResidualX * cols[1] + out.comaResidualY * cols[2] +
+            out.comaX * comaXCol + out.comaY * comaYCol + out.trefoilX * trefXCol +
+            out.trefoilY * trefYCol;
   }
   out.rmsAfterComa = rms(z - aber);
 
-  // GetS3Seregin: {1, ρ², ρ⁴} после вычитания ВСЕХ 12 предыдущих термов.
+  // GetS3Seregin: {1, ρ², ρ⁴} после вычитания ВСЕХ 12 предыдущих термов
+  // (+ их интерсептов). Интерсепт этой стадии -- в aber отдельно.
   const Eigen::VectorXd rho4 = rho2.array().square();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2, rho4};
     const Eigen::VectorXd c = solveStage(cols);
     out.s3rho2 = c(1);
     out.s3rho4 = c(2);
-    aber += out.s3rho2 * rho2 + out.s3rho4 * rho4;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.s3rho2 * rho2 + out.s3rho4 * rho4;
   }
   out.rmsAfterS3 = rms(z - aber);
 
@@ -265,7 +288,8 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
     out.s5rho2 = c(1);
     out.s5rho4 = c(2);
     out.s5rho6 = c(3);
-    aber += out.s5rho2 * rho2 + out.s5rho4 * rho4 + out.s5rho6 * rho6;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.s5rho2 * rho2 + out.s5rho4 * rho4 + out.s5rho6 * rho6;
   }
   out.rmsAfterS5 = rms(z - aber);
 
@@ -278,9 +302,12 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
     out.s7rho4 = c(2);
     out.s7rho6 = c(3);
     out.s7rho8 = c(4);
-    aber += out.s7rho2 * rho2 + out.s7rho4 * rho4 + out.s7rho6 * rho6 + out.s7rho8 * rho8;
+    discardedIntercepts += c(0);
+    aber += c(0) * ones + out.s7rho2 * rho2 + out.s7rho4 * rho4 + out.s7rho6 * rho6 +
+            out.s7rho8 * rho8;
   }
   out.rmsAfterS7 = rms(z - aber);
+  out.discardedIntercepts = discardedIntercepts;
 
   return {out, z - aber};
 }
