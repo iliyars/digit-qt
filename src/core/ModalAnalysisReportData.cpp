@@ -38,13 +38,34 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
   if (data.isEmpty)
     return data;
 
-  const auto &c = modal.coefficients;
-  data.coefficients = c;
+  data.coefficients = modal.coefficients;
   data.selection = modal.selection;
   data.basis = modal.basis;
   data.fitMethod = measurement.modalFitMethod();
   data.sequential = modal.sequential;
   data.wavelengthNm = measurement.wavelengthNm();
+
+  // WinFringe-совместимое отображение (не сам алгоритм подгонки!): на
+  // базисе Seregin кома, трилистник и сферическая выходят из МНК РОВНО
+  // вдвое МЕНЬШЕ, чем те же термы в test_data/report.txt (проверено на
+  // test_data/Terminal.mtr -- Coma 0.250λ у нас vs C=0.500 в отчёте,
+  // Spherical 0.250λ у нас vs B4=0.500, оба РОВНО ×2, не "примерно").
+  // Астигматизм при этом совпадает без всякого множителя (0.500=0.500) --
+  // так что множитель специфичен для термов 3-го/4-го порядка и выше, не
+  // общий. Природа множителя не выведена из первых принципов (нет
+  // исходников WinFringe, который формирует report.txt, а не сам DAPPSIM)
+  // -- чисто эмпирическая подгонка под один референсный файл. Для
+  // трилистника отдельной проверки нет (в report.txt он нулевой) --
+  // множитель на него перенесён по аналогии с комой (тот же МНК-этап
+  // GetComaSeregin), это ПРЕДПОЛОЖЕНИЕ, не подтверждённый факт.
+  if (modal.basis == PolynomialBasis::Seregin) {
+    data.coefficients.comaX *= 2.0;
+    data.coefficients.comaY *= 2.0;
+    data.coefficients.trefoilX *= 2.0;
+    data.coefficients.trefoilY *= 2.0;
+    data.coefficients.spherical *= 2.0;
+  }
+  const auto &c = data.coefficients;
 
   data.astigMagnitude = std::sqrt(c.astigX * c.astigX + c.astigY * c.astigY);
   data.comaMagnitude = std::sqrt(c.comaX * c.comaX + c.comaY * c.comaY);
