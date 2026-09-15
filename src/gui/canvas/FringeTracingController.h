@@ -61,6 +61,37 @@ public:
   /// each one found (see core::findRowSeeds), as a single undo step.
   void autoPlaceSeeds();
 
+  /// Synthesizes new fringe lines beyond the leftmost/rightmost traced
+  /// line, continuing the step to its nearest neighbor out to the
+  /// aperture edge (see core::extrapolateFringesHorizontally()). Single
+  /// undo step, independent of extendFringesVertically(). No-op (sets
+  /// lastError()) if there are fewer than 2 traced lines or nothing is
+  /// added.
+  void extendFringesHorizontally();
+
+  /// Extends every traced line's two endpoints toward the aperture edge,
+  /// following each end's local step (see
+  /// core::extrapolateFringesVertically()). Single undo step, independent
+  /// of extendFringesHorizontally(). Targets rows near the aperture pole
+  /// that S1 tracing doesn't reach (see notes/phase-reconstruction.md).
+  /// No-op (sets lastError()) if there are no traced lines or nothing is
+  /// added.
+  void extendFringesVertically();
+
+  /// Strips every point/line added by extendFringesHorizontally()/
+  /// Vertically(), restoring the traced lines to their pre-extension
+  /// state (see core::removeFringeExtensions()). Single undo step.
+  /// No-op (sets lastError()) if nothing is currently extended.
+  void removeFringeExtensions();
+
+  /// How many lines/points past the aperture edge extendFringesHorizontally()/
+  /// Vertically() add once they cross it (clamped to >= 1 -- less than
+  /// one would defeat the whole point of deliberately overshooting the
+  /// boundary, see FringeEdgeExtrapolation.h). Defaults to 10; set from
+  /// ParametersDock's Setup page.
+  void setEdgeExtensionMargin(int margin);
+  int edgeExtensionMargin() const { return m_edgeExtensionMargin; }
+
   /// Double-click: in AddLineByPoints mode, finalizes the line being
   /// collected (see finalizeLineByPoints()). Otherwise enters line-edit
   /// mode for the traced line under the cursor (any line, regardless of
@@ -156,6 +187,7 @@ private:
   std::optional<size_t> m_selection;
   std::optional<size_t> m_selectedLineIndex;
   QString m_lastError;
+  int m_edgeExtensionMargin = 10;
 
   // AddLineByPoints collection state
   std::vector<QPointF> m_pointBuffer;

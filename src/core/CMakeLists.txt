@@ -10,10 +10,16 @@ target_sources(DigitQt
         NumberedFringeLine.h
         FringeOrdering.h
         FringeOrdering.cpp
+        FringeEdgeExtrapolation.h
+        FringeEdgeExtrapolation.cpp
         PhaseMap.h
         ModalAnalysisResult.h
         ModalAnalysisResult.h
+        ModalAnalysisReportData.h
+        ModalAnalysisReportData.cpp
         ModalFitMethod.h
+        PolynomialBasis.h
+        SequentialSereginResult.h
 )
 
 add_subdirectory(commands)

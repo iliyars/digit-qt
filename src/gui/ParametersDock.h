@@ -53,6 +53,7 @@ private slots:
   void onIsolineStepChanged(double value);
   void onModalTermToggled();
   void onEdgeErosionChanged(int value);
+  void onEdgeExtensionMarginChanged(int value);
   void refreshOrderEditor();
 
 private:
@@ -67,11 +68,15 @@ private:
   QWidget *m_fringeCenterRow;
   QComboBox *m_fringeCenterCombo;
 
+  QWidget *m_edgeExtensionMarginRow;
+  QSpinBox *m_edgeExtensionMarginSpin;
+
   QWidget *m_orderEditorRow;
   QDoubleSpinBox *m_orderSpin;
 
   QWidget *m_wavelengthRow;
   QDoubleSpinBox *m_wavelengthSpin;
+  QCheckBox *m_doublePassCheck;
 
   QWidget *m_isolineStepRow;
   QDoubleSpinBox *m_isolineStepSpin;
@@ -89,6 +94,9 @@ private:
 
   QWidget *m_fitMethodRow;
   QComboBox *m_fitMethodCombo;
+
+  QWidget *m_polynomialBasisRow;
+  QComboBox *m_polynomialBasisCombo;
 
   QWidget *m_edgeErosionRow;
   QSpinBox *m_edgeErosionSpin;

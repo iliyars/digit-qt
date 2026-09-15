@@ -17,7 +17,14 @@ bool WavefrontReconstructionStage::doCompute(digitqt::core::Measurement &measure
     return false;
   }
 
-  const double heightPerOrder = measurement.wavelengthNm() / 2;
+  // Двойной проход (тест на отражение): свет идёт через неровность
+  // поверхности туда и обратно, поэтому одна и та же высота поверхности
+  // вносит вдвое больший набег фазы -- значит высота = порядок × λ/2.
+  // Одинарный проход (тест на просвет): измеренная величина УЖЕ прямо
+  // аберрация волнового фронта, без этого дополнительного вдвое -- высота
+  // = порядок × λ. См. Measurement::isDoublePass().
+  const double heightPerOrder =
+      measurement.isDoublePass() ? measurement.wavelengthNm() / 2 : measurement.wavelengthNm();
 
   PhaseMap wavefront(phase.width(), phase.height());
   for (int y = 0; y < phase.height(); ++y) {

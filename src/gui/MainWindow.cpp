@@ -7,6 +7,7 @@
 #include "core/ImagePadding.h"
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
+#include "io/ModalReportExporter.h"
 #include "io/MtrExporter.h"
 #include "io/MtrImporter.h"
 
@@ -25,6 +26,8 @@
 #include <QStyle>
 #include <QToolBar>
 #include <QUndoStack>
+
+#include <algorithm>
 
 namespace digitqt::gui {
 
@@ -137,6 +140,15 @@ void MainWindow::buildMenusAndToolbars() {
       QMessageBox::warning(this, tr("Export"), tr("No numbered fringe lines yet -- trace fringes first."));
       return;
     }
+    const bool hasSynthetic = std::any_of(lines.begin(), lines.end(),
+                                          [](const auto &line) { return line.isSynthetic(); });
+    if (hasSynthetic) {
+      QMessageBox::information(
+          this, tr("Export"),
+          tr("Some fringe lines contain auto-generated (not measured) points added by "
+             "\"Extend fringes to aperture edge\" -- the exported data in those regions "
+             "is an estimate, not a direct measurement."));
+    }
     const QString path = QFileDialog::getSaveFileName(this, tr("Export Fringes"), QString(),
                                                        tr("WinFringe Interferogram (*.frn)"));
     if (path.isEmpty())
@@ -146,6 +158,26 @@ void MainWindow::buildMenusAndToolbars() {
     if (!digitqt::core::io::writeFrnFile(
             path, m_measurement->boundaries(), lines, m_measurement->image().width(),
             m_measurement->image().height(), QFileInfo(m_measurement->imagePath()).fileName(), err))
+      QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
+  });
+  auto *exportReportAction = fileMenu->addAction(tr("Export &Report (.txt)..."));
+  exportReportAction->setToolTip(
+      tr("Save the S5 (Polynomial / Modal Analysis) aberrations, residual and RMS/PV/Strehl "
+         "as a plain text report"));
+  connect(exportReportAction, &QAction::triggered, this, [this] {
+    if (m_measurement->modalAnalysis().isEmpty()) {
+      QMessageBox::warning(this, tr("Export"),
+                           tr("No S5 (Polynomial / Modal Analysis) result yet -- fit aberrations "
+                              "first."));
+      return;
+    }
+    const QString path = QFileDialog::getSaveFileName(this, tr("Export Report"), QString(),
+                                                       tr("Text Report (*.txt)"));
+    if (path.isEmpty())
+      return;
+
+    QString err;
+    if (!digitqt::core::io::writeModalReport(path, *m_measurement, err))
       QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
   });
   openAction->setShortcut(QKeySequence::Open);
@@ -303,6 +335,42 @@ void MainWindow::buildMenusAndToolbars() {
       tr("Automatically place seeds along one row at the fringes' intensity peaks"));
   connect(autoSeedAction, &QAction::triggered, this,
           [this] { m_fringeController->autoPlaceSeeds(); });
+
+  auto *extendWidthAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_ToolBarHorizontalExtensionButton),
+      tr("Extend fringes to aperture edge (width)"));
+  extendWidthAction->setToolTip(
+      tr("Synthesize fringe lines from the leftmost/rightmost traced line out to the "
+         "aperture's left/right edge, spaced by the step to its nearest neighbor. Not a "
+         "measurement -- see the dashed line style"));
+  connect(extendWidthAction, &QAction::triggered, this, [this] {
+    m_fringeController->extendFringesHorizontally();
+    if (!m_fringeController->lastError().isEmpty())
+      QMessageBox::warning(this, tr("Fringe Tracing"), m_fringeController->lastError());
+  });
+
+  auto *extendHeightAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_ToolBarVerticalExtensionButton),
+      tr("Extend fringes to aperture edge (height)"));
+  extendHeightAction->setToolTip(
+      tr("Extend every traced line's endpoints toward the aperture's top/bottom edge, "
+         "following each end's local step. Not a measurement -- see the dashed line style"));
+  connect(extendHeightAction, &QAction::triggered, this, [this] {
+    m_fringeController->extendFringesVertically();
+    if (!m_fringeController->lastError().isEmpty())
+      QMessageBox::warning(this, tr("Fringe Tracing"), m_fringeController->lastError());
+  });
+
+  auto *removeExtensionsAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_DialogResetButton), tr("Remove fringe extensions"));
+  removeExtensionsAction->setToolTip(
+      tr("Strip every line/point added by \"Extend fringes to aperture edge\" (width and "
+         "height), restoring the traced lines to their pre-extension state"));
+  connect(removeExtensionsAction, &QAction::triggered, this, [this] {
+    m_fringeController->removeFringeExtensions();
+    if (!m_fringeController->lastError().isEmpty())
+      QMessageBox::warning(this, tr("Fringe Tracing"), m_fringeController->lastError());
+  });
 
   toolBar->addSeparator();
 

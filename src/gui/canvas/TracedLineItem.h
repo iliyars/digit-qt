@@ -18,7 +18,12 @@ namespace digitqt::gui::canvas {
  */
 class TracedLineItem : public QGraphicsPathItem {
 public:
-  TracedLineItem(const digitqt::core::tracing::TracedLine &line, size_t index, double order);
+  /// synthetic: drawn dashed instead of solid (same per-index color) --
+  /// see NumberedFringeLine::synthetic. Marks a line that contains
+  /// auto-generated (not measured/hand-drawn) points added by the
+  /// edge-extrapolation tools.
+  TracedLineItem(const digitqt::core::tracing::TracedLine &line, size_t index, double order,
+                bool synthetic = false);
 
   size_t lineIndex() const { return m_index; }
 

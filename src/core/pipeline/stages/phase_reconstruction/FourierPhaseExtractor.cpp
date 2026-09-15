@@ -107,6 +107,21 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
     for (int x = 0; x < W; ++x) {
       if (std::hypot(x - cx0, y - cy0) <= kDcRadius)
         continue;
+      // A real signal's spectrum is Hermitian: the point at (x,y) and
+      // its mirror (2*cx0-x, 2*cy0-y) always have equal magnitude, but
+      // are complex conjugates of each other -- one is the true carrier
+      // sideband exp(+i*phase), the other its conjugate exp(-i*phase).
+      // Picking whichever the scan/rounding noise happened to rank
+      // (marginally) higher silently demodulates the CONJUGATE about
+      // half the time, flipping the sign of every odd-order term (tilt,
+      // coma, trefoil) recovered downstream -- and, since the filtered
+      // sideband is then the wrong one entirely, distorting the rest
+      // too. Restricting the search to the positive-frequency half
+      // (x > cx0, tie-broken by y > cy0 for a purely vertical carrier)
+      // always selects the true +phase sideband deterministically,
+      // independent of magnitude noise.
+      if (x < cx0 || (x == cx0 && y <= cy0))
+        continue;
       const double m = mag.at<double>(y, x);
       if (m > maxVal) {
         maxVal = m;

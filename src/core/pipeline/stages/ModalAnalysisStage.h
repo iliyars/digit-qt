@@ -15,7 +15,7 @@ namespace digitqt::core::pipeline {
  * этим набором классических термов.
  *
  * Считается одним из двух способов (см. Measurement::modalFitMethod() / core::ModalFitMethod):
- *   - AnalyticZernike — базис термов взят напрямую из референсного
+ *   - JointLeastSquares — базис термов взят напрямую из референсного
  *     инструмента (DAPPSIM, Includes/Fitting.cpp, метод Seregin:
  *     GetTiltSeregin/GetPowerSeregin/GetAstigSeregin/GetComaSeregin/
  *     GetS3Seregin), а не из "учебниковых" нормированных полиномов

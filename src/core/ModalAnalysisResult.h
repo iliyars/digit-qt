@@ -1,6 +1,8 @@
 #pragma once
 
 #include "core/PhaseMap.h"
+#include "core/PolynomialBasis.h"
+#include "core/SequentialSereginResult.h"
 
 namespace digitqt::core {
 
@@ -26,11 +28,21 @@ struct ModalTermSelection {
 /**
  * @brief Коэффициенты низкочастотной раскладки волнового фронта.
  *
- * Базис -- прямая транскрипция полиномов референсного инструмента
- * (DAPPSIM, Includes/Fitting.cpp, метод Seregin), не "учебниковые"
- * нормированные полиномы Цернике; координата y здесь -- нормализованная
- * пупильная координата в [-1, 1], растущая вниз по строкам изображения
- * (там, где у Seregin ось Y перевёрнута, знак учтён прямо в формуле):
+ * Смысл и масштаб каждого коэффициента зависит от того, какой
+ * PolynomialBasis был выбран при подгонке (см. ModalAnalysisResult::basis
+ * -- это фактически использованный базис для ЭТОГО результата, отдельно
+ * от Measurement::polynomialBasis(), которая может успеть измениться до
+ * следующего пересчёта). Ниже -- базис Seregin (значение по умолчанию);
+ * для PolynomialBasis::Zernike те же поля хранят коэффициенты
+ * классических полиномов Цернике (см. buildTermHierarchy() в
+ * ModalAnalysisStage.cpp) -- НЕ переводятся друг в друга автоматически.
+ *
+ * Базис Seregin -- прямая транскрипция полиномов референсного
+ * инструмента (DAPPSIM, Includes/Fitting.cpp, метод Seregin), не
+ * "учебниковые" нормированные полиномы Цернике; координата y здесь --
+ * нормализованная пупильная координата в [-1, 1], растущая вниз по
+ * строкам изображения (там, где у Seregin ось Y перевёрнута, знак учтён
+ * прямо в формуле):
  *   1                            -- пистон
  *   x, -y                        -- наклон X/Y
  *   x²+y²                        -- дефокус
@@ -52,7 +64,7 @@ struct ModalTermSelection {
  * Термы (не считая пистона) коррелируют друг с другом внутри одной
  * "радиальной семьи" -- пистон/дефокус/сферическая все зависят только от
  * r², а наклон/кома оба линейны по x (или по y) вдоль своей оси. Способ
- * AnalyticZernike решает совместный МНК по всем выбранным термам сразу
+ * JointLeastSquares решает совместный МНК по всем выбранным термам сразу
  * (корректный суммарный остаток при любом подмножестве термов, но не
  * гарантирует, что включение/выключение одного термина не повлияет на
  * коэффициенты остальных); способ GramSchmidtOnAperture дополнительно
@@ -84,6 +96,16 @@ struct ModalCoefficients {
 struct ModalAnalysisResult {
   ModalCoefficients coefficients;
   ModalTermSelection selection;  // какие термы реально подгонялись
+  PolynomialBasis basis = PolynomialBasis::Seregin;  // какой базис использовался
+
+  // Заполняется только при Measurement::modalFitMethod() ==
+  // ModalFitMethod::SequentialSeregin -- полный дамп всех 22
+  // коэффициентов точной последовательной схемы DAPPSIM (см.
+  // SequentialSereginResult.h про то, что из них подтверждено, а что нет).
+  // При других способах подгонки остаётся значениями по умолчанию (все
+  // поля 0.0) и не отображается.
+  SequentialSereginResult sequential;
+
   PhaseMap residual;
   double rmsBefore = 0.0;
   double rmsAfter = 0.0;
@@ -93,6 +115,8 @@ struct ModalAnalysisResult {
   void clear() {
     coefficients = ModalCoefficients();
     selection = ModalTermSelection();
+    basis = PolynomialBasis::Seregin;
+    sequential = SequentialSereginResult();
     residual.clear();
     rmsBefore = 0.0;
     rmsAfter = 0.0;

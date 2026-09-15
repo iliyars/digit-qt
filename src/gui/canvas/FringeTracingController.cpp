@@ -1,10 +1,12 @@
 #include "FringeTracingController.h"
 
 #include "core/AutoSeedPlacement.h"
+#include "core/FringeEdgeExtrapolation.h"
 #include "core/Measurement.h"
 #include "core/commands/AddSeedCommand.h"
 #include "core/commands/AddSeedsCommand.h"
 #include "core/commands/AddTracedLineCommand.h"
+#include "core/commands/AutoExtendFringesCommand.h"
 #include "core/commands/RemoveSeedCommand.h"
 #include "core/commands/RemoveTracedLineCommand.h"
 #include "core/commands/ReplaceTracedLineCommand.h"
@@ -23,6 +25,8 @@ namespace digitqt::gui::canvas {
 using digitqt::commands::AddSeedCommand;
 using digitqt::commands::AddSeedsCommand;
 using digitqt::commands::AddTracedLineCommand;
+using digitqt::commands::AutoExtendFringesCommand;
+using digitqt::commands::FringeExtendDirection;
 using digitqt::commands::RemoveSeedCommand;
 using digitqt::commands::RemoveTracedLineCommand;
 using digitqt::commands::ReplaceTracedLineCommand;
@@ -57,6 +61,22 @@ double segmentParamT(const QPointF &p, const QPointF &a, const QPointF &b) {
 double distance(const QPointF &a, const QPointF &b) {
   const QPointF d = a - b;
   return std::sqrt(QPointF::dotProduct(d, d));
+}
+
+/// Safety cap on the auto-extend growth loops: a simple, always-safe
+/// upper bound (a few thousand trivial iterations costs nothing) rather
+/// than trying to predict the true step magnitude ahead of the algorithm
+/// that computes it -- avoids a whole class of "cap computed from the
+/// wrong step" bugs.
+int extensionIterationCap(const aperture::Bounds &roi) {
+  return static_cast<int>(std::max(roi.width(), roi.height())) + 16;
+}
+
+size_t totalPointCount(const std::vector<digitqt::core::NumberedFringeLine> &lines) {
+  size_t total = 0;
+  for (const auto &line : lines)
+    total += line.points.size();
+  return total;
 }
 
 }  // namespace
@@ -517,6 +537,81 @@ void FringeTracingController::autoPlaceSeeds() {
 
   m_undoStack->push(new AddSeedsCommand(*m_measurement, std::move(seeds)));
   emit seedsChanged();
+}
+
+void FringeTracingController::extendFringesHorizontally() {
+  if (!m_measurement)
+    return;
+  const auto &before = m_measurement->fringeTracing().tracedLines();
+  if (before.size() < 2) {
+    m_lastError =
+        QStringLiteral("Need at least 2 traced fringe lines to determine the step");
+    return;
+  }
+
+  aperture::VisibilityChecker checker(m_measurement->boundaries());
+  auto isVisible = [&checker](double x, double y) {
+    return checker.isVisible(aperture::Point{x, y});
+  };
+  const int cap = extensionIterationCap(checker.getVisibleRegion());
+
+  auto after =
+      digitqt::core::extrapolateFringesHorizontally(before, isVisible, cap, m_edgeExtensionMargin);
+  if (totalPointCount(after) == totalPointCount(before)) {
+    m_lastError = QStringLiteral("Fringes already reach the aperture edge on both sides");
+    return;
+  }
+
+  m_undoStack->push(new AutoExtendFringesCommand(*m_measurement, std::move(after),
+                                                 FringeExtendDirection::Horizontal));
+  emit tracedLinesChanged();
+}
+
+void FringeTracingController::extendFringesVertically() {
+  if (!m_measurement)
+    return;
+  const auto &before = m_measurement->fringeTracing().tracedLines();
+  if (before.empty()) {
+    m_lastError = QStringLiteral("No traced fringe lines to extend");
+    return;
+  }
+
+  aperture::VisibilityChecker checker(m_measurement->boundaries());
+  auto isVisible = [&checker](double x, double y) {
+    return checker.isVisible(aperture::Point{x, y});
+  };
+  const int cap = extensionIterationCap(checker.getVisibleRegion());
+
+  auto after =
+      digitqt::core::extrapolateFringesVertically(before, isVisible, cap, m_edgeExtensionMargin);
+  if (totalPointCount(after) == totalPointCount(before)) {
+    m_lastError = QStringLiteral("Fringes already reach the aperture edge on all ends");
+    return;
+  }
+
+  m_undoStack->push(new AutoExtendFringesCommand(*m_measurement, std::move(after),
+                                                 FringeExtendDirection::Vertical));
+  emit tracedLinesChanged();
+}
+
+void FringeTracingController::removeFringeExtensions() {
+  if (!m_measurement)
+    return;
+  const auto &before = m_measurement->fringeTracing().tracedLines();
+
+  auto after = digitqt::core::removeFringeExtensions(before);
+  if (after.size() == before.size() && totalPointCount(after) == totalPointCount(before)) {
+    m_lastError = QStringLiteral("No fringe extensions to remove");
+    return;
+  }
+
+  m_undoStack->push(new AutoExtendFringesCommand(*m_measurement, std::move(after),
+                                                 FringeExtendDirection::RemoveExtensions));
+  emit tracedLinesChanged();
+}
+
+void FringeTracingController::setEdgeExtensionMargin(int margin) {
+  m_edgeExtensionMargin = std::max(1, margin);
 }
 
 void FringeTracingController::setLineOrder(size_t lineIndex, double newOrder) {

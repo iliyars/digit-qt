@@ -8,4 +8,6 @@ target_sources(DigitQt
         MtrImporter.cpp
         FrnExporter.h
         FrnExporter.cpp
+        ModalReportExporter.h
+        ModalReportExporter.cpp
 )

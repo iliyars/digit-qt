@@ -1,6 +1,7 @@
 #include "core/Measurement.h"
 #include "core/ModalAnalysisResult.h"
 #include "core/ModalFitMethod.h"
+#include "core/PolynomialBasis.h"
 #include "core/pipeline/stages/ModalAnalysisStage.h"
 
 #include <QtTest/QtTest>
@@ -47,13 +48,32 @@ double sereginSurface(const SyntheticCoefficients &c, double x, double y) {
          + c.spherical * (r2 * r2);
 }
 
+/// Точная транскрипция buildZernikeHierarchy() -- классические
+/// (учебниковые, не Gram-Schmidt) полиномы Цернике, без Seregin-flip оси
+/// Y (см. комментарий там же). Продублировано намеренно, по той же
+/// причине, что и sereginSurface() выше.
+double zernikeSurface(const SyntheticCoefficients &c, double x, double y) {
+  const double r2 = x * x + y * y;
+  return c.piston                                   //
+         + c.tiltX * x + c.tiltY * y                 //
+         + c.defocus * (2.0 * r2 - 1.0)               //
+         + c.astigX * (x * x - y * y)                //
+         + c.astigY * (2.0 * x * y)                  //
+         + c.comaX * ((3.0 * r2 - 2.0) * x)          //
+         + c.comaY * ((3.0 * r2 - 2.0) * y)          //
+         + c.trefoilX * (x * x * x - 3.0 * x * y * y) //
+         + c.trefoilY * (3.0 * x * x * y - y * y * y) //
+         + c.spherical * (6.0 * r2 * r2 - 6.0 * r2 + 1.0);
+}
+
 /// Полностью заполненная квадратная апертура size x size (без вырезов).
 /// ModalAnalysisStage берёт центр/радиус из bounding box непустых пикселей
 /// самой карты -- для полного квадрата это совпадает с центром/полушириной
 /// квадрата, так что нормализованные координаты каждого пикселя можно
 /// предсказать здесь же, не заглядывая во внутренности стадии.
-digitqt::core::PhaseMap makeSyntheticWavefront(int size, const SyntheticCoefficients &c,
-                                                double rippleAmplitude = 0.0) {
+digitqt::core::PhaseMap makeSyntheticWavefront(
+    int size, const SyntheticCoefficients &c, double rippleAmplitude = 0.0,
+    digitqt::core::PolynomialBasis basis = digitqt::core::PolynomialBasis::Seregin) {
   digitqt::core::PhaseMap map(size, size);
   const double center = (size - 1) / 2.0;
   const double radius = (size - 1) / 2.0;
@@ -61,7 +81,9 @@ digitqt::core::PhaseMap makeSyntheticWavefront(int size, const SyntheticCoeffici
     for (int x = 0; x < size; ++x) {
       const double nx = (x - center) / radius;
       const double ny = (y - center) / radius;
-      double value = sereginSurface(c, nx, ny);
+      double value = basis == digitqt::core::PolynomialBasis::Zernike
+                         ? zernikeSurface(c, nx, ny)
+                         : sereginSurface(c, nx, ny);
       if (rippleAmplitude != 0.0)
         value += rippleAmplitude * std::sin(5.0 * nx) * std::cos(3.0 * ny);
       map.setValue(x, y, value);
@@ -76,26 +98,32 @@ class ModalAnalysisStageTest : public QObject {
   Q_OBJECT
 
 private slots:
-  // AnalyticZernike -- совместный МНК без ортогонализации по базису Seregin
+  // JointLeastSquares -- совместный МНК без ортогонализации по базису Seregin
   // -- должен точно восстановить коэффициенты синтетической поверхности,
   // построенной из тех же формул: подпространство базиса полноранговое, а
   // сама поверхность лежит в этом подпространстве целиком, так что
   // единственное решение МНК -- это в точности исходные коэффициенты.
   void exactRecoveryMatchesSereginBasis();
 
-  // AnalyticZernike и GramSchmidtOnAperture подгоняют одно и то же
+  // То же самое, но для PolynomialBasis::Zernike -- та же логика точного
+  // восстановления, другой (учебниковый) базис.
+  void exactRecoveryMatchesZernikeBasis();
+
+  // JointLeastSquares и GramSchmidtOnAperture подгоняют одно и то же
   // подпространство термов, только по-разному параметризованное -- их
   // проекция на это подпространство (а значит и остаток) должна совпадать
   // даже когда в данных есть компонента вне подпространства (рябь), которую
   // ни один из методов не может убрать полностью.
   void bothFitMethodsAgreeOnResidual();
+
+  void sequentialSereginDoesNotCrash();
 };
 
 void ModalAnalysisStageTest::exactRecoveryMatchesSereginBasis() {
   const SyntheticCoefficients expected;
   digitqt::core::Measurement measurement;
   measurement.wavefrontMap() = makeSyntheticWavefront(65, expected);
-  measurement.modalFitMethod() = digitqt::core::ModalFitMethod::AnalyticZernike;
+  measurement.modalFitMethod() = digitqt::core::ModalFitMethod::JointLeastSquares;
 
   digitqt::core::pipeline::ModalAnalysisStage stage;
   QVERIFY(stage.compute(measurement));
@@ -117,13 +145,43 @@ void ModalAnalysisStageTest::exactRecoveryMatchesSereginBasis() {
   QVERIFY(measurement.modalAnalysis().rmsAfter < tol);
 }
 
+void ModalAnalysisStageTest::exactRecoveryMatchesZernikeBasis() {
+  const SyntheticCoefficients expected;
+  digitqt::core::Measurement measurement;
+  measurement.wavefrontMap() =
+      makeSyntheticWavefront(65, expected, /*rippleAmplitude=*/0.0,
+                             digitqt::core::PolynomialBasis::Zernike);
+  measurement.modalFitMethod() = digitqt::core::ModalFitMethod::JointLeastSquares;
+  measurement.polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
+
+  digitqt::core::pipeline::ModalAnalysisStage stage;
+  QVERIFY(stage.compute(measurement));
+
+  const auto &fitted = measurement.modalAnalysis().coefficients;
+  const double tol = 1e-8;
+  QVERIFY(std::abs(fitted.piston - expected.piston) < tol);
+  QVERIFY(std::abs(fitted.tiltX - expected.tiltX) < tol);
+  QVERIFY(std::abs(fitted.tiltY - expected.tiltY) < tol);
+  QVERIFY(std::abs(fitted.defocus - expected.defocus) < tol);
+  QVERIFY(std::abs(fitted.astigX - expected.astigX) < tol);
+  QVERIFY(std::abs(fitted.astigY - expected.astigY) < tol);
+  QVERIFY(std::abs(fitted.comaX - expected.comaX) < tol);
+  QVERIFY(std::abs(fitted.comaY - expected.comaY) < tol);
+  QVERIFY(std::abs(fitted.trefoilX - expected.trefoilX) < tol);
+  QVERIFY(std::abs(fitted.trefoilY - expected.trefoilY) < tol);
+  QVERIFY(std::abs(fitted.spherical - expected.spherical) < tol);
+
+  QVERIFY(measurement.modalAnalysis().rmsAfter < tol);
+  QVERIFY(measurement.modalAnalysis().basis == digitqt::core::PolynomialBasis::Zernike);
+}
+
 void ModalAnalysisStageTest::bothFitMethodsAgreeOnResidual() {
   const SyntheticCoefficients coeffs;
   const auto wavefront = makeSyntheticWavefront(65, coeffs, /*rippleAmplitude=*/0.05);
 
   digitqt::core::Measurement analytic;
   analytic.wavefrontMap() = wavefront;
-  analytic.modalFitMethod() = digitqt::core::ModalFitMethod::AnalyticZernike;
+  analytic.modalFitMethod() = digitqt::core::ModalFitMethod::JointLeastSquares;
   digitqt::core::pipeline::ModalAnalysisStage analyticStage;
   QVERIFY(analyticStage.compute(analytic));
 
@@ -135,6 +193,22 @@ void ModalAnalysisStageTest::bothFitMethodsAgreeOnResidual() {
 
   QVERIFY(std::abs(analytic.modalAnalysis().rmsBefore - gramSchmidt.modalAnalysis().rmsBefore) < 1e-9);
   QVERIFY(std::abs(analytic.modalAnalysis().rmsAfter - gramSchmidt.modalAnalysis().rmsAfter) < 1e-8);
+}
+
+void ModalAnalysisStageTest::sequentialSereginDoesNotCrash() {
+  const SyntheticCoefficients coeffs;
+  digitqt::core::Measurement measurement;
+  measurement.wavefrontMap() = makeSyntheticWavefront(65, coeffs);
+  measurement.modalFitMethod() = digitqt::core::ModalFitMethod::SequentialSeregin;
+
+  digitqt::core::pipeline::ModalAnalysisStage stage;
+  QVERIFY(stage.compute(measurement));
+
+  const auto &fitted = measurement.modalAnalysis().coefficients;
+  const double tol = 1e-6;
+  QVERIFY(std::abs(fitted.piston - coeffs.piston) < tol);
+  QVERIFY(std::abs(fitted.tiltX - coeffs.tiltX) < tol);
+  QVERIFY(std::abs(fitted.tiltY - coeffs.tiltY) < tol);
 }
 
 QTEST_MAIN(ModalAnalysisStageTest)

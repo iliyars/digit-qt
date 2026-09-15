@@ -5,6 +5,7 @@
 #include "core/ModalAnalysisResult.h"
 #include "core/PhaseMap.h"
 #include "core/PhaseReconstructionAlgorithm.h"
+#include "core/PolynomialBasis.h"
 
 #include <QImage>
 #include <QString>
@@ -87,6 +88,12 @@ public:
   digitqt::core::ModalFitMethod &modalFitMethod() { return m_modalFitMethod; }
   const digitqt::core::ModalFitMethod &modalFitMethod() const { return m_modalFitMethod; }
 
+  /// Which polynomial family S5 fits against (Seregin/DAPPSIM vs
+  /// classical Zernike) -- orthogonal to modalFitMethod(), see
+  /// PolynomialBasis.h.
+  digitqt::core::PolynomialBasis &polynomialBasis() { return m_polynomialBasis; }
+  const digitqt::core::PolynomialBasis &polynomialBasis() const { return m_polynomialBasis; }
+
   ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
   const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
 
@@ -115,7 +122,8 @@ private:
   ModalTermSelection m_modalTermSelection;
   ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;
-  digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::AnalyticZernike;
+  digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::JointLeastSquares;
+  digitqt::core::PolynomialBasis m_polynomialBasis = digitqt::core::PolynomialBasis::Seregin;
   int m_edgeErosionPixels = 2;
 };
 

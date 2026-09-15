@@ -360,7 +360,7 @@ void ImageCanvas::rebuildFringeItems() {
 
   const auto &lines = tracingData.tracedLines();
   for (size_t i = 0; i < lines.size(); ++i) {
-    auto *item = new TracedLineItem(lines[i].points, i, lines[i].order);
+    auto *item = new TracedLineItem(lines[i].points, i, lines[i].order, lines[i].isSynthetic());
     item->setVisible(m_fringeVisible);
     m_scene.addItem(item);
     m_lineItems.push_back(item);

@@ -3,7 +3,9 @@
 #include "canvas/FringeTracingController.h"
 #include "canvas/PhaseMapView.h"
 #include "core/Measurement.h"
+#include "core/ModalAnalysisReportData.h"
 #include "core/PhaseMap.h"
+#include "core/PolynomialBasis.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -12,7 +14,6 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <algorithm>
-#include <cmath>
 #include <limits>
 
 namespace digitqt::gui {
@@ -48,11 +49,14 @@ ParametersDock::ParametersDock(QWidget *parent)
     : QDockWidget(tr("Parameters"), parent),
       m_algorithmCombo(new QComboBox(this)),
       m_fringeCenterCombo(new QComboBox(this)),
+      m_edgeExtensionMarginSpin(new QSpinBox(this)),
       m_orderSpin(new QDoubleSpinBox(this)),
       m_wavelengthSpin(new QDoubleSpinBox(this)),
+      m_doublePassCheck(new QCheckBox(tr("Double pass (reflection)"), this)),
       m_isolineStepSpin(new QDoubleSpinBox(this)),
       m_phaseAlgorithmCombo(new QComboBox(this)),
       m_fitMethodCombo(new QComboBox(this)),
+      m_polynomialBasisCombo(new QComboBox(this)),
       m_edgeErosionSpin(new QSpinBox(this)),
       m_label(new QLabel(this)) {
   setObjectName("ParametersDock");
@@ -77,6 +81,17 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_fringeCenterCombo->setToolTip(tr("Only used by Scanline Extremum Method"));
   connect(m_fringeCenterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &ParametersDock::onFringeCenterModeChanged);
+
+  m_edgeExtensionMarginSpin->setRange(1, 1000);
+  m_edgeExtensionMarginSpin->setValue(10);
+  m_edgeExtensionMarginSpin->setSuffix(tr(" lines/points"));
+  m_edgeExtensionMarginSpin->setToolTip(
+      tr("How far past the aperture edge \"Extend fringes to aperture edge\" "
+         "(width/height, in the Setup toolbar) overshoots once it crosses it -- "
+         "a deliberate margin, not just one line/point, so every row up to the "
+         "true boundary reliably gets a bracketing crossing"));
+  connect(m_edgeExtensionMarginSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
+          &ParametersDock::onEdgeExtensionMarginChanged);
 
   m_orderSpin->setRange(-999.0, 999.0);
   m_orderSpin->setDecimals(2);
@@ -146,6 +161,16 @@ ParametersDock::ParametersDock(QWidget *parent)
   fringeCenterLayout->addWidget(m_fringeCenterCombo);
   layout->addWidget(m_fringeCenterRow);
 
+  m_edgeExtensionMarginRow = new QWidget(container);
+  auto *edgeExtensionMarginLayout = new QVBoxLayout(m_edgeExtensionMarginRow);
+  edgeExtensionMarginLayout->setContentsMargins(0, 0, 0, 0);
+  auto *edgeExtensionMarginLabel =
+      new QLabel(tr("<b>Edge extension margin</b>"), m_edgeExtensionMarginRow);
+  edgeExtensionMarginLabel->setContentsMargins(8, 8, 8, 0);
+  edgeExtensionMarginLayout->addWidget(edgeExtensionMarginLabel);
+  edgeExtensionMarginLayout->addWidget(m_edgeExtensionMarginSpin);
+  layout->addWidget(m_edgeExtensionMarginRow);
+
   m_orderEditorRow = new QWidget(container);
   auto *orderLayout = new QVBoxLayout(m_orderEditorRow);
   orderLayout->setContentsMargins(0, 0, 0, 0);
@@ -164,6 +189,17 @@ ParametersDock::ParametersDock(QWidget *parent)
   wavelengthLabel->setContentsMargins(8, 8, 8, 0);
   wavelengthLayout->addWidget(wavelengthLabel);
   wavelengthLayout->addWidget(m_wavelengthSpin);
+  m_doublePassCheck->setContentsMargins(8, 4, 8, 0);
+  m_doublePassCheck->setToolTip(
+      tr("On -- reflection test (double pass): light travels through the surface error "
+         "there and back, height = order * wavelength / 2.\n"
+         "Off -- transmission test (single pass): the measured value is already the "
+         "wavefront aberration, height = order * wavelength."));
+  connect(m_doublePassCheck, &QCheckBox::toggled, this, [this](bool checked) {
+    if (m_measurement)
+      m_measurement->setDoublePass(checked);
+  });
+  wavelengthLayout->addWidget(m_doublePassCheck);
   layout->addWidget(m_wavelengthRow);
   m_wavelengthRow->setVisible(false);
 
@@ -219,10 +255,13 @@ ParametersDock::ParametersDock(QWidget *parent)
   auto *fitMethodLabel = new QLabel(tr("<b>Fit method</b>"), m_fitMethodRow);
   fitMethodLabel->setContentsMargins(8, 8, 8, 0);
   fitMethodLayout->addWidget(fitMethodLabel);
-  m_fitMethodCombo->addItem(tr("Analytic Zernike (совместимо с DAPSSIM/WinFringe)"),
-                            static_cast<int>(digitqt::core::ModalFitMethod::AnalyticZernike));
+  m_fitMethodCombo->addItem(tr("Joint least squares (совместимо с DAPSSIM/WinFringe)"),
+                            static_cast<int>(digitqt::core::ModalFitMethod::JointLeastSquares));
   m_fitMethodCombo->addItem(tr("Gram-Schmidt по апертуре (для апертур произвольной формы)"),
                             static_cast<int>(digitqt::core::ModalFitMethod::GramSchmidtOnAperture));
+  m_fitMethodCombo->addItem(
+      tr("Точная последовательная схема DAPPSIM (для сверки с report.txt)"),
+      static_cast<int>(digitqt::core::ModalFitMethod::SequentialSeregin));
   connect(m_fitMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, [this](int) {
     if (m_measurement)
@@ -232,6 +271,33 @@ ParametersDock::ParametersDock(QWidget *parent)
   fitMethodLayout->addWidget(m_fitMethodCombo);
   layout->addWidget(m_fitMethodRow);
   m_fitMethodRow->setVisible(false);
+
+  m_polynomialBasisRow = new QWidget(container);
+  auto *polynomialBasisLayout = new QVBoxLayout(m_polynomialBasisRow);
+  polynomialBasisLayout->setContentsMargins(0, 0, 0, 0);
+  auto *polynomialBasisLabel = new QLabel(tr("<b>Polynomial basis</b>"), m_polynomialBasisRow);
+  polynomialBasisLabel->setContentsMargins(8, 8, 8, 0);
+  polynomialBasisLayout->addWidget(polynomialBasisLabel);
+  m_polynomialBasisCombo->addItem(tr("Seregin (совместимо с DAPSSIM/WinFringe)"),
+                                  static_cast<int>(digitqt::core::PolynomialBasis::Seregin));
+  m_polynomialBasisCombo->addItem(
+      tr("Zernike (учебниковые полиномы, для сравнения с внешними инструментами)"),
+      static_cast<int>(digitqt::core::PolynomialBasis::Zernike));
+  m_polynomialBasisCombo->setToolTip(
+      tr("Seregin -- \"голые\" мономы референсного инструмента DAPPSIM (числа совпадают с "
+         "WinFringe). Zernike -- классические учебниковые полиномы (Y растёт вниз, как в "
+         "большинстве внешних генераторов, а не в оптической \"Y вверх\" конвенции Seregin -- "
+         "знак у Tilt Y/Astig Y/Coma Y/Trefoil Y при этом противоположный). Один и тот же "
+         "волновой фронт, разные коэффициенты -- см. notes/uchebnik-interferometriya-i-digitqt.md §7.2"));
+  connect(m_polynomialBasisCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, [this](int) {
+    if (m_measurement)
+      m_measurement->polynomialBasis() =
+          static_cast<digitqt::core::PolynomialBasis>(m_polynomialBasisCombo->currentData().toInt());
+  });
+  polynomialBasisLayout->addWidget(m_polynomialBasisCombo);
+  layout->addWidget(m_polynomialBasisRow);
+  m_polynomialBasisRow->setVisible(false);
 
   m_edgeErosionRow = new QWidget(container);
   auto *edgeErosionLayout = new QVBoxLayout(m_edgeErosionRow);
@@ -270,6 +336,8 @@ void ParametersDock::setMeasurement(digitqt::core::Measurement *measurement) {
 
     const QSignalBlocker blocker(m_wavelengthSpin);
     m_wavelengthSpin->setValue(m_measurement->wavelengthNm());
+    const QSignalBlocker doublePassBlocker(m_doublePassCheck);
+    m_doublePassCheck->setChecked(m_measurement->isDoublePass());
   }
   refreshOrderEditor();
   refresh();
@@ -283,6 +351,9 @@ void ParametersDock::setFringeController(
             this, &ParametersDock::refreshOrderEditor);
     connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::tracedLinesChanged,
             this, &ParametersDock::refreshOrderEditor);
+
+    const QSignalBlocker blocker(m_edgeExtensionMarginSpin);
+    m_edgeExtensionMarginSpin->setValue(m_fringeController->edgeExtensionMargin());
   }
   refreshOrderEditor();
 }
@@ -295,6 +366,7 @@ void ParametersDock::setStage(StageId id) {
   m_currentStage = id;
   m_algorithmRow->setVisible(id == StageId::Setup);
   m_fringeCenterRow->setVisible(id == StageId::Setup);
+  m_edgeExtensionMarginRow->setVisible(id == StageId::Setup);
   m_wavelengthRow->setVisible(id == StageId::S4);
 
   m_phaseAlgorithmRow->setVisible(id == StageId::S2);
@@ -320,6 +392,7 @@ void ParametersDock::setStage(StageId id) {
   const bool showModalTerms = (id == StageId::S5);
   m_modalTermsRow->setVisible(showModalTerms);
   m_fitMethodRow->setVisible(showModalTerms);
+  m_polynomialBasisRow->setVisible(showModalTerms);
   m_edgeErosionRow->setVisible(showModalTerms);
   if (showModalTerms && m_measurement) {
     const QSignalBlocker fitMethodBlocker(m_fitMethodCombo);
@@ -327,6 +400,11 @@ void ParametersDock::setStage(StageId id) {
         m_fitMethodCombo->findData(static_cast<int>(m_measurement->modalFitMethod()));
     if (fitMethodIndex >= 0)
       m_fitMethodCombo->setCurrentIndex(fitMethodIndex);
+    const QSignalBlocker polynomialBasisBlocker(m_polynomialBasisCombo);
+    const int polynomialBasisIndex =
+        m_polynomialBasisCombo->findData(static_cast<int>(m_measurement->polynomialBasis()));
+    if (polynomialBasisIndex >= 0)
+      m_polynomialBasisCombo->setCurrentIndex(polynomialBasisIndex);
     const QSignalBlocker edgeErosionBlocker(m_edgeErosionSpin);
     m_edgeErosionSpin->setValue(m_measurement->edgeErosionPixels());
     const auto &sel = m_measurement->modalTermSelection();
@@ -360,6 +438,11 @@ void ParametersDock::onFringeCenterModeChanged(int /*index*/) {
     return;
   const auto mode = static_cast<FringeCenterMode>(m_fringeCenterCombo->currentData().toInt());
   m_measurement->fringeTracing().setFringeCenterMode(mode);
+}
+
+void ParametersDock::onEdgeExtensionMarginChanged(int value) {
+  if (m_fringeController)
+    m_fringeController->setEdgeExtensionMargin(value);
 }
 
 void ParametersDock::onFringeOrderSpinChanged(double value) {
@@ -490,61 +573,43 @@ void ParametersDock::refresh() {
                   .arg((maxV - minV) / m_measurement->wavelengthNm(), 0, 'f', 3);
     }
   } else if (m_currentStage == StageId::S5 && m_measurement) {
-    const auto &modal = m_measurement->modalAnalysis();
-    if (modal.isEmpty()) {
+    const auto data = digitqt::core::buildModalAnalysisReportData(*m_measurement);
+    if (data.isEmpty) {
       text +=
           tr("Not computed yet. Press ▶ Fit aberrations in the toolbar "
              "(needs a wavefront map from S4 first).");
     } else {
-      const auto &c = modal.coefficients;
-      const auto &sel = modal.selection;
-      const double astigMag = std::sqrt(c.astigX * c.astigX + c.astigY * c.astigY);
-      const double astigAngleDeg =
-          0.5 * std::atan2(c.astigY, c.astigX) * 180.0 / 3.14159265358979323846;
-      const double comaMag = std::sqrt(c.comaX * c.comaX + c.comaY * c.comaY);
-      const double comaAngleDeg = std::atan2(c.comaY, c.comaX) * 180.0 / 3.14159265358979323846;
-      const double trefoilMag = std::sqrt(c.trefoilX * c.trefoilX + c.trefoilY * c.trefoilY);
-      const double trefoilAngleDeg =
-          std::atan2(c.trefoilY, c.trefoilX) * 180.0 / 3.14159265358979323846 / 3.0;
+      const auto &c = data.coefficients;
+      const auto &sel = data.selection;
 
       const QString notSubtracted = tr("not subtracted -- still in residual");
       const QString tiltStr =
           sel.tilt ? tr("%1 / %2").arg(c.tiltX, 0, 'f', 1).arg(c.tiltY, 0, 'f', 1) : notSubtracted;
       const QString defocusStr = sel.defocus ? QString::number(c.defocus, 'f', 1) : notSubtracted;
       const QString astigStr =
-          sel.astigmatism ? tr("%1 at %2°").arg(astigMag, 0, 'f', 1).arg(astigAngleDeg, 0, 'f', 0)
-                          : notSubtracted;
+          sel.astigmatism
+              ? tr("%1 at %2° (X: %3, Y: %4)")
+                    .arg(data.astigMagnitude, 0, 'f', 1)
+                    .arg(data.astigAngleDeg, 0, 'f', 0)
+                    .arg(c.astigX, 0, 'f', 1)
+                    .arg(c.astigY, 0, 'f', 1)
+              : notSubtracted;
       const QString comaStr =
-          sel.coma ? tr("%1 at %2°").arg(comaMag, 0, 'f', 1).arg(comaAngleDeg, 0, 'f', 0)
+          sel.coma ? tr("%1 at %2° (X: %3, Y: %4)")
+                         .arg(data.comaMagnitude, 0, 'f', 1)
+                         .arg(data.comaAngleDeg, 0, 'f', 0)
+                         .arg(c.comaX, 0, 'f', 1)
+                         .arg(c.comaY, 0, 'f', 1)
                    : notSubtracted;
       const QString trefoilStr =
-          sel.trefoil ? tr("%1 at %2°").arg(trefoilMag, 0, 'f', 1).arg(trefoilAngleDeg, 0, 'f', 0)
+          sel.trefoil ? tr("%1 at %2° (X: %3, Y: %4)")
+                             .arg(data.trefoilMagnitude, 0, 'f', 1)
+                             .arg(data.trefoilAngleDeg, 0, 'f', 0)
+                             .arg(c.trefoilX, 0, 'f', 1)
+                             .arg(c.trefoilY, 0, 'f', 1)
                       : notSubtracted;
       const QString sphericalStr =
           sel.spherical ? QString::number(c.spherical, 'f', 1) : notSubtracted;
-
-      double pvBefore = 0.0, pvAfter = 0.0;
-      {
-        double minB = 0.0, maxB = 0.0, minA = 0.0, maxA = 0.0;
-        if (computeRange(m_measurement->wavefrontMap(), minB, maxB))
-          pvBefore = maxB - minB;
-        if (computeRange(modal.residual, minA, maxA))
-          pvAfter = maxA - minA;
-      }
-
-      // rmsAfter -- это RMS остатка карты ВЫСОТЫ поверхности (см. S4:
-      // высота = порядок × λ/2, коэффициент 2 -- двойной проход при
-      // отражении). Волновой фронт (OPD) вдвое больше высоты, поэтому
-      // для Струма нужен именно он, а не высота напрямую.
-      //
-      // Приближение Марешаля: Strehl ≈ exp(-(2π·RMS_wavefront/λ)²) --
-      // справедливо для хорошо скорректированных систем (RMS ≲ 0.15λ);
-      // при большем RMS число становится неточным, но порядок величины
-      // годится для быстрой оценки.
-      const double rmsWaves = modal.rmsAfter / m_measurement->wavelengthNm();
-      const double rmsWavefrontWaves = 2.0 * rmsWaves;
-      const double strehl =
-          std::exp(-std::pow(2.0 * 3.14159265358979323846 * rmsWavefrontWaves, 2.0));
 
       text += tr("Setup geometry (not a surface property):<br>"
                  "Piston: %1<br>"
@@ -570,15 +635,15 @@ void ParametersDock::refresh() {
                   .arg(comaStr)
                   .arg(trefoilStr)
                   .arg(sphericalStr)
-                  .arg(modal.rmsBefore, 0, 'f', 1)
-                  .arg(modal.rmsBefore / m_measurement->wavelengthNm(), 0, 'f', 3)
-                  .arg(modal.rmsAfter, 0, 'f', 1)
-                  .arg(rmsWaves, 0, 'f', 3)
-                  .arg(pvBefore, 0, 'f', 1)
-                  .arg(pvBefore / m_measurement->wavelengthNm(), 0, 'f', 3)
-                  .arg(pvAfter, 0, 'f', 1)
-                  .arg(pvAfter / m_measurement->wavelengthNm(), 0, 'f', 3)
-                  .arg(strehl, 0, 'f', 3);
+                  .arg(data.rmsBeforeNm, 0, 'f', 1)
+                  .arg(data.rmsBeforeNm / data.wavelengthNm, 0, 'f', 3)
+                  .arg(data.rmsAfterNm, 0, 'f', 1)
+                  .arg(data.rmsAfterNm / data.wavelengthNm, 0, 'f', 3)
+                  .arg(data.pvBeforeNm, 0, 'f', 1)
+                  .arg(data.pvBeforeNm / data.wavelengthNm, 0, 'f', 3)
+                  .arg(data.pvAfterNm, 0, 'f', 1)
+                  .arg(data.pvAfterNm / data.wavelengthNm, 0, 'f', 3)
+                  .arg(data.strehl, 0, 'f', 3);
     }
   } else {
     text += tr("No parameters yet — this stage is not implemented.");

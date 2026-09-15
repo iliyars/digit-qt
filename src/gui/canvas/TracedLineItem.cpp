@@ -24,7 +24,7 @@ QString formatOrder(double order) {
 }  // namespace
 
 TracedLineItem::TracedLineItem(const digitqt::core::tracing::TracedLine &line, size_t index,
-                               double order)
+                               double order, bool synthetic)
     : m_index(index), m_orderLabel(new QGraphicsSimpleTextItem(this)) {
   setZValue(25.0);
 
@@ -41,6 +41,8 @@ TracedLineItem::TracedLineItem(const digitqt::core::tracing::TracedLine &line, s
   QPen pen(color);
   pen.setCosmetic(true);
   pen.setWidth(2);
+  if (synthetic)
+    pen.setStyle(Qt::DashLine);
   setPen(pen);
   setBrush(Qt::NoBrush);
   m_basePen = pen;
