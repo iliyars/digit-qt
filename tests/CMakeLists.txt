@@ -63,6 +63,22 @@ set_target_properties(digitqt_fringe_edge_extrapolation_tests PROPERTIES
 
 add_test(NAME FringeEdgeExtrapolationTest COMMAND digitqt_fringe_edge_extrapolation_tests)
 
+add_executable(digitqt_phase_reconstructor_tests
+    PhaseReconstructorTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline/stages/phase_reconstruction/PhaseReconstructor.cpp
+)
+
+target_include_directories(digitqt_phase_reconstructor_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+target_link_libraries(digitqt_phase_reconstructor_tests PRIVATE Qt5::Test Qt5::Widgets)
+
+set_target_properties(digitqt_phase_reconstructor_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME PhaseReconstructorTest COMMAND digitqt_phase_reconstructor_tests)
+
 # Integration test: renders a synthetic interferogram image with known
 # Seregin-basis aberration coefficients (same formula as
 # ModalAnalysisStageTest.cpp, at realistic nm magnitudes), then runs the

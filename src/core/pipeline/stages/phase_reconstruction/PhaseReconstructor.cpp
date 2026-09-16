@@ -28,6 +28,42 @@ struct FringeCrossing {
 /// правило [ymin, ymax) для наклонных сегментов, чтобы горизонталь,
 /// проходящая точно через общую вершину двух сегментов, не давала
 /// пересечение дважды.
+/// Ниже этого расстояния по X два соседних (после сортировки) пересечения
+/// считаются "одной и той же точкой" для целей сплайна -- см. комментарий
+/// в findFringeCrossings() про то, почему это происходит и почему без
+/// этого NaturalCubicSpline может улетать в бесконечность.
+constexpr double kMinCrossingSpacing = 1.0;
+
+/// Схлопывает соседние (уже отсортированные по X) пересечения, если они
+/// ближе kMinCrossingSpacing друг к другу, в одно (средние X и value).
+///
+/// Такое почти-совпадение бывает, когда две ТРАССИРОВАННЫЕ линии
+/// физически пересекаются на конкретной строке (их порядок вдоль X
+/// локально не совпадает с их общим порядком полосы -- обычно у полюса
+/// апертуры, особенно если одна из них дотянута авто-продлением
+/// (core::extrapolateFringesVertically/Horizontally) чуть дальше, чем
+/// нужно). NaturalCubicSpline строится из ПРЕДПОЛОЖЕНИЯ, что X узлов
+/// строго возрастает с достаточным шагом -- почти нулевой шаг между
+/// двумя узлами (h[i]≈0 в методе Томаса) даёт деление на близкое-к-нулю
+/// число и совершенно нефизичный всплеск значения в этой и соседних
+/// строках, даже если сама трассировка в остальном корректна. Схлопывание
+/// -- не "правильный" физический ответ (в этой точке порядок полосы
+/// действительно неоднозначен), но он ограничен и не портит остаток
+/// строки, в отличие от взрыва сплайна.
+std::vector<FringeCrossing> mergeNearDuplicateCrossings(std::vector<FringeCrossing> crossings) {
+  std::vector<FringeCrossing> merged;
+  merged.reserve(crossings.size());
+  for (const auto &c : crossings) {
+    if (!merged.empty() && c.x - merged.back().x < kMinCrossingSpacing) {
+      merged.back().x = 0.5 * (merged.back().x + c.x);
+      merged.back().value = 0.5 * (merged.back().value + c.value);
+      continue;
+    }
+    merged.push_back(c);
+  }
+  return merged;
+}
+
 std::vector<FringeCrossing> findFringeCrossings(double worldY,
                                                 const std::vector<NumberedFringeLine> &lines) {
   std::vector<FringeCrossing> crossings;
@@ -55,7 +91,7 @@ std::vector<FringeCrossing> findFringeCrossings(double worldY,
   }
 
   std::sort(crossings.begin(), crossings.end());
-  return crossings;
+  return mergeNearDuplicateCrossings(std::move(crossings));
 }
 
 /// Натуральный кубический сплайн через (x, value) точки пересечения,
