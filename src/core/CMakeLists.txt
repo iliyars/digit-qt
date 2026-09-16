@@ -1,5 +1,7 @@
 target_sources(DigitQt
     PRIVATE
+        ApertureSamples.h
+        ApertureSamples.cpp
         Measurement.h
         Measurement.cpp
         ShapeCollectionAccess.h

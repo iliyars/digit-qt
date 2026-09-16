@@ -61,12 +61,13 @@ public:
   /// each one found (see core::findRowSeeds), as a single undo step.
   void autoPlaceSeeds();
 
-  /// Synthesizes new fringe lines beyond the leftmost/rightmost traced
-  /// line, continuing the step to its nearest neighbor out to the
-  /// aperture edge (see core::extrapolateFringesHorizontally()). Single
-  /// undo step, independent of extendFringesVertically(). No-op (sets
-  /// lastError()) if there are fewer than 2 traced lines or nothing is
-  /// added.
+  /// Synthesizes one new fringe line just beyond the leftmost traced line
+  /// and one just beyond the rightmost, continuing each side's step to
+  /// its nearest neighbor (see core::extrapolateFringesHorizontally()) --
+  /// exactly one line per side per call, not a batch out to the aperture
+  /// edge (repeat the call to add more). Single undo step, independent
+  /// of extendFringesVertically(). No-op (sets lastError()) if there are
+  /// fewer than 2 traced lines or nothing is added.
   void extendFringesHorizontally();
 
   /// Extends every traced line's two endpoints toward the aperture edge,
@@ -84,11 +85,12 @@ public:
   /// No-op (sets lastError()) if nothing is currently extended.
   void removeFringeExtensions();
 
-  /// How many lines/points past the aperture edge extendFringesHorizontally()/
-  /// Vertically() add once they cross it (clamped to >= 1 -- less than
-  /// one would defeat the whole point of deliberately overshooting the
-  /// boundary, see FringeEdgeExtrapolation.h). Defaults to 10; set from
-  /// ParametersDock's Setup page.
+  /// How many points past the aperture edge extendFringesVertically()
+  /// adds once it crosses it (clamped to >= 1 -- less than one would
+  /// defeat the whole point of deliberately overshooting the boundary,
+  /// see FringeEdgeExtrapolation.h). Does not affect
+  /// extendFringesHorizontally(), which always adds exactly one line per
+  /// side per call. Defaults to 10; set from ParametersDock's Setup page.
   void setEdgeExtensionMargin(int margin);
   int edgeExtensionMargin() const { return m_edgeExtensionMargin; }
 

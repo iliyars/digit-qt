@@ -31,11 +31,10 @@ class FringeEdgeExtrapolationTest : public QObject {
 private slots:
   // Horizontal
   void horizontalNeedsAtLeastTwoLines();
-  void horizontalGrowsBothSidesByLocalStep();
-  void horizontalAsymmetricVisibilitySkipsOneSide();
+  void horizontalGrowsBothSidesByOneLine();
+  void horizontalRepeatedCallsGrowOneMoreLineEachTime();
+  void horizontalInvisibleSeedSkipsThatSide();
   void horizontalDegenerateStepSkipsThatSide();
-  void horizontalZeroCapAddsNothing();
-  void horizontalOvershootMarginAddsMultipleLines();
 
   // Vertical
   void verticalStraightLineGrowsBothEnds();
@@ -43,6 +42,7 @@ private slots:
   void verticalStopsAtLastVisiblePoint();
   void verticalSkipsLinesWithFewerThanTwoPoints();
   void verticalOvershootMarginAddsMultiplePoints();
+  void verticalIgnoresBoundaryClippedLastSegment();
 
   // Remove extensions
   void removeExtensionsDropsWhollySyntheticLine();
@@ -54,79 +54,91 @@ private slots:
 
 void FringeEdgeExtrapolationTest::horizontalNeedsAtLeastTwoLines() {
   std::vector<NumberedFringeLine> lines = {makeLine({{100.0, 0.0}, {100.0, 10.0}})};
-  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible(), 5, 1);
+  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible());
   QCOMPARE(result.size(), size_t{1});
   QCOMPARE(result[0].points.size(), size_t{2});
 }
 
-void FringeEdgeExtrapolationTest::horizontalGrowsBothSidesByLocalStep() {
+void FringeEdgeExtrapolationTest::horizontalGrowsBothSidesByOneLine() {
   std::vector<NumberedFringeLine> lines = {
       makeLine({{100.0, 0.0}, {100.0, 10.0}}),
       makeLine({{150.0, 0.0}, {150.0, 10.0}}),
       makeLine({{200.0, 0.0}, {200.0, 10.0}}),
   };
 
-  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible(), 3, 1);
+  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible());
 
-  // 3 original + 3 synthetic on each side.
-  QCOMPARE(result.size(), size_t{9});
+  // 3 original + exactly 1 synthetic on each side -- not a batch out to
+  // the aperture edge, just one line per side per call.
+  QCOMPARE(result.size(), size_t{5});
 
   int syntheticCount = 0;
-  bool sawX50 = false, sawX0 = false, sawXMinus50 = false;
-  bool sawX250 = false, sawX300 = false, sawX350 = false;
+  bool sawX50 = false, sawX250 = false;
   for (const auto &line : result) {
     const double x = line.points.front().x;
     if (!line.isSynthetic()) {
-      // Originals must stay untouched.
-      QVERIFY(x == 100.0 || x == 150.0 || x == 200.0);
+      QVERIFY(x == 100.0 || x == 150.0 || x == 200.0);  // originals untouched
       continue;
     }
     ++syntheticCount;
     if (x == 50.0) sawX50 = true;
-    if (x == 0.0) sawX0 = true;
-    if (x == -50.0) sawXMinus50 = true;
     if (x == 250.0) sawX250 = true;
-    if (x == 300.0) sawX300 = true;
-    if (x == 350.0) sawX350 = true;
   }
-  QCOMPARE(syntheticCount, 6);
-  QVERIFY(sawX50 && sawX0 && sawXMinus50 && sawX250 && sawX300 && sawX350);
+  QCOMPARE(syntheticCount, 2);
+  QVERIFY(sawX50 && sawX250);
 }
 
-void FringeEdgeExtrapolationTest::horizontalAsymmetricVisibilitySkipsOneSide() {
+void FringeEdgeExtrapolationTest::horizontalRepeatedCallsGrowOneMoreLineEachTime() {
   std::vector<NumberedFringeLine> lines = {
       makeLine({{100.0, 0.0}, {100.0, 10.0}}),
       makeLine({{150.0, 0.0}, {150.0, 10.0}}),
       makeLine({{200.0, 0.0}, {200.0, 10.0}}),
   };
-  // Only x >= 90 is visible: the first left candidate (x=50) is entirely
-  // invisible -- with a margin of 1 it still gets added (one deliberate
-  // overshoot past the edge), then the left side stops there. The right
-  // side never leaves the visible region within 3 steps, so it keeps
-  // growing to the cap.
-  auto isVisible = [](double x, double) { return x >= 90.0; };
 
-  const auto result = extrapolateFringesHorizontally(lines, isVisible, 3, 1);
+  auto once = extrapolateFringesHorizontally(lines, alwaysVisible());
+  QCOMPARE(once.size(), size_t{5});  // +1 left, +1 right
 
-  int syntheticCount = 0;
-  bool sawLeftOvershoot = false;
-  int rightCount = 0;
-  for (const auto &line : result) {
+  auto twice = extrapolateFringesHorizontally(once, alwaysVisible());
+  QCOMPARE(twice.size(), size_t{7});  // one more line added on each side
+
+  bool sawX0 = false, sawX300 = false;
+  for (const auto &line : twice) {
     if (!line.isSynthetic())
       continue;
-    ++syntheticCount;
     const double x = line.points.front().x;
-    if (x < 90.0) {
-      QCOMPARE(x, 50.0);  // the single deliberate overshoot, one step past the edge
-      sawLeftOvershoot = true;
-    } else {
-      QVERIFY(x > 200.0);
-      ++rightCount;
-    }
+    if (x == 0.0) sawX0 = true;      // second step left: 100 - 2*50
+    if (x == 300.0) sawX300 = true;  // second step right: 200 + 2*50
   }
-  QVERIFY(sawLeftOvershoot);
-  QCOMPARE(rightCount, 3);
-  QCOMPARE(syntheticCount, 4);
+  QVERIFY(sawX0 && sawX300);
+}
+
+void FringeEdgeExtrapolationTest::horizontalInvisibleSeedSkipsThatSide() {
+  std::vector<NumberedFringeLine> lines = {
+      makeLine({{100.0, 0.0}, {100.0, 10.0}}),
+      makeLine({{150.0, 0.0}, {150.0, 10.0}}),
+      makeLine({{200.0, 0.0}, {200.0, 10.0}}),
+  };
+  // Only x >= 90 is visible: the leftmost line (x=100) is itself still
+  // visible, so its side still grows once (landing at x=50, entirely
+  // invisible -- added anyway, per the "segment past the edge" rationale
+  // in FringeEdgeExtrapolation.h). A second call finds the new seed
+  // (x=50) already fully invisible and stops growing that side further.
+  auto isVisible = [](double x, double) { return x >= 90.0; };
+
+  const auto once = extrapolateFringesHorizontally(lines, isVisible);
+  bool sawX50 = false;
+  for (const auto &line : once) {
+    if (line.isSynthetic() && line.points.front().x == 50.0)
+      sawX50 = true;
+  }
+  QVERIFY(sawX50);
+
+  const auto twice = extrapolateFringesHorizontally(once, isVisible);
+  QCOMPARE(twice.size(), once.size() + 1);  // only the (still visible) right side grew again
+  for (const auto &line : twice) {
+    if (line.isSynthetic())
+      QVERIFY(line.points.front().x != 0.0);  // left side did not grow past x=50
+  }
 }
 
 void FringeEdgeExtrapolationTest::horizontalDegenerateStepSkipsThatSide() {
@@ -136,7 +148,7 @@ void FringeEdgeExtrapolationTest::horizontalDegenerateStepSkipsThatSide() {
       makeLine({{300.0, 0.0}, {300.0, 10.0}}),
   };
 
-  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible(), 5, 1);
+  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible());
 
   int syntheticCount = 0;
   for (const auto &line : result) {
@@ -146,49 +158,7 @@ void FringeEdgeExtrapolationTest::horizontalDegenerateStepSkipsThatSide() {
     // Only the right side (from the x=300 line) should have grown.
     QVERIFY(line.points.front().x > 300.0);
   }
-  QCOMPARE(syntheticCount, 5);
-}
-
-void FringeEdgeExtrapolationTest::horizontalZeroCapAddsNothing() {
-  std::vector<NumberedFringeLine> lines = {
-      makeLine({{100.0, 0.0}, {100.0, 10.0}}),
-      makeLine({{150.0, 0.0}, {150.0, 10.0}}),
-  };
-
-  const auto result = extrapolateFringesHorizontally(lines, alwaysVisible(), 0, 1);
-  QCOMPARE(result.size(), size_t{2});
-  for (const auto &line : result)
-    QVERIFY(!line.isSynthetic());
-}
-
-void FringeEdgeExtrapolationTest::horizontalOvershootMarginAddsMultipleLines() {
-  std::vector<NumberedFringeLine> lines = {
-      makeLine({{100.0, 0.0}, {100.0, 10.0}}),
-      makeLine({{150.0, 0.0}, {150.0, 10.0}}),
-      makeLine({{200.0, 0.0}, {200.0, 10.0}}),
-  };
-  // Only x >= 90 is visible: the left side crosses out immediately
-  // (x=50, 0, -50 are all invisible) -- with a margin of 3, all three
-  // are added before the left side stops, not just the first.
-  auto isVisible = [](double x, double) { return x >= 90.0; };
-
-  const auto result = extrapolateFringesHorizontally(lines, isVisible, 10, /*overshootMargin=*/3);
-
-  bool sawX50 = false, sawX0 = false, sawXMinus50 = false;
-  int leftCount = 0;
-  for (const auto &line : result) {
-    if (!line.isSynthetic())
-      continue;
-    const double x = line.points.front().x;
-    if (x >= 90.0)
-      continue;  // right-side growth, not under test here
-    ++leftCount;
-    if (x == 50.0) sawX50 = true;
-    if (x == 0.0) sawX0 = true;
-    if (x == -50.0) sawXMinus50 = true;
-  }
-  QCOMPARE(leftCount, 3);
-  QVERIFY(sawX50 && sawX0 && sawXMinus50);
+  QCOMPARE(syntheticCount, 1);
 }
 
 void FringeEdgeExtrapolationTest::verticalStraightLineGrowsBothEnds() {
@@ -255,6 +225,32 @@ void FringeEdgeExtrapolationTest::verticalOvershootMarginAddsMultiplePoints() {
   QVERIFY(result[0].isSynthetic());
 }
 
+void FringeEdgeExtrapolationTest::verticalIgnoresBoundaryClippedLastSegment() {
+  // Regular step of 10 throughout, except the very last real segment
+  // (80 -> 83), which is only 3 -- simulating S1's tracer placing its
+  // final point exactly at the aperture-boundary crossing rather than a
+  // full regular step from its neighbor. The synthetic continuation
+  // must use the regular interior step (10), not the clipped one (3).
+  std::vector<NumberedFringeLine> lines = {
+      makeLine({{100.0, 50.0}, {100.0, 60.0}, {100.0, 70.0}, {100.0, 80.0}, {100.0, 83.0}}),
+  };
+
+  const auto result = extrapolateFringesVertically(lines, alwaysVisible(), 2, 1);
+
+  const auto &points = result[0].points;
+  QCOMPARE(points.size(), size_t{5 + 2 + 2});  // 2 grown at each end
+  // Front end (prepended, so these are now the first two points): steps
+  // back from y=50 by the regular interior spacing (10).
+  QCOMPARE(points[0].y, 30.0);
+  QCOMPARE(points[1].y, 40.0);
+  // Back end (appended after the 5 original points, now at indices
+  // 2..6): real points end at y=83; the next two synthetic points step
+  // by the regular interior spacing (10), not the clipped last segment
+  // (3) -- 93, then 103, not 86, then 89.
+  QCOMPARE(points[7].y, 93.0);
+  QCOMPARE(points[8].y, 103.0);
+}
+
 void FringeEdgeExtrapolationTest::removeExtensionsDropsWhollySyntheticLine() {
   std::vector<NumberedFringeLine> lines = {
       makeLine({{100.0, 0.0}, {100.0, 10.0}}),  // real
@@ -307,7 +303,7 @@ void FringeEdgeExtrapolationTest::removeExtensionsUndoesHorizontalExtension() {
       makeLine({{200.0, 0.0}, {200.0, 10.0}}),
   };
 
-  const auto extended = extrapolateFringesHorizontally(original, alwaysVisible(), 3, 1);
+  const auto extended = extrapolateFringesHorizontally(original, alwaysVisible());
   QVERIFY(extended.size() > original.size());  // sanity: it actually grew
 
   const auto restored = removeFringeExtensions(extended);

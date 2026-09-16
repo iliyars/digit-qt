@@ -38,8 +38,7 @@ bool anyPointVisible(const tracing::TracedLine &points,
 
 std::vector<NumberedFringeLine> extrapolateFringesHorizontally(
     std::vector<NumberedFringeLine> lines,
-    const std::function<bool(double, double)> &isVisible, int maxIterationsPerSide,
-    int overshootMargin) {
+    const std::function<bool(double, double)> &isVisible) {
   if (lines.size() < 2)
     return lines;
 
@@ -53,45 +52,34 @@ std::vector<NumberedFringeLine> extrapolateFringesHorizontally(
     if (std::abs(step) < kMinStepMagnitude)
       return;
     // Idempotency guard: if the seed itself no longer has any visible
-    // point, this side was already extended past the edge (by the full
-    // margin) by an earlier call -- nothing left to do (otherwise a
-    // repeated click would keep drifting further out forever).
+    // point, an earlier call already pushed this side fully out of view
+    // -- nothing left to do (otherwise a repeated call would keep
+    // drifting further out forever).
     if (!anyPointVisible(lines[seedIdx].points, isVisible))
       return;
 
-    // Always add the candidate, even once it's gone fully outside the
+    // Exactly one new line per call, even if it lands fully outside the
     // visible aperture: PhaseReconstructor's per-row crossing search
     // doesn't care about a line's own visibility, only about a segment
     // spanning the row -- stopping right at the last visible line would
     // leave rows between it and the true (continuous) boundary without a
     // bracketing crossing on that side, exactly the "aperture pole" gap
-    // this feature exists to close. Once past the edge, keep adding up
-    // to overshootMargin more such lines (a deliberate margin), then stop.
-    int overshootCount = 0;
-    for (int k = 1; k <= maxIterationsPerSide; ++k) {
-      tracing::TracedLine candidatePoints = lines[seedIdx].points;
-      for (auto &p : candidatePoints)
-        p.x += k * step;
+    // this feature exists to close. Calling this again grows one step
+    // further out from there.
+    tracing::TracedLine candidatePoints = lines[seedIdx].points;
+    for (auto &p : candidatePoints)
+      p.x += step;
 
-      const bool visible = anyPointVisible(candidatePoints, isVisible);
-
-      NumberedFringeLine newLine;
-      newLine.orderIsManual = false;
-      // The whole line is synthetic (there's no real data to attach a
-      // continuation to -- it IS the continuation). Recorded as a front
-      // count purely by convention; removeFringeExtensions() strips
-      // front+back points regardless of which end they're nominally on,
-      // so a wholly-synthetic line always ends up emptied and dropped.
-      newLine.syntheticFrontCount = static_cast<int>(candidatePoints.size());
-      newLine.points = std::move(candidatePoints);
-      lines.push_back(std::move(newLine));
-
-      if (!visible) {
-        ++overshootCount;
-        if (overshootCount >= overshootMargin)
-          break;
-      }
-    }
+    NumberedFringeLine newLine;
+    newLine.orderIsManual = false;
+    // The whole line is synthetic (there's no real data to attach a
+    // continuation to -- it IS the continuation). Recorded as a front
+    // count purely by convention; removeFringeExtensions() strips
+    // front+back points regardless of which end they're nominally on,
+    // so a wholly-synthetic line always ends up emptied and dropped.
+    newLine.syntheticFrontCount = static_cast<int>(candidatePoints.size());
+    newLine.points = std::move(candidatePoints);
+    lines.push_back(std::move(newLine));
   };
 
   const size_t leftIdx = sorted.front();
@@ -127,16 +115,58 @@ int growEnd(tracing::TracedLine &points, bool atStart,
   if (!isVisible(initialLast.x, initialLast.y))
     return 0;
 
+  // Fixed step, computed ONCE -- not recomputed from the growing
+  // synthetic tail on every iteration. Recomputing from the last two
+  // points each time (an earlier version of this function did that, to
+  // "follow the line's local curvature") backfires on a genuinely
+  // curving line: each new synthetic point nudges the direction a
+  // little further than the one before it, so the step compounds
+  // instead of tracking the curve -- producing uneven point spacing and
+  // wildly different extension lengths between lines with different
+  // curvature.
+  //
+  // Deliberately NOT derived from this end's outermost two points
+  // (points.front()/[1] or points.back()/[size-2]): S1's own tracer
+  // places that outermost point AT the exact aperture-boundary
+  // crossing, not one regular step away from its neighbor -- for a
+  // fringe that crosses the (curved) boundary at a shallow angle, that
+  // last real segment can be a small fraction of the line's actual
+  // point spacing. Using it as the extrapolation step would faithfully
+  // repeat that fluke-short (or fluke-long) segment for every synthetic
+  // point instead of the line's real, regular spacing -- observed in
+  // practice as wildly different (but individually uniform) extension
+  // lengths between lines, concentrated on whichever end of the
+  // aperture happens to have shallower boundary crossings. Instead, the
+  // step comes from the interior segment just before that (skipping the
+  // possibly-clipped outermost point on both ends), while growth still
+  // starts from the true outermost point -- so position is exact, only
+  // direction/magnitude are taken from an unclipped pair. Falls back to
+  // the outermost pair when there aren't 3 points to spare.
+  double stepX, stepY;
+  if (points.size() >= 3) {
+    // Interior segment, skipping the possibly boundary-clipped outermost
+    // point entirely: for atStart, points[1]-points[2] (direction
+    // continuing past points[1], away from the interior); mirrored for
+    // the back end.
+    const auto &near = atStart ? points[1] : points[points.size() - 2];
+    const auto &far = atStart ? points[2] : points[points.size() - 3];
+    stepX = near.x - far.x;
+    stepY = near.y - far.y;
+  } else {
+    // Only 2 points total -- no interior pair to fall back on, so use
+    // the outermost pair as-is (best available information).
+    const auto &neighbor = atStart ? points[1] : points[points.size() - 2];
+    stepX = initialLast.x - neighbor.x;
+    stepY = initialLast.y - neighbor.y;
+  }
+  if (std::hypot(stepX, stepY) < kMinStepMagnitude)
+    return 0;
+
   int addedCount = 0;
   int overshootCount = 0;
 
   for (int i = 0; i < maxIterations; ++i) {
     const auto &last = atStart ? points.front() : points.back();
-    const auto &prev = atStart ? points[1] : points[points.size() - 2];
-    const double stepX = last.x - prev.x;
-    const double stepY = last.y - prev.y;
-    if (std::hypot(stepX, stepY) < kMinStepMagnitude)
-      break;
 
     tracing::TracedPoint candidate;
     candidate.x = last.x + stepX;

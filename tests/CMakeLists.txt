@@ -11,6 +11,7 @@ find_package(Qt5 REQUIRED COMPONENTS Test)
 add_executable(digitqt_tests
     ModalAnalysisStageTest.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Measurement.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ApertureSamples.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline/PipelineStage.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline/PipelineStageId.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline/stages/ModalAnalysisStage.cpp
@@ -73,6 +74,7 @@ add_test(NAME FringeEdgeExtrapolationTest COMMAND digitqt_fringe_edge_extrapolat
 add_executable(digitqt_e2e_synthetic_tests
     EndToEndSyntheticInterferogramTest.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Measurement.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ApertureSamples.cpp
     ${CMAKE_SOURCE_DIR}/src/core/FringeOrdering.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline/Pipeline.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline/PipelineStage.cpp

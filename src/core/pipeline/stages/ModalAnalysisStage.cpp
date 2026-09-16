@@ -1,5 +1,6 @@
 #include "ModalAnalysisStage.h"
 
+#include "core/ApertureSamples.h"
 #include "core/Measurement.h"
 #include "core/PolynomialBasis.h"
 #include "core/SequentialSereginResult.h"
@@ -324,77 +325,15 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
   const int w = wavefront.width();
   const int h = wavefront.height();
 
-  // Центр и радиус апертуры (не изображения!) -- "зрачковые координаты",
-  // где край апертуры всегда ровно at radius=1, как принято в оптике.
-  // Раньше нормировали по размеру картинки; если апертура не занимает
-  // всё изображение (обычно так и есть), это давало ложную крутизну
-  // членов высокой степени (кома/трилистник/сферическая) ближе к
-  // фактическому краю апертуры -- полиномы высокой степени особенно
-  // чувствительны к такой ошибке масштаба у границы.
-  //
-  // Берём охват НЕПОСРЕДСТВЕННО из самой карты (bounding box непустых
-  // пикселей), а не из Measurement::boundaries() -- те заданы в
-  // координатах полного изображения, а карта хранится на уменьшенной
-  // сетке (см. PhaseReconstructionStage), так что координаты были бы
-  // не в том масштабе.
-  int minX = w, maxX = -1, minY = h, maxY = -1;
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      if (!wavefront.hasValue(x, y))
-        continue;
-      minX = std::min(minX, x);
-      maxX = std::max(maxX, x);
-      minY = std::min(minY, y);
-      maxY = std::max(maxY, y);
-    }
-  }
-
-  double centerX = w / 2.0, centerY = h / 2.0;
-  double radius = std::max(w, h) / 2.0;
-  if (maxX >= minX && maxY >= minY) {
-    centerX = (minX + maxX) / 2.0;
-    centerY = (minY + maxY) / 2.0;
-    radius = std::max(maxX - minX, maxY - minY) / 2.0;
-  }
-  if (radius <= 0.0)
-    radius = std::max(w, h) / 2.0;
-
-  // Эрозия края апертуры на пару пикселей перед подгонкой: самый
-  // крайний ободок карты фазы -- систематически наименее надёжные
-  // данные во всей карте (вертикальная докомпенсация полюса,
-  // экстраполяция построчного сплайна и т.п. концентрируются именно
-  // там). Одна аномальная точка на глобальном МНК не "усредняется", а
-  // даёт локальный выброс ровно в этой точке -- на 3D-графике остатка
-  // это видно как одиночные иглы у края. Отбрасываем пиксели, у которых
-  // хоть один сосед в радиусе kEdgeErosionPixels не имеет данных --
-  // такая точка гарантированно граничная, даже если сама по себе она
-  // формально входит в апертуру.
+  // Центр/радиус апертуры и сами сэмплы -- см. ApertureSamples.h/.cpp
+  // (вынесено туда, чтобы внешние инструменты сравнения/диагностики
+  // могли использовать РОВНО ту же нормализацию координат, что и эта
+  // стадия, без риска рассинхронизации с копией логики).
+  const digitqt::core::ApertureGeometry geometry =
+      digitqt::core::computeApertureGeometry(wavefront);
   const int edgeErosionPixels = std::max(0, measurement.edgeErosionPixels());
-  auto isCore = [&](int x, int y) {
-    for (int dy = -edgeErosionPixels; dy <= edgeErosionPixels; ++dy)
-      for (int dx = -edgeErosionPixels; dx <= edgeErosionPixels; ++dx)
-        if (!wavefront.hasValue(x + dx, y + dy))
-          return false;
-    return true;
-  };
-
-  // Нормализованные координаты (x, y в [-1, 1] относительно апертуры).
-  struct Sample {
-    double x, y, z;
-    int px, py;
-  };
-  std::vector<Sample> samples;
-  samples.reserve(static_cast<size_t>(w) * static_cast<size_t>(h) / 4);
-
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      if (!isCore(x, y))
-        continue;
-      const double nx = (x - centerX) / radius;
-      const double ny = (y - centerY) / radius;
-      samples.push_back({nx, ny, wavefront.value(x, y), x, y});
-    }
-  }
+  const std::vector<digitqt::core::ApertureSample> samples =
+      digitqt::core::collectApertureSamples(wavefront, geometry, edgeErosionPixels);
 
   const auto selection = measurement.modalTermSelection();
   const auto method = measurement.modalFitMethod();

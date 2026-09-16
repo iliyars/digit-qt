@@ -10,6 +10,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
+option(DIGITQT_BUILD_TOOLS "Build diagnostic CLI tools (see tools/)" OFF)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization)
 
@@ -38,4 +39,8 @@ add_subdirectory(translations)
 if(DIGITQT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(DIGITQT_BUILD_TOOLS)
+    add_subdirectory(tools)
 endif()

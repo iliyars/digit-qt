@@ -84,12 +84,14 @@ ParametersDock::ParametersDock(QWidget *parent)
 
   m_edgeExtensionMarginSpin->setRange(1, 1000);
   m_edgeExtensionMarginSpin->setValue(10);
-  m_edgeExtensionMarginSpin->setSuffix(tr(" lines/points"));
+  m_edgeExtensionMarginSpin->setSuffix(tr(" points"));
   m_edgeExtensionMarginSpin->setToolTip(
       tr("How far past the aperture edge \"Extend fringes to aperture edge\" "
-         "(width/height, in the Setup toolbar) overshoots once it crosses it -- "
-         "a deliberate margin, not just one line/point, so every row up to the "
-         "true boundary reliably gets a bracketing crossing"));
+         "(height, in the Setup toolbar) overshoots once it crosses it -- "
+         "a deliberate margin, not just one point, so every row up to the "
+         "true boundary reliably gets a bracketing crossing. Only applies to "
+         "the height direction -- the width direction always adds exactly one "
+         "line per side per click."));
   connect(m_edgeExtensionMarginSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
           &ParametersDock::onEdgeExtensionMarginChanged);
 
@@ -165,7 +167,7 @@ ParametersDock::ParametersDock(QWidget *parent)
   auto *edgeExtensionMarginLayout = new QVBoxLayout(m_edgeExtensionMarginRow);
   edgeExtensionMarginLayout->setContentsMargins(0, 0, 0, 0);
   auto *edgeExtensionMarginLabel =
-      new QLabel(tr("<b>Edge extension margin</b>"), m_edgeExtensionMarginRow);
+      new QLabel(tr("<b>Height extension margin</b>"), m_edgeExtensionMarginRow);
   edgeExtensionMarginLabel->setContentsMargins(8, 8, 8, 0);
   edgeExtensionMarginLayout->addWidget(edgeExtensionMarginLabel);
   edgeExtensionMarginLayout->addWidget(m_edgeExtensionMarginSpin);

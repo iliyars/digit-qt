@@ -553,10 +553,8 @@ void FringeTracingController::extendFringesHorizontally() {
   auto isVisible = [&checker](double x, double y) {
     return checker.isVisible(aperture::Point{x, y});
   };
-  const int cap = extensionIterationCap(checker.getVisibleRegion());
 
-  auto after =
-      digitqt::core::extrapolateFringesHorizontally(before, isVisible, cap, m_edgeExtensionMargin);
+  auto after = digitqt::core::extrapolateFringesHorizontally(before, isVisible);
   if (totalPointCount(after) == totalPointCount(before)) {
     m_lastError = QStringLiteral("Fringes already reach the aperture edge on both sides");
     return;
