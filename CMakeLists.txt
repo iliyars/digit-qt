@@ -12,7 +12,7 @@ set(CMAKE_AUTOUIC ON)
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 option(DIGITQT_BUILD_TOOLS "Build diagnostic CLI tools (see tools/)" OFF)
 
-find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization)
+find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization Concurrent)
 
 # Needed by BinaryThinningTracker (Fringe Binary Method: adaptive
 # threshold + Zhang-Suen skeletonization). On MSYS2 MINGW64:

@@ -18,7 +18,9 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QFutureWatcher>
 #include <QMessageBox>
+#include <QProgressBar>
 #include <QSettings>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -26,6 +28,7 @@
 #include <QStyle>
 #include <QToolBar>
 #include <QUndoStack>
+#include <QtConcurrent>
 
 #include <algorithm>
 
@@ -73,6 +76,13 @@ MainWindow::MainWindow(QWidget *parent)
   m_statusLabel = new QLabel(this);
   statusBar()->addPermanentWidget(m_statusLabel);
 
+  m_busyIndicator = new QProgressBar(this);
+  m_busyIndicator->setRange(0, 0);  // indeterminate ("marquee") style
+  m_busyIndicator->setMaximumWidth(120);
+  m_busyIndicator->setTextVisible(false);
+  m_busyIndicator->setVisible(false);
+  statusBar()->addPermanentWidget(m_busyIndicator);
+
   connect(m_controller, &digitqt::gui::canvas::BoundaryEditController::boundariesChanged, this,
           &MainWindow::updateStatusBar);
   connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::seedsChanged, this,
@@ -83,6 +93,10 @@ MainWindow::MainWindow(QWidget *parent)
   buildMenusAndToolbars();
   buildLanguageMenu();
   buildDocks();
+
+  m_disableWhileBusy = {menuBar(),         m_setupToolBar,    m_phaseToolBar,
+                        m_wavefrontToolBar, m_modalToolBar,    m_pipelineDock,
+                        m_parametersDock,   m_centralStack};
 
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
@@ -443,7 +457,7 @@ void MainWindow::buildMenusAndToolbars() {
       style()->standardIcon(QStyle::SP_MediaPlay), tr("Compute wavefront"));
   computeWavefrontAction->setToolTip(
       tr("Convert the phase map to physical wavefront height (needs S2 first)"));
-  connect(computeWavefrontAction, &QAction::triggered, this, &MainWindow::computeWavefront);
+  connect(computeWavefrontAction, &QAction::triggered, this, [this] { computeWavefront(); });
 
   // --- Modal Analysis toolbar (S5: same heatmap/isolines toggles as
   // S2/S4, controlling the 2D residual view next to the 3D one; plus
@@ -462,7 +476,7 @@ void MainWindow::buildMenusAndToolbars() {
       modalToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Fit aberrations"));
   computeModalAction->setToolTip(
       tr("Fit piston/tilt/defocus/astigmatism and subtract them (needs S4 first)"));
-  connect(computeModalAction, &QAction::triggered, this, &MainWindow::computeModalAnalysis);
+  connect(computeModalAction, &QAction::triggered, this, [this] { computeModalAnalysis(); });
 }
 
 void MainWindow::buildLanguageMenu() {
@@ -537,42 +551,88 @@ void MainWindow::onStageSelected(StageId id) {
 }
 
 void MainWindow::runTracing() {
-  if (!m_fringeController->runTracing()) {
-    QMessageBox::warning(this, tr("Fringe Tracing"),
-                         tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
-  }
-  updateStatusBar();
+  runComputeInBackground(
+      tr("Tracing fringes..."), [this] { return m_fringeController->runTracing(); },
+      [this](bool ok) {
+        if (!ok) {
+          QMessageBox::warning(this, tr("Fringe Tracing"),
+                               tr("Tracing failed:\n%1").arg(m_fringeController->lastError()));
+        }
+        updateStatusBar();
+      });
 }
 
 void MainWindow::computePhase() {
-  auto &stage = m_pipeline->stage(StageId::S2);
-  if (!stage.compute(*m_measurement)) {
-    QMessageBox::warning(this, tr("Phase Reconstruction"),
-                         tr("Phase reconstruction failed:\n%1").arg(stage.errorMessage()));
-  }
-  m_phaseMapView->refresh();
-  updateStatusBar();
+  runComputeInBackground(
+      tr("Reconstructing phase..."),
+      [this] { return m_pipeline->stage(StageId::S2).compute(*m_measurement); },
+      [this](bool ok) {
+        if (!ok) {
+          QMessageBox::warning(this, tr("Phase Reconstruction"),
+                               tr("Phase reconstruction failed:\n%1")
+                                   .arg(m_pipeline->stage(StageId::S2).errorMessage()));
+        }
+        m_phaseMapView->refresh();
+        updateStatusBar();
+      });
 }
 
-void MainWindow::computeWavefront() {
-  auto &stage = m_pipeline->stage(StageId::S4);
-  if (!stage.compute(*m_measurement)) {
-    QMessageBox::warning(this, tr("Wavefront Reconstruction"),
-                         tr("Wavefront reconstruction failed:\n%1").arg(stage.errorMessage()));
-  }
-  m_phaseMapView->refresh();
-  updateStatusBar();
+void MainWindow::computeWavefront(std::function<void()> then) {
+  runComputeInBackground(
+      tr("Computing wavefront..."),
+      [this] { return m_pipeline->stage(StageId::S4).compute(*m_measurement); },
+      [this, then](bool ok) {
+        if (!ok) {
+          QMessageBox::warning(this, tr("Wavefront Reconstruction"),
+                               tr("Wavefront reconstruction failed:\n%1")
+                                   .arg(m_pipeline->stage(StageId::S4).errorMessage()));
+        }
+        m_phaseMapView->refresh();
+        updateStatusBar();
+        if (then)
+          then();
+      });
 }
 
-void MainWindow::computeModalAnalysis() {
-  auto &stage = m_pipeline->stage(StageId::S5);
-  if (!stage.compute(*m_measurement)) {
-    QMessageBox::warning(this, tr("Modal Analysis"),
-                         tr("Modal analysis failed:\n%1").arg(stage.errorMessage()));
-  }
-  m_surface3DView->refresh();
-  m_modalPhaseMapView->refresh();
-  updateStatusBar();
+void MainWindow::computeModalAnalysis(std::function<void()> then) {
+  runComputeInBackground(
+      tr("Fitting aberrations..."),
+      [this] { return m_pipeline->stage(StageId::S5).compute(*m_measurement); },
+      [this, then](bool ok) {
+        if (!ok) {
+          QMessageBox::warning(this, tr("Modal Analysis"),
+                               tr("Modal analysis failed:\n%1")
+                                   .arg(m_pipeline->stage(StageId::S5).errorMessage()));
+        }
+        m_surface3DView->refresh();
+        m_modalPhaseMapView->refresh();
+        updateStatusBar();
+        if (then)
+          then();
+      });
+}
+
+void MainWindow::runComputeInBackground(const QString &busyText, std::function<bool()> compute,
+                                        std::function<void(bool)> onDone) {
+  setUiBusy(true, busyText);
+  auto *watcher = new QFutureWatcher<bool>(this);
+  connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, onDone] {
+    const bool ok = watcher->result();
+    watcher->deleteLater();
+    setUiBusy(false);
+    onDone(ok);
+  });
+  watcher->setFuture(QtConcurrent::run(std::move(compute)));
+}
+
+void MainWindow::setUiBusy(bool busy, const QString &text) {
+  for (QWidget *w : m_disableWhileBusy)
+    w->setEnabled(!busy);
+  m_busyIndicator->setVisible(busy);
+  if (busy)
+    m_statusLabel->setText(text);
+  else
+    updateStatusBar();  // restore the normal status-bar text
 }
 
 void MainWindow::openImage() {
@@ -628,11 +688,17 @@ void MainWindow::importMtr() {
   m_modalPhaseMapView->setMeasurement(m_measurement.get());
 
   m_pipeline->stage(StageId::S2).markComputed();
-  computeWavefront();
-  computeModalAnalysis();
-
-  m_pipelineDock->selectStage(StageId::S5);
-  updateStatusBar();
+  // Chained, not fired together: each stage now runs on a background
+  // thread (see runComputeInBackground()), so computeModalAnalysis()
+  // must not start until computeWavefront()'s worker has actually
+  // finished writing wavefrontMap() -- firing both at once would let
+  // S5 read it while S4 is still computing it.
+  computeWavefront([this] {
+    computeModalAnalysis([this] {
+      m_pipelineDock->selectStage(StageId::S5);
+      updateStatusBar();
+    });
+  });
 }
 
 void MainWindow::updateStatusBar() {
