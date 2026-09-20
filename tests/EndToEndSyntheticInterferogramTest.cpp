@@ -237,6 +237,42 @@ void runFourierCase(const char *label, const SyntheticCoefficients &coeffs) {
                  /*toleranceFraction=*/0.15, /*toleranceFloorNm=*/20.0);
 }
 
+/// Renders `coeffs`, runs it through the real ScanlineExtremum tracer +
+/// HorizontalSpline pipeline (S1 traces/numbers fringes -- unlike the
+/// Fourier cases above, this exercises FringeConstructor's numbering).
+/// Only FringeCenterMode::Max is covered here -- MinMax ("Both,
+/// alternating") was found (while comparing against a real Digit .mtr
+/// for test_data/Terminal.bmp) to produce much larger, non-scalar errors
+/// with this synthetic image too; that looked initially like a clean
+/// "every number is exactly double" bug in FringeConstructor's
+/// numbering, but a targeted fix (halving the exposed fringe number for
+/// MinMax) did NOT resolve it here, so something else about MinMax mode
+/// is still wrong. Left as a known-broken mode, not fixed -- out of
+/// scope for the terminal.bmp comparison, which uses Max.
+void runScanlineExtremumCase(const char *label, const SyntheticCoefficients &coeffs,
+                             digitqt::core::FringeCenterMode mode) {
+  digitqt::core::Measurement measurement;
+  measurement.setImage(
+      renderInterferogram(kSize, kCenter, kCenter, kRadius, coeffs, kWavelengthNm),
+      QStringLiteral("synthetic"));
+  measurement.boundaries().addExternal(
+      std::make_unique<aperture::Ellipse>(kRadius, kRadius, kCenter, kCenter));
+  measurement.setWavelengthNm(kWavelengthNm);
+  measurement.fringeTracing().setAlgorithm(digitqt::core::TracerAlgorithm::ScanlineExtremum);
+  measurement.fringeTracing().setFringeCenterMode(mode);
+
+  runFullPipeline(measurement);
+
+  appendToReportFile(QStringLiteral("%1: phaseMap %2; piston=%3 rmsBefore=%4 rmsAfter=%5")
+                          .arg(label)
+                          .arg(boundingBoxReport(measurement.phaseMap()))
+                          .arg(measurement.modalAnalysis().coefficients.piston)
+                          .arg(measurement.modalAnalysis().rmsBefore)
+                          .arg(measurement.modalAnalysis().rmsAfter));
+  reportAndCheck(label, coeffs, measurement.modalAnalysis().coefficients,
+                 /*toleranceFraction=*/0.15, /*toleranceFloorNm=*/20.0);
+}
+
 }  // namespace
 
 class EndToEndSyntheticInterferogramTest : public QObject {
@@ -256,6 +292,10 @@ private slots:
   void tiltPlusComa();
   void tiltPlusTrefoil();
   void tiltPlusSpherical();
+
+  // ScanlineExtremum tracer + HorizontalSpline, Max fringe-center mode
+  // (see runScanlineExtremumCase's doc for why MinMax isn't covered).
+  void scanlineExtremumMaxRecoversCoefficients();
 };
 
 void EndToEndSyntheticInterferogramTest::tiltOnlyBaseline() {
@@ -293,6 +333,14 @@ void EndToEndSyntheticInterferogramTest::tiltPlusSpherical() {
   auto c = withCarrierTilt();
   c.spherical = 40.0;
   runFourierCase("tiltPlusSpherical", c);
+}
+
+void EndToEndSyntheticInterferogramTest::scanlineExtremumMaxRecoversCoefficients() {
+  auto c = withCarrierTilt();
+  c.defocus = 300.0;
+  c.astigX = 80.0;
+  c.astigY = 50.0;
+  runScanlineExtremumCase("scanlineExtremumMax", c, digitqt::core::FringeCenterMode::Max);
 }
 
 QTEST_MAIN(EndToEndSyntheticInterferogramTest)

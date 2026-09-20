@@ -1,0 +1,60 @@
+DigitQt -- Polynomial / Modal Analysis (S5) report
+Generated: 2026-09-18T11:09:36
+Wavelength: 632.8 nm
+Polynomial basis: Seregin (DAPPSIM/WinFringe-compatible)
+Fit method: Sequential Seregin (exact DAPPSIM Fitting.cpp algorithm)
+
+Setup geometry (not a surface property):
+  Piston: 6049.59 nm
+  Tilt X/Y: 6321.96 / 11.39 nm
+  Defocus: 470.76 nm
+
+Surface aberrations:
+  Astigmatism: 313.88 nm at 44.9°  (X: 0.55 nm, Y: -313.88 nm)
+  Coma: 305.78 nm at -136.1°  (X: 220.39 nm, Y: -211.97 nm)
+  Trefoil: 0.30 nm at -58.1°  (X: -0.30 nm, Y: -0.03 nm)
+  Spherical (3rd order): 315.33 nm
+
+RMS before: 6820.34 nm (10.778 λ)
+RMS after: 0.50 nm (0.001 λ)
+PV before: 12757.29 nm (20.160 λ)
+PV after: 22.35 nm (0.035 λ)
+Strehl (Marechal est.): 1.000
+
+--- Raw sequential stages (exact DAPPSIM algorithm; byte-verified only for
+    piston/tiltX/tiltY/defocus against test_data/report.txt's D/Lx/Ly/C via
+    test_data/Terminal.pol -- everything below that is a faithful
+    transcription of Includes/Fitting.cpp, NOT independently verified
+    against report.txt's B0-B8/C(coma)/FIC labels: those are formatted by
+    WinFringe, whose source is unavailable) ---
+  Piston (stage 1): 6049.59 nm (9.560 λ)
+  Tilt X (stage 1): 6321.96 nm (9.990 λ)
+  Tilt Y (stage 1): 11.39 nm (0.018 λ)
+  Defocus / "C" (stage 2, ρ²): 470.76 nm (0.744 λ)
+  Astig (3X²-1)/2 (stage 3): 0.55 nm (0.001 λ)
+  Astig XY (stage 3): -313.88 nm (-0.496 λ)
+  Astig (3Y²-1)/2 (stage 3): -0.56 nm (-0.001 λ)
+  Residual tilt X (stage 4): 0.83 nm (0.001 λ)
+  Residual tilt Y (stage 4): -0.59 nm (-0.001 λ)
+  Coma X (stage 4): 110.19 nm (0.174 λ)
+  Coma Y (stage 4): -105.99 nm (-0.167 λ)
+  Trefoil X (stage 4): -0.15 nm (-0.000 λ)
+  Trefoil Y (stage 4): -0.01 nm (-0.000 λ)
+  ρ² (stage 5, S3): -156.33 nm (-0.247 λ)
+  ρ⁴ (stage 5, S3): 157.67 nm (0.249 λ)
+  ρ² (stage 6, S5): -1.67 nm (-0.003 λ)
+  ρ⁴ (stage 6, S5): 4.22 nm (0.007 λ)
+  ρ⁶ (stage 6, S5): -2.84 nm (-0.004 λ)
+  ρ² (stage 7, S7): 3.97 nm (0.006 λ)
+  ρ⁴ (stage 7, S7): -18.02 nm (-0.028 λ)
+  ρ⁶ (stage 7, S7): 28.26 nm (0.045 λ)
+  ρ⁸ (stage 7, S7): -14.25 nm (-0.023 λ)
+  Discarded stage intercepts (2-7, kept in residual calc only): -207.67 nm (-0.328 λ)
+
+RMS(W) initial: 10.778 λ
+RMS after tilt+defocus: 0.106 λ
+RMS after astig: 0.034 λ
+RMS after coma+trefoil: 0.018 λ
+RMS after S3: 0.001 λ
+RMS after S5: 0.001 λ
+RMS after S7: 0.001 λ
