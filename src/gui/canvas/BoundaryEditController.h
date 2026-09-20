@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QRectF>
+#include <QString>
 #include <QUndoStack>
 #include <aperture/include/geometry/Handle.h>
 #include <aperture/include/geometry/Shape.h>
@@ -61,6 +62,18 @@ public:
   /// Discards any in-progress ellipse-by-points collection (e.g. bound
   /// to the Escape key). No-op if nothing is being collected.
   void cancelPointCollection();
+
+  /// Analyzes the loaded image directly (no seeds/clicking) and replaces
+  /// any existing external boundary/boundaries with a single fitted
+  /// ellipse around the detected aperture -- see
+  /// core::detectApertureBoundary(). The removal of the old boundaries
+  /// and the addition of the new one land as ONE undo step. On failure
+  /// (see lastError()), nothing changes.
+  void autoDetectAperture();
+
+  /// Why autoDetectAperture() didn't produce a boundary. Empty if it
+  /// succeeded, or hasn't been called yet.
+  QString lastError() const { return m_lastError; }
 
   // Live drag-to-create rectangle preview (Add* modes); empty if not dragging.
   std::optional<QRectF> creationPreview() const;
@@ -156,6 +169,8 @@ private:
   std::unique_ptr<aperture::Shape> m_resizeOriginal;  // clone taken at drag start
 
   std::optional<Selection> m_selection;
+
+  QString m_lastError;
 };
 
 }  // namespace digitqt::gui::canvas

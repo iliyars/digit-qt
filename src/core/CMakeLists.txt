@@ -7,6 +7,8 @@ target_sources(DigitQt
         ShapeCollectionAccess.h
         AutoSeedPlacement.h
         AutoSeedPlacement.cpp
+        AutoApertureDetection.h
+        AutoApertureDetection.cpp
         ImagePadding.h
         ImagePadding.cpp
         NumberedFringeLine.h

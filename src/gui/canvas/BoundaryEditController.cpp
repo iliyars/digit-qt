@@ -1,5 +1,6 @@
 #include "BoundaryEditController.h"
 
+#include "core/AutoApertureDetection.h"
 #include "core/Measurement.h"
 #include "core/ShapeCollectionAccess.h"
 #include "core/commands/AddShapeCommand.h"
@@ -172,6 +173,36 @@ void BoundaryEditController::cancelPointCollection() {
     return;
   m_pointBuffer.clear();
   emit previewChanged();
+}
+
+void BoundaryEditController::autoDetectAperture() {
+  m_lastError.clear();
+  if (!m_measurement || !m_measurement->hasImage()) {
+    m_lastError = QStringLiteral("No image loaded");
+    return;
+  }
+
+  auto detection = digitqt::core::detectApertureBoundary(m_measurement->image());
+  if (!detection.ok()) {
+    m_lastError = detection.errorMessage;
+    return;
+  }
+
+  // Descending order: RemoveShapeCommand removes by index, so removing
+  // the highest index first keeps every not-yet-removed index valid.
+  const size_t existingCount = m_measurement->boundaries().getExternal().size();
+  m_undoStack->beginMacro(tr("Auto Detect Aperture"));
+  for (size_t i = existingCount; i-- > 0;)
+    m_undoStack->push(new RemoveShapeCommand(m_measurement->boundaries(),
+                                             aperture::TypeLimits::EXTERNAL, i));
+  m_undoStack->push(new AddShapeCommand(m_measurement->boundaries(),
+                                        aperture::TypeLimits::EXTERNAL,
+                                        std::move(detection.ellipse)));
+  m_undoStack->endMacro();
+
+  m_selection.reset();
+  emit boundariesChanged();
+  emit selectionChanged();
 }
 
 void BoundaryEditController::finalizePointsEllipse() {

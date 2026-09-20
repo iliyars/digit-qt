@@ -333,6 +333,19 @@ void MainWindow::buildMenusAndToolbars() {
                         tr("Add internal boundary (ellipse by points: click around the "
                            "perimeter, double-click to finish)"),
                         EditMode::AddInternalEllipseByPoints);
+
+  auto *autoApertureAction = toolBar->addAction(
+      digitqt::gui::icons::shapeIcon(/*ellipse=*/true, externalColor, Qt::DotLine),
+      tr("Auto Detect Aperture"));
+  autoApertureAction->setToolTip(
+      tr("Automatically find the aperture from the image's fringe pattern and set it as "
+         "the external boundary (replaces any existing one)"));
+  connect(autoApertureAction, &QAction::triggered, this, [this] {
+    m_controller->autoDetectAperture();
+    if (!m_controller->lastError().isEmpty()) {
+      QMessageBox::warning(this, tr("Auto Detect Aperture"), m_controller->lastError());
+    }
+  });
   toolBar->addSeparator();
 
   // --- Fringe tracing (seed points + run tracer) ---
