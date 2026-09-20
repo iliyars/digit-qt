@@ -262,7 +262,7 @@ ParametersDock::ParametersDock(QWidget *parent)
   m_fitMethodCombo->addItem(tr("Gram-Schmidt по апертуре (для апертур произвольной формы)"),
                             static_cast<int>(digitqt::core::ModalFitMethod::GramSchmidtOnAperture));
   m_fitMethodCombo->addItem(
-      tr("Точная последовательная схема DAPPSIM (для сверки с report.txt)"),
+      tr("Точная последовательная схема DAPPSIM"),
       static_cast<int>(digitqt::core::ModalFitMethod::SequentialSeregin));
   connect(m_fitMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, [this](int) {
@@ -280,17 +280,13 @@ ParametersDock::ParametersDock(QWidget *parent)
   auto *polynomialBasisLabel = new QLabel(tr("<b>Polynomial basis</b>"), m_polynomialBasisRow);
   polynomialBasisLabel->setContentsMargins(8, 8, 8, 0);
   polynomialBasisLayout->addWidget(polynomialBasisLabel);
-  m_polynomialBasisCombo->addItem(tr("Seregin (совместимо с DAPSSIM/WinFringe)"),
+  m_polynomialBasisCombo->addItem(tr("Seregin (совместимо с DAPSSIM)"),
                                   static_cast<int>(digitqt::core::PolynomialBasis::Seregin));
   m_polynomialBasisCombo->addItem(
-      tr("Zernike (учебниковые полиномы, для сравнения с внешними инструментами)"),
+      tr("Zernike"),
       static_cast<int>(digitqt::core::PolynomialBasis::Zernike));
   m_polynomialBasisCombo->setToolTip(
-      tr("Seregin -- \"голые\" мономы референсного инструмента DAPPSIM (числа совпадают с "
-         "WinFringe). Zernike -- классические учебниковые полиномы (Y растёт вниз, как в "
-         "большинстве внешних генераторов, а не в оптической \"Y вверх\" конвенции Seregin -- "
-         "знак у Tilt Y/Astig Y/Coma Y/Trefoil Y при этом противоположный). Один и тот же "
-         "волновой фронт, разные коэффициенты -- см. notes/uchebnik-interferometriya-i-digitqt.md §7.2"));
+      tr(""));
   connect(m_polynomialBasisCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, [this](int) {
     if (m_measurement)
