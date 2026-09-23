@@ -41,10 +41,10 @@ PipelineTreeDock::PipelineTreeDock(QWidget *parent)
   setWidget(m_tree);
 
   for (const StageId id : kCanonicalOrder) {
-    auto *item =
-        new QTreeWidgetItem(m_tree, {digitqt::core::pipeline::displayName(id)});
+    auto *item = new QTreeWidgetItem(
+        m_tree, {QString::fromStdString(digitqt::core::pipeline::displayName(id))});
     item->setData(0, kStageIdRole, static_cast<int>(id));
-    item->setToolTip(0, digitqt::core::pipeline::shortName(id));
+    item->setToolTip(0, QString::fromStdString(digitqt::core::pipeline::shortName(id)));
   }
 
   connect(m_tree, &QTreeWidget::currentItemChanged, this,

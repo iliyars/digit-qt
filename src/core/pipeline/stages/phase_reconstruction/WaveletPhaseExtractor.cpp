@@ -101,14 +101,14 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
     }
   }
   if (totalCount < 100) {
-    result.errorMessage = QStringLiteral("Aperture too small or empty");
+    result.errorMessage = "Aperture too small or empty";
     return result;
   }
 
   const double period0 = estimateCarrierPeriod(gray, hardMask, W, H);
   if (period0 <= 1.0) {
-    result.errorMessage = QStringLiteral(
-        "Could not find a clear carrier frequency -- fringes may be too faint or absent");
+    result.errorMessage =
+        "Could not find a clear carrier frequency -- fringes may be too faint or absent";
     return result;
   }
 
@@ -251,7 +251,7 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
     }
   }
   if (startX < 0 || !hasWrapped.at<uchar>(startY, startX)) {
-    result.errorMessage = QStringLiteral("Not enough valid ridge points to unwrap the phase");
+    result.errorMessage = "Not enough valid ridge points to unwrap the phase";
     return result;
   }
 
@@ -294,7 +294,7 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
   }
 
   if (!any) {
-    result.errorMessage = QStringLiteral("Not enough visible pixels to reconstruct phase");
+    result.errorMessage = "Not enough visible pixels to reconstruct phase";
     return result;
   }
 

@@ -26,7 +26,7 @@ bool BinaryThinningTracker::initialize(
   m_lastError.clear();
 
   if (image.isNull()) {
-    m_lastError = QStringLiteral("Empty image");
+    m_lastError = "Empty image";
     return false;
   }
 
@@ -47,8 +47,7 @@ std::vector<TracedLine> BinaryThinningTracker::extract(
     const std::vector<SeedPoint> & /*seeds*/) {
   // Global algorithm -- seeds are not used, see IFringeTracer's contract.
   if (m_image.empty()) {
-    m_lastError =
-        QStringLiteral("Tracer not initialized. Call initialize() first.");
+    m_lastError = "Tracer not initialized. Call initialize() first.";
     return {};
   }
 
@@ -71,9 +70,9 @@ std::vector<TracedLine> BinaryThinningTracker::extract(
       smoothLine(line);
 
   if (lines.empty()) {
-    m_lastError = QStringLiteral(
+    m_lastError =
         "No fringes detected -- check the aperture, contrast, "
-        "and the adaptiveC/pruneLength parameters");
+        "and the adaptiveC/pruneLength parameters";
   }
 
   return lines;

@@ -65,10 +65,10 @@ public:
   bool initialize(const QImage &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
-  QString name() const override {
-    return QStringLiteral("Binary Thinning Method (FBM)");
+  std::string name() const override {
+    return "Binary Thinning Method (FBM)";
   }
-  const QString &lastError() const override { return m_lastError; }
+  const std::string &lastError() const override { return m_lastError; }
 
   void setParams(const BinaryThinningParams &params) { m_params = params; }
   const BinaryThinningParams &params() const { return m_params; }
@@ -101,7 +101,7 @@ private:
   cv::Mat m_distMap;  // distance transform, for width (only if computeWidth)
 
   std::function<bool(int, int)> m_isVisible;
-  QString m_lastError;
+  std::string m_lastError;
 };
 
 }  // namespace digitqt::core::tracing

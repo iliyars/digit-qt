@@ -5,15 +5,15 @@
 namespace digitqt::core::pipeline {
 
 bool WavefrontReconstructionStage::doCompute(digitqt::core::Measurement &measurement,
-                                             QString &errorMessage) {
+                                             std::string &errorMessage) {
   const auto &phase = measurement.phaseMap();
   if (phase.isEmpty()) {
-    errorMessage = QStringLiteral("No phase map. Run Phase Reconstruction (S2) first.");
+    errorMessage = "No phase map. Run Phase Reconstruction (S2) first.";
     return false;
   }
 
   if (measurement.wavelengthNm() <= 0.0) {
-    errorMessage = QStringLiteral("Wavelength must be positive");
+    errorMessage = "Wavelength must be positive";
     return false;
   }
 

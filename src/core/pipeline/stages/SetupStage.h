@@ -21,7 +21,7 @@ public:
 
 protected:
   bool doCompute(digitqt::core::Measurement &measurement,
-                 QString &errorMessage) override;
+                 std::string &errorMessage) override;
 };
 
 }  // namespace digitqt::core::pipeline

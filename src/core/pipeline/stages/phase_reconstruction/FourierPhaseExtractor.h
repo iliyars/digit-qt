@@ -3,9 +3,9 @@
 #include "core/PhaseMap.h"
 
 #include <QImage>
-#include <QString>
 
 #include <functional>
+#include <string>
 
 namespace digitqt::core::pipeline {
 
@@ -36,7 +36,7 @@ public:
   struct Result {
     digitqt::core::PhaseMap phaseMap;  // номер полосы N (та же конвенция, что и у S2/spline-пути)
     bool ok = false;
-    QString errorMessage;
+    std::string errorMessage;
   };
 
   /// image -- полное изображение интерферограммы (используется как

@@ -504,8 +504,8 @@ void ParametersDock::refresh() {
   using digitqt::core::pipeline::displayName;
   using digitqt::core::pipeline::shortName;
 
-  QString text =
-      tr("<b>%1</b> (%2)<br><br>").arg(displayName(m_currentStage), shortName(m_currentStage));
+  QString text = tr("<b>%1</b> (%2)<br><br>").arg(QString::fromStdString(displayName(m_currentStage)),
+          QString::fromStdString(shortName(m_currentStage)));
 
   if (m_currentStage == StageId::Setup && m_measurement) {
     if (m_measurement->hasImage()) {

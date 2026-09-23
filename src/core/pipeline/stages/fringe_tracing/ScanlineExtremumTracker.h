@@ -35,10 +35,10 @@ public:
   bool initialize(const QImage &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
-  QString name() const override {
-    return QStringLiteral("Scanline Extremum Method (FTM)");
+  std::string name() const override {
+    return "Scanline Extremum Method (FTM)";
   }
-  const QString &lastError() const override { return m_lastError; }
+  const std::string &lastError() const override { return m_lastError; }
 
   void setParams(const Params &params) { m_params = params; }
   const Params &params() const { return m_params; }
@@ -54,7 +54,7 @@ private:
   QImage m_grayImage;
   std::function<bool(int, int)> m_isVisible;
   Params m_params;
-  QString m_lastError;
+  std::string m_lastError;
   std::vector<double> m_lastFringeNumbers;
 };
 

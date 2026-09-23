@@ -21,7 +21,7 @@ public:
   WavefrontReconstructionStage() : PipelineStage(StageId::S4) {}
 
 protected:
-  bool doCompute(digitqt::core::Measurement &measurement, QString &errorMessage);
+  bool doCompute(digitqt::core::Measurement &measurement, std::string &errorMessage);
 };
 
 }  // namespace digitqt::core::pipeline

@@ -58,7 +58,7 @@ TracedLine decimateLine(const TracedLine &line, int minRowGap) {
 bool ScanlineExtremumTracker::initialize(
     const QImage &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
-    m_lastError = QStringLiteral("Empty image");
+    m_lastError = "Empty image";
     return false;
   }
 
@@ -75,8 +75,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
   m_lastFringeNumbers.clear();
 
   if (m_grayImage.isNull()) {
-    m_lastError =
-        QStringLiteral("Tracer not initialized. Call initialize() first.");
+    m_lastError = "Tracer not initialized. Call initialize() first.";
     return result;
   }
 
@@ -92,8 +91,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
 
   auto scanlines = scanline_extremum::RedCenterDetector::detectExtrema(input);
   if (scanlines.empty()) {
-    m_lastError = QStringLiteral(
-        "No extrema detected -- check the aperture and fringe contrast");
+    m_lastError = "No extrema detected -- check the aperture and fringe contrast";
     return result;
   }
 
@@ -103,8 +101,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
       m_params.hasInternalObstruction);
 
   if (fringes.empty()) {
-    m_lastError = QStringLiteral(
-        "Extrema were detected but no continuous fringes could be constructed");
+    m_lastError = "Extrema were detected but no continuous fringes could be constructed";
     return result;
   }
 

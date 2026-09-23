@@ -12,9 +12,9 @@
 
 namespace digitqt::core::pipeline {
 
-bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &errorMessage) {
+bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string &errorMessage) {
   if (!measurement.hasImage()) {
-    errorMessage = QStringLiteral("No image loaded");
+    errorMessage = "No image loaded";
     return false;
   }
 
@@ -34,7 +34,7 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
                            algorithm == digitqt::core::TracerAlgorithm::StructureTensor);
 
   if (needsSeeds && tracingData.seeds().empty()) {
-    errorMessage = QStringLiteral("No seed points placed. Click on the image to add one.");
+    errorMessage = "No seed points placed. Click on the image to add one.";
     return false;
   }
 
@@ -120,8 +120,8 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, QString &err
   tracingData.tracedLines() = std::move(numberedLines);
 
   if (tracingData.tracedLines().empty()) {
-    errorMessage = tracer->lastError().isEmpty() ? QStringLiteral("Tracing produced no lines")
-                                                 : tracer->lastError();
+    errorMessage = tracer->lastError().empty() ? "Tracing produced no lines"
+                                               : tracer->lastError();
     return false;
   }
 

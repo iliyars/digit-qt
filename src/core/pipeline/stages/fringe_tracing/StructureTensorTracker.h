@@ -69,10 +69,10 @@ public:
   bool initialize(const QImage &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
-  QString name() const override {
-    return QStringLiteral("Ride Tracking (Structure Tensor)");
+  std::string name() const override {
+    return "Ride Tracking (Structure Tensor)";
   }
-  const QString &lastError() const override { return m_lastError; }
+  const std::string &lastError() const override { return m_lastError; }
 
   void setParams(const StructureTensorParams &params) { m_params = params; }
   const StructureTensorParams &params() const { return m_params; }
@@ -116,7 +116,7 @@ private:
   float m_contrastEma =
       0.0f;  // running local-contrast estimate for the current trace direction
 
-  QString m_lastError;
+  std::string m_lastError;
 };
 
 }  // namespace digitqt::core::tracing

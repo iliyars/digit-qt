@@ -2,44 +2,44 @@
 
 namespace digitqt::core::pipeline {
 
-QString shortName(StageId id) {
+std::string shortName(StageId id) {
   switch (id) {
     case StageId::Setup:
-      return QStringLiteral("Setup");
+      return "Setup";
     case StageId::S2:
-      return QStringLiteral("S2");
+      return "S2";
     case StageId::S4:
-      return QStringLiteral("S4");
+      return "S4";
     case StageId::S4b:
-      return QStringLiteral("S4b");
+      return "S4b";
     case StageId::S5:
-      return QStringLiteral("S5");
+      return "S5";
     case StageId::S6:
-      return QStringLiteral("S6");
+      return "S6";
     case StageId::S7:
-      return QStringLiteral("S7");
+      return "S7";
   }
-  return QStringLiteral("?");
+  return "?";
 }
 
-QString displayName(StageId id) {
+std::string displayName(StageId id) {
   switch (id) {
     case StageId::Setup:
-      return QStringLiteral("Setup (Image, Aperture, Markers, Fringe Tracing)");
+      return "Setup (Image, Aperture, Markers, Fringe Tracing)";
     case StageId::S2:
-      return QStringLiteral("Phase Reconstruction");
+      return "Phase Reconstruction";
     case StageId::S4:
-      return QStringLiteral("Wavefront Reconstruction");
+      return "Wavefront Reconstruction";
     case StageId::S4b:
-      return QStringLiteral("Wavefront Calibration");
+      return "Wavefront Calibration";
     case StageId::S5:
-      return QStringLiteral("Polynomial / Modal Analysis");
+      return "Polynomial / Modal Analysis";
     case StageId::S6:
-      return QStringLiteral("Diffraction Analysis");
+      return "Diffraction Analysis";
     case StageId::S7:
-      return QStringLiteral("Interferogram Synthesis");
+      return "Interferogram Synthesis";
   }
-  return QStringLiteral("Unknown Stage");
+  return "Unknown Stage";
 }
 
 }  // namespace digitqt::core::pipeline

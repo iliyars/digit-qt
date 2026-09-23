@@ -8,6 +8,7 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <vector>
 
 namespace digitqt::core::pipeline {
@@ -315,10 +316,10 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
 
 }  // namespace
 
-bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QString &errorMessage) {
+bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std::string &errorMessage) {
   const auto &wavefront = measurement.wavefrontMap();
   if (wavefront.isEmpty()) {
-    errorMessage = QStringLiteral("No wavefront map. Run Wavefront Reconstruction (S4) first.");
+    errorMessage = "No wavefront map. Run Wavefront Reconstruction (S4) first.";
     return false;
   }
 
@@ -358,8 +359,8 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
         active.push_back(&t);
 
     if (samples.size() < active.size()) {
-      errorMessage =
-          QStringLiteral("Not enough valid points to fit (need at least %1)").arg(active.size());
+      errorMessage = "Not enough valid points to fit (need at least " +
+                     std::to_string(active.size()) + ")";
       return false;
     }
 
@@ -383,7 +384,7 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
     // способов 1/2. Базис (Seregin/Zernike) тоже не применяется -- это
     // ровно формулы Seregin, как в самом DAPPSIM.
     if (samples.size() < 22) {
-      errorMessage = QStringLiteral("Not enough valid points to fit (need at least 22)");
+      errorMessage = "Not enough valid points to fit (need at least 22)";
       return false;
     }
     Eigen::VectorXd sx(n), sy(n);
@@ -421,8 +422,8 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, QStr
         std::count_if(hierarchy.begin(), hierarchy.end(),
                       [&](const TermDef &t) { return isActive(t, selection); });
     if (static_cast<Eigen::Index>(samples.size()) < activeCount) {
-      errorMessage =
-          QStringLiteral("Not enough valid points to fit (need at least %1)").arg(activeCount);
+      errorMessage = "Not enough valid points to fit (need at least " +
+                     std::to_string(activeCount) + ")";
       return false;
     }
 

@@ -19,8 +19,8 @@ NotImplementedPage::NotImplementedPage(QWidget *parent)
 
 void NotImplementedPage::setStage(digitqt::core::pipeline::StageId id) {
   m_label->setText(tr("%1 (%2)\nnot implemented yet")
-                       .arg(digitqt::core::pipeline::displayName(id),
-                            digitqt::core::pipeline::shortName(id)));
+                       .arg(QString::fromStdString(digitqt::core::pipeline::displayName(id)),
+                            QString::fromStdString(digitqt::core::pipeline::shortName(id))));
 }
 
 }  // namespace digitqt::gui

@@ -26,7 +26,7 @@ StructureTensorTracker::StructureTensorTracker() = default;
 bool StructureTensorTracker::initialize(
     const QImage &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
-    m_lastError = QStringLiteral("Empty image");
+    m_lastError = "Empty image";
     return false;
   }
 
@@ -56,8 +56,7 @@ std::vector<TracedLine> StructureTensorTracker::extract(
 TracedLine StructureTensorTracker::traceLine(int startX, int startY) {
   TracedLine result;
   if (!m_image) {
-    m_lastError =
-        QStringLiteral("Tracer not initialized. Call initialize() first.");
+    m_lastError = "Tracer not initialized. Call initialize() first.";
     return result;
   }
   traceLineInto(startX, startY, result);
@@ -268,15 +267,13 @@ bool StructureTensorTracker::traceLineInto(int startX, int startY,
   m_lastError.clear();
 
   if (!isInside(startX, startY)) {
-    m_lastError =
-        QStringLiteral("Start point is outside the aperture/boundaries");
+    m_lastError = "Start point is outside the aperture/boundaries";
     return false;
   }
 
   double dirX = 0.0, dirY = 1.0;
   if (!estimateDirection(startX, startY, dirX, dirY)) {
-    m_lastError =
-        QStringLiteral("Could not determine initial fringe direction");
+    m_lastError = "Could not determine initial fringe direction";
     return false;
   }
 
@@ -285,8 +282,7 @@ bool StructureTensorTracker::traceLineInto(int startX, int startY,
   double seedX = startX, seedY = startY;
   float seedIntensity = 0.0f;
   if (!findLocalMaximum(startX, startY, 5.0f, seedX, seedY, seedIntensity)) {
-    m_lastError =
-        QStringLiteral("No usable intensity peak near the seed point");
+    m_lastError = "No usable intensity peak near the seed point";
     return false;
   }
 

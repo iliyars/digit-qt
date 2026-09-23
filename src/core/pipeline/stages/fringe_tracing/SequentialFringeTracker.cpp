@@ -28,7 +28,7 @@ SequentialFringeTracker::SequentialFringeTracker() = default;
 bool SequentialFringeTracker::initialize(const QImage &image,
                                          std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
-    m_lastError = QStringLiteral("Empty image");
+    m_lastError = "Empty image";
     return false;
   }
 
@@ -57,7 +57,7 @@ std::vector<TracedLine> SequentialFringeTracker::extract(const std::vector<SeedP
 TracedLine SequentialFringeTracker::traceLine(int startX, int startY) {
   TracedLine result;
   if (!m_image) {
-    m_lastError = QStringLiteral("Tracer not initialized. Call initialize() first.");
+    m_lastError = "Tracer not initialized. Call initialize() first.";
     return result;
   }
   traceLineInto(startX, startY, result);
@@ -131,13 +131,13 @@ bool SequentialFringeTracker::traceLineInto(int startX, int startY, TracedLine &
   m_averageEma = 0.0f;
 
   if (!isInside(startX, startY)) {
-    m_lastError = QStringLiteral("Start point is outside the aperture/boundaries");
+    m_lastError = "Start point is outside the aperture/boundaries";
     return false;
   }
 
   TracedPoint point1, point2;
   if (!firstStep(startX, startY, point1, point2)) {
-    m_lastError = QStringLiteral("Could not determine initial fringe direction");
+    m_lastError = "Could not determine initial fringe direction";
     return false;
   }
 

@@ -2,7 +2,7 @@
 
 #include "PipelineStageId.h"
 
-#include <QString>
+#include <string>
 
 namespace digitqt::core {
 class Measurement;
@@ -64,18 +64,18 @@ public:
     m_errorMessage.clear();
   }
 
-  const QString &errorMessage() const { return m_errorMessage; }
+  const std::string &errorMessage() const { return m_errorMessage; }
 
 protected:
   // Subclasses implement the actual algorithm. Returning false sets
   // status() to Error automatically.
   virtual bool doCompute(digitqt::core::Measurement &measurement,
-                         QString &errorMessage) = 0;
+                         std::string &errorMessage) = 0;
 
 private:
   StageId m_id;
   StageStatus m_status = StageStatus::NotComputed;
-  QString m_errorMessage;
+  std::string m_errorMessage;
 };
 
 }  // namespace digitqt::core::pipeline

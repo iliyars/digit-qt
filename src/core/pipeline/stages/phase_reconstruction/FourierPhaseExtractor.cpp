@@ -61,7 +61,7 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
     }
   }
   if (count < 100) {
-    result.errorMessage = QStringLiteral("Aperture too small or empty");
+    result.errorMessage = "Aperture too small or empty";
     return result;
   }
   const double meanVal = sum / count;
@@ -133,8 +133,8 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
 
   const double peakDist = std::hypot(peakX - cx0, peakY - cy0);
   if (peakDist < kDcRadius + 1.0) {
-    result.errorMessage = QStringLiteral(
-        "Could not find a clear carrier frequency -- fringes may be too faint or absent");
+    result.errorMessage =
+        "Could not find a clear carrier frequency -- fringes may be too faint or absent";
     return result;
   }
 

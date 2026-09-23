@@ -228,13 +228,13 @@ public:
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
 
   /// Человекочитаемое имя алгоритма для UI.
-  QString name() const override {
-    return QStringLiteral("Sequential Fringe Tracking (FTM)");
+  std::string name() const override {
+    return "Sequential Fringe Tracking (FTM)";
   }
 
   /// Текст последней ошибки (пустая строка, если последняя операция
   /// завершилась успешно).
-  const QString &lastError() const override { return m_lastError; }
+  const std::string &lastError() const override { return m_lastError; }
 
   /// Задаёт параметры трассировки (см. `TracerParams`).
   void setParams(const TracerParams &params) { m_params = params; }
@@ -449,7 +449,7 @@ private:
 
   TracedLine m_tempLine;  ///< Рабочий буфер текущего прохода (вперёд либо
                           ///< назад) внутри traceLineInto().
-  QString m_lastError;    ///< Текст последней ошибки.
+  std::string m_lastError;  ///< Текст последней ошибки.
 };
 
 }  // namespace digitqt::core::tracing

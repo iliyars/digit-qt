@@ -194,11 +194,11 @@ PhaseMap PhaseReconstructor::reconstruct(int width, int height,
   m_lastError.clear();
 
   if (width <= 0 || height <= 0) {
-    m_lastError = QStringLiteral("Invalid grid size");
+    m_lastError = "Invalid grid size";
     return {};
   }
   if (lines.empty()) {
-    m_lastError = QStringLiteral("No numbered fringe lines to reconstruct from");
+    m_lastError = "No numbered fringe lines to reconstruct from";
     return {};
   }
 
@@ -220,7 +220,7 @@ PhaseMap PhaseReconstructor::reconstruct(int width, int height,
   }
 
   if (!anyRow) {
-    m_lastError = QStringLiteral("Not enough fringe crossings per row to reconstruct phase");
+    m_lastError = "Not enough fringe crossings per row to reconstruct phase";
     return {};
   }
 

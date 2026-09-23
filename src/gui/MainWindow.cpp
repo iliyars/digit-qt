@@ -583,7 +583,8 @@ void MainWindow::computePhase() {
         if (!ok) {
           QMessageBox::warning(this, tr("Phase Reconstruction"),
                                tr("Phase reconstruction failed:\n%1")
-                                   .arg(m_pipeline->stage(StageId::S2).errorMessage()));
+                                   .arg(QString::fromStdString(
+                                       m_pipeline->stage(StageId::S2).errorMessage())));
         }
         m_phaseMapView->refresh();
         updateStatusBar();
@@ -598,7 +599,8 @@ void MainWindow::computeWavefront(std::function<void()> then) {
         if (!ok) {
           QMessageBox::warning(this, tr("Wavefront Reconstruction"),
                                tr("Wavefront reconstruction failed:\n%1")
-                                   .arg(m_pipeline->stage(StageId::S4).errorMessage()));
+                                   .arg(QString::fromStdString(
+                                       m_pipeline->stage(StageId::S4).errorMessage())));
         }
         m_phaseMapView->refresh();
         updateStatusBar();
@@ -615,7 +617,8 @@ void MainWindow::computeModalAnalysis(std::function<void()> then) {
         if (!ok) {
           QMessageBox::warning(this, tr("Modal Analysis"),
                                tr("Modal analysis failed:\n%1")
-                                   .arg(m_pipeline->stage(StageId::S5).errorMessage()));
+                                   .arg(QString::fromStdString(
+                                       m_pipeline->stage(StageId::S5).errorMessage())));
         }
         m_surface3DView->refresh();
         m_modalPhaseMapView->refresh();

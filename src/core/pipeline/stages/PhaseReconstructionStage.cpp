@@ -22,9 +22,9 @@ constexpr int kMaxGridDimension = 5000;
 }
 
 bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement,
-                                         QString &errorMessage) {
+                                         std::string &errorMessage) {
   if (!measurement.hasImage()) {
-    errorMessage = QStringLiteral("No image loaded");
+    errorMessage = "No image loaded";
     return false;
   }
 
@@ -37,7 +37,7 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
     };
 
     bool ok = false;
-    QString extractError;
+    std::string extractError;
     digitqt::core::PhaseMap phaseMap;
     if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform) {
       FourierPhaseExtractor extractor;
@@ -54,8 +54,8 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
     }
 
     if (!ok) {
-      errorMessage = extractError.isEmpty() ? QStringLiteral("Phase reconstruction failed")
-                                            : extractError;
+      errorMessage = extractError.empty() ? "Phase reconstruction failed"
+                                          : extractError;
       return false;
     }
 
@@ -65,7 +65,7 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
 
   const auto &lines = measurement.fringeTracing().tracedLines();
   if (lines.empty()) {
-    errorMessage = QStringLiteral("No numbered fringe lines. Trace fringes first (Setup stage).");
+    errorMessage = "No numbered fringe lines. Trace fringes first (Setup stage).";
     return false;
   }
 
@@ -106,8 +106,8 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
   auto phaseMap = reconstructor.reconstruct(gridWidth, gridHeight, isVisibleGrid, scaledLines);
 
   if (phaseMap.isEmpty()) {
-    errorMessage = reconstructor.lastError().isEmpty()
-                       ? QStringLiteral("Phase reconstruction failed")
+    errorMessage = reconstructor.lastError().empty()
+                       ? "Phase reconstruction failed"
                        : reconstructor.lastError();
     return false;
   }

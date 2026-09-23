@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QString>
 #include <functional>
+#include <string>
 #include <vector>
 
 class QImage;
@@ -55,8 +55,8 @@ public:
   virtual std::vector<TracedLine> extract(
       const std::vector<SeedPoint> &seeds) = 0;
 
-  virtual QString name() const = 0;
-  virtual const QString &lastError() const = 0;
+  virtual std::string name() const = 0;
+  virtual const std::string &lastError() const = 0;
 };
 
 }  // namespace digitqt::core::tracing

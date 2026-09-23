@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QString>
+#include <string>
 
 namespace digitqt::core::pipeline {
 
@@ -42,9 +42,9 @@ enum class StageId {
 };
 
 /// Short code as used in the spec and the pipeline tree, e.g. "S0a".
-QString shortName(StageId id);
+std::string shortName(StageId id);
 
 /// Human-readable name, e.g. "Aperture & Visibility Masking".
-QString displayName(StageId id);
+std::string displayName(StageId id);
 
 }  // namespace digitqt::core::pipeline

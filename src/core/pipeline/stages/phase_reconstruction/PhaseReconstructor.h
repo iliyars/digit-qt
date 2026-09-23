@@ -3,8 +3,8 @@
 #include "core/NumberedFringeLine.h"
 #include "core/PhaseMap.h"
 
-#include <QString>
 #include <functional>
+#include <string>
 #include <vector>
 
 namespace digitqt::core::pipeline {
@@ -42,10 +42,10 @@ public:
   PhaseMap reconstruct(int width, int height, const std::function<bool(int, int)> &isVisible,
                        const std::vector<NumberedFringeLine> &lines);
 
-  const QString &lastError() const { return m_lastError; }
+  const std::string &lastError() const { return m_lastError; }
 
 private:
-  QString m_lastError;
+  std::string m_lastError;
 };
 
 }  // namespace digitqt::core::pipeline

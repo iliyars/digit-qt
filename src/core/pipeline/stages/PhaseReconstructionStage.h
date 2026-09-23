@@ -20,7 +20,7 @@ public:
   PhaseReconstructionStage() : PipelineStage(StageId::S2) {}
 
 protected:
-  bool doCompute(digitqt::core::Measurement &measurement, QString &errorMessage) override;
+  bool doCompute(digitqt::core::Measurement &measurement, std::string &errorMessage) override;
 };
 
 }  // namespace digitqt::core::pipeline
