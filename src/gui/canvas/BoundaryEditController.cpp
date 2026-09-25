@@ -184,7 +184,7 @@ void BoundaryEditController::autoDetectAperture() {
 
   auto detection = digitqt::core::detectApertureBoundary(m_measurement->image());
   if (!detection.ok()) {
-    m_lastError = detection.errorMessage;
+    m_lastError = QString::fromStdString(detection.errorMessage);
     return;
   }
 

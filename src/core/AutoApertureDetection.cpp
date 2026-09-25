@@ -37,7 +37,7 @@ constexpr size_t kMaxFitPoints = 200;
 ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &image) {
   ApertureDetectionResult result;
   if (image.isNull()) {
-    result.errorMessage = QStringLiteral("No image loaded");
+    result.errorMessage = "No image loaded";
     return result;
   }
 
@@ -76,8 +76,8 @@ ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &imag
   cv::findContours(activity, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
   if (contours.empty()) {
     result.errorMessage =
-        QStringLiteral("No fringe activity found -- the image may be blank, too noisy, or "
-                       "too low-contrast for automatic detection");
+        "No fringe activity found -- the image may be blank, too noisy, or "
+        "too low-contrast for automatic detection";
     return result;
   }
 
@@ -86,7 +86,7 @@ ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &imag
       [](const auto &a, const auto &b) { return cv::contourArea(a) < cv::contourArea(b); });
 
   if (cv::contourArea(largest) < 100.0) {
-    result.errorMessage = QStringLiteral("Detected aperture region is too small");
+    result.errorMessage = "Detected aperture region is too small";
     return result;
   }
 
@@ -112,7 +112,7 @@ ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &imag
 
   auto ellipse = aperture::Ellipse::FitEllipse(points, aperture::TypeLimits::EXTERNAL);
   if (!ellipse) {
-    result.errorMessage = QStringLiteral("Ellipse fit failed");
+    result.errorMessage = "Ellipse fit failed";
     return result;
   }
   ellipse->shiftX(centroidX);

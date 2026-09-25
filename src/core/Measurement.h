@@ -8,8 +8,9 @@
 #include "core/PhaseReconstructionAlgorithm.h"
 #include "core/PolynomialBasis.h"
 
-#include <QString>
 #include <aperture/include/visibility/ShapeCollection.h>
+
+#include <string>
 
 
 namespace digitqt::core {
@@ -33,10 +34,10 @@ public:
   // --- S0: raw image -------------------------------------------------
   // Loading images from disk is not this class's job (see io::loadImage).
   // Measurement only stores the result.
-  void setImage(digitqt::core::Bitmap image, QString path);
+  void setImage(digitqt::core::Bitmap image, std::string path);
   bool hasImage() const { return !m_image.isNull(); }
   const digitqt::core::Bitmap &image() const { return m_image; }
-  const QString &imagePath() const { return m_imagePath; }
+  const std::string &imagePath() const { return m_imagePath; }
 
   // --- S0a: boundaries (external aperture / internal obstructions) ---
   aperture::ShapeCollection &boundaries() { return m_boundaries; }
@@ -109,7 +110,7 @@ public:
 
 private:
   digitqt::core::Bitmap m_image;
-  QString m_imagePath;
+  std::string m_imagePath;
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;

@@ -2,8 +2,8 @@
 
 #include "core/Bitmap.h"
 
-#include <QString>
 #include <memory>
+#include <string>
 
 namespace aperture {
 class Ellipse;
@@ -18,7 +18,7 @@ namespace digitqt::core {
  */
 struct ApertureDetectionResult {
   std::unique_ptr<aperture::Ellipse> ellipse;
-  QString errorMessage;
+  std::string errorMessage;
   bool ok() const { return ellipse != nullptr; }
 };
 

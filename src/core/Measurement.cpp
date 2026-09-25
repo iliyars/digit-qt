@@ -4,7 +4,7 @@
 
 namespace digitqt::core {
 
-void Measurement::setImage(digitqt::core::Bitmap image, QString path) {
+void Measurement::setImage(digitqt::core::Bitmap image, std::string path) {
   m_image = std::move(image);
   m_imagePath = std::move(path);
   m_boundaries.clear();

@@ -171,7 +171,8 @@ void MainWindow::buildMenusAndToolbars() {
     QString err;
     if (!digitqt::core::io::writeFrnFile(
             path, m_measurement->boundaries(), lines, m_measurement->image().width(),
-            m_measurement->image().height(), QFileInfo(m_measurement->imagePath()).fileName(), err))
+            m_measurement->image().height(),
+            QFileInfo(QString::fromStdString(m_measurement->imagePath())).fileName(), err))
       QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
   });
   auto *exportReportAction = fileMenu->addAction(tr("Export &Report (.txt)..."));
@@ -664,7 +665,7 @@ void MainWindow::openImage() {
                          tr("Failed to load image:\n%1").arg(result.errorMessage));
     return;
   }
-  m_measurement->setImage(digitqt::core::padImageBackground(result.image), path);
+  m_measurement->setImage(digitqt::core::padImageBackground(result.image), path.toStdString());
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());

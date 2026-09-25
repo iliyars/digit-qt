@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
   }
 
   digitqt::core::Measurement measurement;
-  measurement.setImage(loadResult.image, inputPath);
+  measurement.setImage(loadResult.image, inputPath.toStdString());
   measurement.setWavelengthNm(wavelengthNm);
 
   if (centerX < 0)

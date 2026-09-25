@@ -522,7 +522,7 @@ void ParametersDock::refresh() {
                  "traced line to edit its points or fringe order.")
                   .arg(img.width())
                   .arg(img.height())
-                  .arg(m_measurement->imagePath())
+                  .arg(QString::fromStdString(m_measurement->imagePath()))
                   .arg(b.getExternal().size())
                   .arg(b.getInternal().size())
                   .arg(tracingData.seeds().size())

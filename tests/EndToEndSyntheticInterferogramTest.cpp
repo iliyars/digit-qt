@@ -218,7 +218,7 @@ void runFourierCase(const char *label, const SyntheticCoefficients &coeffs) {
   digitqt::core::Measurement measurement;
   measurement.setImage(
       renderInterferogram(kSize, kCenter, kCenter, kRadius, coeffs, kWavelengthNm),
-      QStringLiteral("synthetic"));
+      "synthetic");
   measurement.boundaries().addExternal(
       std::make_unique<aperture::Ellipse>(kRadius, kRadius, kCenter, kCenter));
   measurement.setWavelengthNm(kWavelengthNm);
@@ -254,7 +254,7 @@ void runScanlineExtremumCase(const char *label, const SyntheticCoefficients &coe
   digitqt::core::Measurement measurement;
   measurement.setImage(
       renderInterferogram(kSize, kCenter, kCenter, kRadius, coeffs, kWavelengthNm),
-      QStringLiteral("synthetic"));
+      "synthetic");
   measurement.boundaries().addExternal(
       std::make_unique<aperture::Ellipse>(kRadius, kRadius, kCenter, kCenter));
   measurement.setWavelengthNm(kWavelengthNm);
