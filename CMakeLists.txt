@@ -11,7 +11,6 @@ set(CMAKE_AUTOUIC ON)
 
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 option(DIGITQT_BUILD_TOOLS "Build diagnostic CLI tools (see tools/)" OFF)
-option(DIGITQT_PROBE_CORE_QT_FREE "Discovery build: compile src/core/ as a standalone library with no Qt include paths/linkage, to enumerate every Qt dependency as a compiler error (see notes/ core/Qt decoupling discussion). Not part of the shipped app." OFF)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization Concurrent)
 
@@ -36,25 +35,6 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(translations)
-
-if(DIGITQT_PROBE_CORE_QT_FREE)
-    # Compiles every src/core/*.cpp a second time into an isolated target
-    # that never sees Qt's include paths or libraries. core/ is still built
-    # into DigitQt as usual via target_sources() elsewhere -- this target
-    # changes nothing about the shipped app. Its only purpose is that any
-    # #include <Q...> (direct or transitive) in core/ now fails as a
-    # compiler error naming the exact file, instead of silently compiling
-    # because Qt happens to be on DigitQt's include path.
-    file(GLOB_RECURSE DIGITQT_CORE_PROBE_SOURCES CONFIGURE_DEPENDS
-        "${CMAKE_SOURCE_DIR}/src/core/*.cpp")
-    add_library(digitqt_core_qt_free_probe STATIC EXCLUDE_FROM_ALL
-        ${DIGITQT_CORE_PROBE_SOURCES})
-    target_include_directories(digitqt_core_qt_free_probe PRIVATE
-        "${CMAKE_SOURCE_DIR}/src" ${OpenCV_INCLUDE_DIRS})
-    target_link_libraries(digitqt_core_qt_free_probe PRIVATE
-        Aperture::Core ${OpenCV_LIBS} Eigen3::Eigen)
-    target_compile_features(digitqt_core_qt_free_probe PRIVATE cxx_std_17)
-endif()
 
 if(DIGITQT_BUILD_TESTS)
     enable_testing()
