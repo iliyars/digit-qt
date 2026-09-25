@@ -1,4 +1,4 @@
-target_sources(DigitQt
+target_sources(core
     PRIVATE
         SetupStage.h
         SetupStage.cpp
@@ -6,8 +6,6 @@ target_sources(DigitQt
         PhaseReconstructionStage.cpp
         WavefrontReconstructionStage.h
         WavefrontReconstructionStage.cpp
-        ModalAnalysisStage.h
-        ModalAnalysisStage.cpp
         ModalAnalysisStage.h
         ModalAnalysisStage.cpp
 )

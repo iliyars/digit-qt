@@ -1,4 +1,4 @@
-target_sources(DigitQt
+target_sources(core
     PRIVATE
         IFringeTracer.h
         SequentialFringeTracker.h
