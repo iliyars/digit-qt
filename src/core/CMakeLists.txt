@@ -24,6 +24,7 @@ target_sources(DigitQt
         ModalFitMethod.h
         PolynomialBasis.h
         SequentialSereginResult.h
+        Bitmap.h
 )
 
 add_subdirectory(commands)

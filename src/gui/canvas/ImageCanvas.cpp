@@ -1,6 +1,7 @@
 #include "ImageCanvas.h"
 
 #include "core/Measurement.h"
+#include "io/ImageLoader.h"
 
 #include <QColor>
 #include <QKeyEvent>
@@ -69,7 +70,7 @@ void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
     m_pixmapItem->setZValue(0.0);
   }
   if (measurement && measurement->hasImage()) {
-    m_pixmapItem->setPixmap(QPixmap::fromImage(measurement->image()));
+    m_pixmapItem->setPixmap(QPixmap::fromImage(digitqt::io::toQImage(measurement->image())));
     m_scene.setSceneRect(m_pixmapItem->boundingRect());
     fitImageToView();
   }

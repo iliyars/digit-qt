@@ -1,10 +1,10 @@
 #pragma once
 
+#include "core/Bitmap.h"
+
 #include <functional>
 #include <string>
 #include <vector>
-
-class QImage;
 
 namespace digitqt::core::tracing {
 
@@ -47,7 +47,7 @@ public:
   /// Binds the algorithm to an image and a visibility predicate (true
   /// if pixel (x,y) is inside the current aperture/boundaries). Must be
   /// called before extract().
-  virtual bool initialize(const QImage &image,
+  virtual bool initialize(const digitqt::core::Bitmap &image,
                           std::function<bool(int, int)> isVisible) = 0;
 
   /// Extracts all centerlines found. seeds is only used by tracers that

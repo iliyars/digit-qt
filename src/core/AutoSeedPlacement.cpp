@@ -8,14 +8,13 @@
 namespace digitqt::core {
 
 std::vector<tracing::SeedPoint> findRowSeeds(
-    const QImage &image, const std::function<bool(int, int)> &isVisible) {
+    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible) {
   std::vector<tracing::SeedPoint> result;
   if (image.isNull() || !isVisible)
     return result;
 
-  const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
-  const int width = gray.width();
-  const int height = gray.height();
+  const int width = image.width();
+  const int height = image.height();
   if (width <= 0 || height <= 0)
     return result;
 
@@ -38,7 +37,7 @@ std::vector<tracing::SeedPoint> findRowSeeds(
     return result;  // nothing visible anywhere
 
   std::vector<uint8_t> line(static_cast<size_t>(width));
-  const uchar *row = gray.constScanLine(bestY);
+  const uint8_t *row = image.scanLine(bestY);
   for (int x = 0; x < width; ++x)
     line[static_cast<size_t>(x)] = row[x];
 

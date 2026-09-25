@@ -3,8 +3,6 @@
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 #include "core/pipeline/stages/fringe_tracing/scanline_extremum/ScanlineExtremumTypes.h"
 
-#include <QImage>
-
 namespace digitqt::core::tracing {
 
 /**
@@ -32,7 +30,7 @@ public:
     bool hasInternalObstruction = false;
   };
 
-  bool initialize(const QImage &image,
+  bool initialize(const digitqt::core::Bitmap &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
   std::string name() const override {
@@ -51,7 +49,7 @@ public:
   const std::vector<double> &lastFringeNumbers() const { return m_lastFringeNumbers; }
 
 private:
-  QImage m_grayImage;
+  digitqt::core::Bitmap m_grayImage;
   std::function<bool(int, int)> m_isVisible;
   Params m_params;
   std::string m_lastError;

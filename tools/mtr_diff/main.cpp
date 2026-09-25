@@ -56,7 +56,7 @@ bool loadMtr(const QString &path, double wavelengthNm, bool doublePass, Loaded &
 
   digitqt::core::pipeline::WavefrontReconstructionStage s4;
   if (!s4.compute(out.measurement)) {
-    err = s4.errorMessage();
+    err = QString::fromStdString(s4.errorMessage());
     return false;
   }
 
@@ -77,7 +77,7 @@ void printReport(const QString &label, digitqt::core::Measurement &measurement) 
   QTextStream out(stdout);
   out << "\n===== " << label << " =====\n";
   if (!s5.compute(measurement)) {
-    out << "S5 FAILED: " << s5.errorMessage() << "\n";
+    out << "S5 FAILED: " << QString::fromStdString(s5.errorMessage()) << "\n";
     return;
   }
 

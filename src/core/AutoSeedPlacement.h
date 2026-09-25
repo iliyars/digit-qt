@@ -1,7 +1,7 @@
 #pragma once
+#include "core/Bitmap.h"
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
-#include <QImage>
 #include <functional>
 #include <vector>
 
@@ -23,6 +23,6 @@ namespace digitqt::core {
  * image.
  */
 std::vector<tracing::SeedPoint> findRowSeeds(
-    const QImage &image, const std::function<bool(int, int)> &isVisible);
+    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible);
 
 }  // namespace digitqt::core

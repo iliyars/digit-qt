@@ -62,12 +62,12 @@ double sereginSurface(const SyntheticCoefficients &c, double x, double y) {
 /// Pixels outside the aperture circle are left at flat background (128) --
 /// VisibilityChecker keeps the tracer/reconstructor from reading them
 /// during setup.
-QImage renderInterferogram(int size, double centerX, double centerY, double radius,
-                           const SyntheticCoefficients &c, double wavelengthNm) {
-  QImage image(size, size, QImage::Format_Grayscale8);
+digitqt::core::Bitmap renderInterferogram(int size, double centerX, double centerY, double radius,
+                                          const SyntheticCoefficients &c, double wavelengthNm) {
+  digitqt::core::Bitmap image(size, size);
   image.fill(128);
   for (int y = 0; y < size; ++y) {
-    uchar *line = image.scanLine(y);
+    uint8_t *line = image.scanLine(y);
     for (int x = 0; x < size; ++x) {
       const double nx = (x - centerX) / radius;
       const double ny = (y - centerY) / radius;
@@ -76,7 +76,7 @@ QImage renderInterferogram(int size, double centerX, double centerY, double radi
       const double wavefrontNm = sereginSurface(c, nx, ny);
       const double order = 2.0 * wavefrontNm / wavelengthNm;
       const double intensity = 128.0 + 110.0 * std::cos(2.0 * kPi * order);
-      line[x] = static_cast<uchar>(std::clamp(intensity, 0.0, 255.0));
+      line[x] = static_cast<uint8_t>(std::clamp(intensity, 0.0, 255.0));
     }
   }
   return image;
@@ -91,13 +91,13 @@ void runFullPipeline(digitqt::core::Measurement &measurement) {
   Pipeline pipeline;
 
   QVERIFY2(pipeline.stage(StageId::Setup).compute(measurement),
-           qPrintable(pipeline.stage(StageId::Setup).errorMessage()));
+           qPrintable(QString::fromStdString(pipeline.stage(StageId::Setup).errorMessage())));
   QVERIFY2(pipeline.stage(StageId::S2).compute(measurement),
-           qPrintable(pipeline.stage(StageId::S2).errorMessage()));
+           qPrintable(QString::fromStdString(pipeline.stage(StageId::S2).errorMessage())));
   QVERIFY2(pipeline.stage(StageId::S4).compute(measurement),
-           qPrintable(pipeline.stage(StageId::S4).errorMessage()));
+           qPrintable(QString::fromStdString(pipeline.stage(StageId::S4).errorMessage())));
   QVERIFY2(pipeline.stage(StageId::S5).compute(measurement),
-           qPrintable(pipeline.stage(StageId::S5).errorMessage()));
+           qPrintable(QString::fromStdString(pipeline.stage(StageId::S5).errorMessage())));
 }
 
 /// Bounding box of non-NaN pixels in `map` -- the exact same computation

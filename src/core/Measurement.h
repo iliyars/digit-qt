@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Bitmap.h"
 #include "core/FringeTracingData.h"
 #include "core/ModalFitMethod.h"
 #include "core/ModalAnalysisResult.h"
@@ -7,7 +8,6 @@
 #include "core/PhaseReconstructionAlgorithm.h"
 #include "core/PolynomialBasis.h"
 
-#include <QImage>
 #include <QString>
 #include <aperture/include/visibility/ShapeCollection.h>
 
@@ -33,9 +33,9 @@ public:
   // --- S0: raw image -------------------------------------------------
   // Loading images from disk is not this class's job (see io::loadImage).
   // Measurement only stores the result.
-  void setImage(QImage image, QString path);
+  void setImage(digitqt::core::Bitmap image, QString path);
   bool hasImage() const { return !m_image.isNull(); }
-  const QImage &image() const { return m_image; }
+  const digitqt::core::Bitmap &image() const { return m_image; }
   const QString &imagePath() const { return m_imagePath; }
 
   // --- S0a: boundaries (external aperture / internal obstructions) ---
@@ -108,7 +108,7 @@ public:
   void setModified(bool modified) { m_modified = modified; }
 
 private:
-  QImage m_image;
+  digitqt::core::Bitmap m_image;
   QString m_imagePath;
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;

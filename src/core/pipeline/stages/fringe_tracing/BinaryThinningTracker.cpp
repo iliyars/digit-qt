@@ -5,7 +5,7 @@
  * CFringeSkeletonizer.
  *
  * Numeric logic (thresholds, thinning rules, pruning, linking heuristics)
- * is unchanged from the original. Adaptations: QImage + isVisible(x,y)
+ * is unchanged from the original. Adaptations: Bitmap + isVisible(x,y)
  * instead of cv::Mat + CEllipseBoundary; development-only
  * cv::imwrite()/std::cout debug statements removed.
  */
@@ -22,7 +22,7 @@
 namespace digitqt::core::tracing {
 
 bool BinaryThinningTracker::initialize(
-    const QImage &image, std::function<bool(int, int)> isVisible) {
+    const digitqt::core::Bitmap &image, std::function<bool(int, int)> isVisible) {
   m_lastError.clear();
 
   if (image.isNull()) {
@@ -30,13 +30,10 @@ bool BinaryThinningTracker::initialize(
     return false;
   }
 
-  const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
-
-  // Wrap QImage's buffer, then clone -- QImage's underlying data is
-  // reference-counted/shared and we need a copy we own independently.
-  const cv::Mat wrapped(gray.height(), gray.width(), CV_8UC1,
-                        const_cast<uchar *>(gray.constBits()),
-                        static_cast<size_t>(gray.bytesPerLine()));
+  // Bitmap is already grayscale and tightly packed (stride == width) --
+  // wrap directly, then clone since cv::Mat doesn't own image.data().
+  const cv::Mat wrapped(image.height(), image.width(), CV_8UC1,
+                        const_cast<uint8_t *>(image.data()));
   m_image = wrapped.clone();
 
   m_isVisible = std::move(isVisible);

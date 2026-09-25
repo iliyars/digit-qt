@@ -1,8 +1,7 @@
 #pragma once
 
+#include "core/Bitmap.h"
 #include "core/PhaseMap.h"
-
-#include <QImage>
 
 #include <functional>
 #include <string>
@@ -42,7 +41,8 @@ public:
   /// image -- полное изображение интерферограммы (используется как
   /// grayscale). isVisible(x, y) -- та же маска апертуры, что и у S2
   /// (aperture::VisibilityChecker).
-  Result extract(const QImage &image, const std::function<bool(int, int)> &isVisible) const;
+  Result extract(const digitqt::core::Bitmap &image,
+                const std::function<bool(int, int)> &isVisible) const;
 };
 
 }  // namespace digitqt::core::pipeline

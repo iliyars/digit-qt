@@ -52,7 +52,7 @@ void PhaseReconstructorTest::crossingLinesDoNotBlowUpTheSpline() {
   auto isVisible = [](int, int) { return true; };
   const auto phase = reconstructor.reconstruct(60, 21, isVisible, lines);
 
-  QVERIFY(reconstructor.lastError().isEmpty());
+  QVERIFY(reconstructor.lastError().empty());
   QVERIFY(!phase.isEmpty());
 
   // The whole line set only spans fringe orders 0..6 -- any well-behaved

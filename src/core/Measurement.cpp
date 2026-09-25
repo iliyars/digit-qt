@@ -4,7 +4,7 @@
 
 namespace digitqt::core {
 
-void Measurement::setImage(QImage image, QString path) {
+void Measurement::setImage(digitqt::core::Bitmap image, QString path) {
   m_image = std::move(image);
   m_imagePath = std::move(path);
   m_boundaries.clear();
@@ -16,7 +16,7 @@ void Measurement::setImage(QImage image, QString path) {
 }
 
 void Measurement::setImportedPhaseMap(PhaseMap phase) {
-  m_image = QImage();
+  m_image = digitqt::core::Bitmap();
   m_imagePath.clear();
   m_boundaries.clear();
   m_fringeTracing.clear();

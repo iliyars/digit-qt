@@ -81,17 +81,16 @@ double estimateCarrierPeriod(const cv::Mat &gray, const cv::Mat &hardMask, int W
 }  // namespace
 
 WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
-    const QImage &image, const std::function<bool(int, int)> &isVisible) const {
+    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible) const {
   Result result;
   const int W = image.width();
   const int H = image.height();
 
-  const QImage grayImg = image.convertToFormat(QImage::Format_Grayscale8);
   cv::Mat gray(H, W, CV_64F);
   cv::Mat hardMask(H, W, CV_8U);
   int totalCount = 0;
   for (int y = 0; y < H; ++y) {
-    const uchar *row = grayImg.constScanLine(y);
+    const uint8_t *row = image.scanLine(y);
     for (int x = 0; x < W; ++x) {
       gray.at<double>(y, x) = static_cast<double>(row[x]);
       const bool vis = isVisible(x, y);

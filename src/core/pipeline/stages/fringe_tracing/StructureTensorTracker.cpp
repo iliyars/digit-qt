@@ -24,17 +24,17 @@ namespace digitqt::core::tracing {
 StructureTensorTracker::StructureTensorTracker() = default;
 
 bool StructureTensorTracker::initialize(
-    const QImage &image, std::function<bool(int, int)> isVisible) {
+    const digitqt::core::Bitmap &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
     m_lastError = "Empty image";
     return false;
   }
 
-  m_grayImage = image.convertToFormat(QImage::Format_Grayscale8);
-  m_image = m_grayImage.constBits();
+  m_grayImage = image;
+  m_image = m_grayImage.data();
   m_width = m_grayImage.width();
   m_height = m_grayImage.height();
-  m_stride = static_cast<int>(m_grayImage.bytesPerLine());
+  m_stride = m_grayImage.width();
   m_isVisible = std::move(isVisible);
   m_lastError.clear();
   return true;

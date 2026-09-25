@@ -2,6 +2,7 @@
 
 #include "core/Measurement.h"
 #include "core/PhaseMap.h"
+#include "io/ImageLoader.h"
 
 #include <QPainter>
 #include <QPixmap>
@@ -55,7 +56,7 @@ void PhaseMapView::setMeasurement(digitqt::core::Measurement *measurement) {
   }
 
   if (measurement && measurement->hasImage()) {
-    m_backgroundItem->setPixmap(QPixmap::fromImage(measurement->image()));
+    m_backgroundItem->setPixmap(QPixmap::fromImage(digitqt::io::toQImage(measurement->image())));
     m_scene.setSceneRect(m_backgroundItem->boundingRect());
     fitInView(m_backgroundItem, Qt::KeepAspectRatio);
   }

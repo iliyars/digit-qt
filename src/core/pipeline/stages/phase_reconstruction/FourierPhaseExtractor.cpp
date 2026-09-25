@@ -36,19 +36,18 @@ void fftShift(cv::Mat &m) {
 }  // namespace
 
 FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
-    const QImage &image, const std::function<bool(int, int)> &isVisible) const {
+    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible) const {
   Result result;
   const int W = image.width();
   const int H = image.height();
 
-  // --- 1. Изображение и маска апертуры в OpenCV ---
-  const QImage grayImg = image.convertToFormat(QImage::Format_Grayscale8);
+  // --- 1. Изображение и маска апертуры в OpenCV (image уже grayscale) ---
   cv::Mat gray(H, W, CV_64F);
   cv::Mat hardMask(H, W, CV_8U);
   double sum = 0.0;
   int count = 0;
   for (int y = 0; y < H; ++y) {
-    const uchar *row = grayImg.constScanLine(y);
+    const uint8_t *row = image.scanLine(y);
     for (int x = 0; x < W; ++x) {
       const double v = static_cast<double>(row[x]);
       gray.at<double>(y, x) = v;

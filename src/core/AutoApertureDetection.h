@@ -1,6 +1,7 @@
 #pragma once
 
-#include <QImage>
+#include "core/Bitmap.h"
+
 #include <QString>
 #include <memory>
 
@@ -43,6 +44,6 @@ struct ApertureDetectionResult {
  * result is meant as a fast starting point, still editable/movable/
  * resizable like any other boundary shape afterward.
  */
-ApertureDetectionResult detectApertureBoundary(const QImage &image);
+ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &image);
 
 }  // namespace digitqt::core

@@ -2,7 +2,6 @@
 
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
-#include <QImage>
 #include <opencv2/core.hpp>
 
 namespace digitqt::core::tracing {
@@ -49,7 +48,7 @@ struct BinaryThinningParams {
  * with parallelism + "bridge stays on white" checks) -> curvature-based
  * rejection of implausible lines.
  *
- * Adapted from the original: takes a QImage + isVisible(x,y) predicate
+ * Adapted from the original: takes a Bitmap + isVisible(x,y) predicate
  * instead of cv::Mat + CEllipseBoundary (works with our multi-shape
  * aperture, not a single ellipse); development-only file/console debug
  * output removed. The algorithm itself (thresholds, thinning rules,
@@ -62,7 +61,7 @@ class BinaryThinningTracker : public IFringeTracer {
 public:
   BinaryThinningTracker() = default;
 
-  bool initialize(const QImage &image,
+  bool initialize(const digitqt::core::Bitmap &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
   std::string name() const override {

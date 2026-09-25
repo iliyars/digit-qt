@@ -117,7 +117,8 @@ int main(int argc, char **argv) {
   using digitqt::core::pipeline::StageId;
 
   if (!pipeline.stage(StageId::Setup).compute(measurement)) {
-    err << "Setup (tracing) failed: " << pipeline.stage(StageId::Setup).errorMessage() << "\n";
+    err << "Setup (tracing) failed: "
+        << QString::fromStdString(pipeline.stage(StageId::Setup).errorMessage()) << "\n";
     return 1;
   }
   out << "Traced lines: " << measurement.fringeTracing().tracedLines().size()
@@ -155,8 +156,8 @@ int main(int argc, char **argv) {
   }
 
   if (!pipeline.stage(StageId::S2).compute(measurement)) {
-    err << "Phase reconstruction (S2) failed: " << pipeline.stage(StageId::S2).errorMessage()
-        << "\n";
+    err << "Phase reconstruction (S2) failed: "
+        << QString::fromStdString(pipeline.stage(StageId::S2).errorMessage()) << "\n";
     return 1;
   }
 

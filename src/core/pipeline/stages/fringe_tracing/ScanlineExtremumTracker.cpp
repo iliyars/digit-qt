@@ -3,8 +3,6 @@
 #include "core/pipeline/stages/fringe_tracing/scanline_extremum/FringeConstructor.h"
 #include "core/pipeline/stages/fringe_tracing/scanline_extremum/RedCenterDetector.h"
 
-#include <QColor>
-
 #include <algorithm>
 #include <cmath>
 
@@ -56,13 +54,13 @@ TracedLine decimateLine(const TracedLine &line, int minRowGap) {
 }  // namespace
 
 bool ScanlineExtremumTracker::initialize(
-    const QImage &image, std::function<bool(int, int)> isVisible) {
+    const digitqt::core::Bitmap &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {
     m_lastError = "Empty image";
     return false;
   }
 
-  m_grayImage = image.convertToFormat(QImage::Format_Grayscale8);
+  m_grayImage = image;
   m_isVisible = std::move(isVisible);
   m_lastError.clear();
   return true;
@@ -80,10 +78,10 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
   }
 
   scanline_extremum::DigitizationInput input;
-  input.bitmapData = m_grayImage.constBits();
+  input.bitmapData = m_grayImage.data();
   input.imageWidth = m_grayImage.width();
   input.imageHeight = m_grayImage.height();
-  input.bytesPerLine = static_cast<int>(m_grayImage.bytesPerLine());
+  input.bytesPerLine = m_grayImage.width();
   input.isVisible = m_isVisible;
   input.fringeCenterAs = m_params.fringeCenterAs;
   input.fringeStep = m_params.fringeStep;
@@ -122,7 +120,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
       const int py = static_cast<int>(p.y + 0.5);
       tp.intensity = (px >= 0 && px < m_grayImage.width() && py >= 0 &&
                       py < m_grayImage.height())
-                         ? static_cast<float>(qGray(m_grayImage.pixel(px, py)))
+                         ? static_cast<float>(m_grayImage.pixel(px, py))
                          : 0.0f;
       line.push_back(tp);
     }

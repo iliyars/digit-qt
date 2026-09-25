@@ -2,7 +2,6 @@
 
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
-#include <QImage>
 #include <cstdint>
 
 namespace digitqt::core::tracing {
@@ -214,7 +213,7 @@ public:
    *        находится внутри рабочей области (видимой зоны интерферограммы).
    * @return `false`, если `image` пуст (`lastError()` объяснит причину).
    */
-  bool initialize(const QImage &image,
+  bool initialize(const digitqt::core::Bitmap &image,
                   std::function<bool(int, int)> isVisible) override;
   /**
    * @brief Трассирует по одной полосе на каждую точку из `seeds`.
@@ -421,13 +420,12 @@ private:
   void linStepToBoundary(int x1, int y1, int x2, int y2, int &outX,
                          int &outY) const;
 
-  QImage
+  digitqt::core::Bitmap
       m_grayImage;  ///< Владеет памятью пикселей, на которую указывает m_image.
   const uint8_t *m_image = nullptr;  ///< Указатель на данные m_grayImage.
   int m_width = 0;                   ///< Ширина изображения, px.
   int m_height = 0;                  ///< Высота изображения, px.
-  int m_stride = 0;  //< Байт на строку (bytesPerLine), может быть > m_width
-                     // из-за выравнивания
+  int m_stride = 0;  //< Байт на строку; у Bitmap padding нет, всегда == m_width.
   std::function<bool(int, int)> m_isVisible;  ///< Предикат апертуры.
 
   TracerParams m_params;  ///< Текущие параметры трассировки.

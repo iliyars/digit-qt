@@ -34,21 +34,18 @@ constexpr size_t kMaxFitPoints = 200;
 
 }  // namespace
 
-ApertureDetectionResult detectApertureBoundary(const QImage &image) {
+ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &image) {
   ApertureDetectionResult result;
   if (image.isNull()) {
     result.errorMessage = QStringLiteral("No image loaded");
     return result;
   }
 
-  const QImage gray = image.convertToFormat(QImage::Format_Grayscale8);
-
-  // Wrap QImage's buffer, then clone -- QImage's underlying data is
-  // reference-counted/shared and we need a copy we own independently
-  // (same pattern as BinaryThinningTracker::initialize()).
-  const cv::Mat wrapped(gray.height(), gray.width(), CV_8UC1,
-                        const_cast<uchar *>(gray.constBits()),
-                        static_cast<size_t>(gray.bytesPerLine()));
+  // Bitmap is already grayscale (see io::loadImage) and tightly packed
+  // (stride == width) -- wrap directly, then clone since cv::Mat doesn't
+  // own image.data().
+  const cv::Mat wrapped(image.height(), image.width(), CV_8UC1,
+                        const_cast<uint8_t *>(image.data()));
   const cv::Mat src = wrapped.clone();
 
   cv::Mat blurred;

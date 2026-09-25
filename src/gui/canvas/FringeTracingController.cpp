@@ -14,7 +14,6 @@
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
 
-#include <QImage>
 #include <algorithm>
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <cmath>
@@ -228,7 +227,7 @@ void FringeTracingController::finalizeLineByPoints() {
   if (m_pointBuffer.size() < 2)
     return;  // not enough points yet -- keep collecting
 
-  const QImage gray = m_measurement->image().convertToFormat(QImage::Format_Grayscale8);
+  const auto &gray = m_measurement->image();
   const int width = gray.width();
   const int height = gray.height();
 
@@ -241,7 +240,7 @@ void FringeTracingController::finalizeLineByPoints() {
     const int px = static_cast<int>(p.x() + 0.5);
     const int py = static_cast<int>(p.y() + 0.5);
     tp.intensity = (px >= 0 && px < width && py >= 0 && py < height)
-                       ? static_cast<float>(gray.constScanLine(py)[px])
+                       ? static_cast<float>(gray.scanLine(py)[px])
                        : 0.0f;
     line.push_back(tp);
   }

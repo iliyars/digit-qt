@@ -2,7 +2,6 @@
 
 #include "core/pipeline/stages/fringe_tracing/IFringeTracer.h"
 
-#include <QImage>
 #include <cstdint>
 
 namespace digitqt::core::tracing {
@@ -66,7 +65,7 @@ class StructureTensorTracker : public IFringeTracer {
 public:
   StructureTensorTracker();
 
-  bool initialize(const QImage &image,
+  bool initialize(const digitqt::core::Bitmap &image,
                   std::function<bool(int, int)> isVisible) override;
   std::vector<TracedLine> extract(const std::vector<SeedPoint> &seeds) override;
   std::string name() const override {
@@ -105,7 +104,7 @@ private:
   bool findLocalMaximum(double cx, double cy, float radius, double &outX,
                         double &outY, float &outIntensity) const;
 
-  QImage m_grayImage;  // owns the pixel data m_image points into
+  digitqt::core::Bitmap m_grayImage;  // owns the pixel data m_image points into
   const uint8_t *m_image = nullptr;
   int m_width = 0;
   int m_height = 0;

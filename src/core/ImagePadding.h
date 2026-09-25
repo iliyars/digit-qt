@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QImage>
+#include "core/Bitmap.h"
 
 namespace digitqt::core {
 
@@ -18,12 +18,11 @@ namespace digitqt::core {
  * The background color is the mode of the pixel values sampled along the
  * original image's border (top/bottom rows, left/right columns), so it
  * adapts to whatever background the interferogram was captured against.
- * The image is normalized to Format_Grayscale8 in the process, matching
- * every downstream consumer (they all convertToFormat this way already).
  *
  * @param marginFraction Margin added on each side, as a fraction of the
  *        image's larger dimension.
  */
-QImage padImageBackground(const QImage &image, double marginFraction = 0.15);
+digitqt::core::Bitmap padImageBackground(const digitqt::core::Bitmap &image,
+                                         double marginFraction = 0.15);
 
 }  // namespace digitqt::core
