@@ -1,10 +1,13 @@
 # Хост-инструмент для проверки PoC-плагина (см. ../binary_thinning_poc):
-# грузит DLL через QLibrary и сверяет результат со встроенным трекером.
-# Не часть приложения -- собирается только при -DDIGITQT_BUILD_PLUGIN_POC=ON.
+# грузит DLL через src/plugin_host/PluginFringeTracer (та же обёртка,
+# которую использует остальное приложение) и сверяет результат со
+# встроенным трекером. Не часть приложения -- собирается только при
+# -DDIGITQT_BUILD_PLUGIN_POC=ON.
 
 add_executable(plugin_tracer_check
     main.cpp
     ${CMAKE_SOURCE_DIR}/src/io/ImageLoader.cpp
+    ${CMAKE_SOURCE_DIR}/src/plugin_host/PluginFringeTracer.cpp
 )
 
 target_include_directories(plugin_tracer_check PRIVATE ${CMAKE_SOURCE_DIR}/src)

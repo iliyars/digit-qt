@@ -50,7 +50,7 @@ typedef int (*DqtVisibilityFn)(int32_t x, int32_t y, void *userData);
 
 typedef struct DqtFringeTracerImpl *DqtFringeTracerHandle; /* непрозрачный */
 
-typedef struct {
+typedef struct DqtFringeTracerVTable {
   DqtFringeTracerHandle (*create)(void);
   void (*destroy)(DqtFringeTracerHandle self);
 

@@ -20,9 +20,11 @@ add_subdirectory(aperture)      # independent library
 add_subdirectory(core)          # independent library (+ commands/: target_sources(DigitQt ...))
 add_subdirectory(io)            # target_sources(DigitQt ...)
 add_subdirectory(gui)           # target_sources(DigitQt ...)
+add_subdirectory(plugin_host)   # target_sources(DigitQt ...) -- loads DqtFringeTracer plugins
 
 target_link_libraries(DigitQt PRIVATE Qt5::Widgets Qt5::DataVisualization Qt5::Concurrent
-                                      DigitQt::Core Aperture::Core ${OpenCV_LIBS} Eigen3::Eigen)
+                                      DigitQt::Core DigitQt::PluginAbi Aperture::Core
+                                      ${OpenCV_LIBS} Eigen3::Eigen)
 
 set_target_properties(DigitQt PROPERTIES
     CXX_STANDARD 17

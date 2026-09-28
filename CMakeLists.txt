@@ -34,9 +34,16 @@ if(WIN32)
     add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
 endif()
 
+add_subdirectory(plugin-sdk)   # DigitQt::PluginAbi -- needed by src/plugin_host/
 add_subdirectory(src)
 add_subdirectory(translations)
-add_subdirectory(plugin-sdk)   # DigitQt::PluginAbi always defined; POC subdirs gated inside
+
+if(DIGITQT_BUILD_PLUGIN_POC)
+    # Separate from add_subdirectory(plugin-sdk) above: these two need
+    # DigitQt::Core (defined inside src/), so must come after add_subdirectory(src).
+    add_subdirectory(plugin-sdk/binary_thinning_poc)
+    add_subdirectory(plugin-sdk/plugin_tracer_check)
+endif()
 
 if(DIGITQT_BUILD_TESTS)
     enable_testing()
