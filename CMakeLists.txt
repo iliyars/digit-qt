@@ -11,6 +11,7 @@ set(CMAKE_AUTOUIC ON)
 
 option(DIGITQT_BUILD_TESTS "Build unit tests" OFF)
 option(DIGITQT_BUILD_TOOLS "Build diagnostic CLI tools (see tools/)" OFF)
+option(DIGITQT_BUILD_PLUGIN_POC "Build the C ABI plugin proof of concept (see plugin-sdk/)" OFF)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets LinguistTools DataVisualization Concurrent)
 
@@ -35,6 +36,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(translations)
+add_subdirectory(plugin-sdk)   # DigitQt::PluginAbi always defined; POC subdirs gated inside
 
 if(DIGITQT_BUILD_TESTS)
     enable_testing()
