@@ -18,6 +18,7 @@ QIcon cursorIcon();
 QIcon shapeIcon(bool ellipse, const QColor &color, Qt::PenStyle penStyle);
 QIcon pointsEllipseIcon(const QColor &color);
 QIcon seedIcon();
+QIcon fiducialIcon();
 QIcon autoSeedIcon();
 QIcon lineByPointsIcon();
 QIcon heatmapIcon();

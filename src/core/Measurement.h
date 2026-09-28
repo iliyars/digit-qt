@@ -1,17 +1,16 @@
 #pragma once
 
 #include "core/Bitmap.h"
+#include "core/Fiducial.h"
 #include "core/FringeTracingData.h"
-#include "core/ModalFitMethod.h"
 #include "core/ModalAnalysisResult.h"
+#include "core/ModalFitMethod.h"
 #include "core/PhaseMap.h"
 #include "core/PhaseReconstructionAlgorithm.h"
 #include "core/PolynomialBasis.h"
 
 #include <aperture/include/visibility/ShapeCollection.h>
-
 #include <string>
-
 
 namespace digitqt::core {
 
@@ -42,6 +41,10 @@ public:
   // --- S0a: boundaries (external aperture / internal obstructions) ---
   aperture::ShapeCollection &boundaries() { return m_boundaries; }
   const aperture::ShapeCollection &boundaries() const { return m_boundaries; }
+
+  // --- S0b: реперы ---
+  FiducialSet &fiducials() { return m_fiducials; }
+  const FiducialSet &fiducials() const { return m_fiducials; }
 
   // --- S1: fringe tracing (seed points + traced centerlines) ---------
   FringeTracingData &fringeTracing() { return m_fringeTracing; }
@@ -126,6 +129,7 @@ private:
   digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::JointLeastSquares;
   digitqt::core::PolynomialBasis m_polynomialBasis = digitqt::core::PolynomialBasis::Seregin;
   int m_edgeErosionPixels = 2;
+  FiducialSet m_fiducials;
 };
 
 }  // namespace digitqt::core

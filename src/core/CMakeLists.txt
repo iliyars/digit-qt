@@ -24,6 +24,7 @@ add_library(core STATIC
     ImagePadding.h
     ImagePadding.cpp
     NumberedFringeLine.h
+    Fiducial.h
     FringeOrdering.h
     FringeOrdering.cpp
     FringeEdgeExtrapolation.h

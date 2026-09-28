@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas/BoundaryEditController.h"
+#include "canvas/FiducialController.h"
 #include "canvas/FringeTracingController.h"
 #include "canvas/ImageCanvas.h"
 #include "canvas/PhaseMapView.h"
@@ -70,6 +71,7 @@ private:
   QUndoStack *m_undoStack;
   digitqt::gui::canvas::BoundaryEditController *m_controller;
   digitqt::gui::canvas::FringeTracingController *m_fringeController;
+  digitqt::gui::canvas::FiducialController *m_fiducialController;
   digitqt::gui::canvas::ImageCanvas *m_canvas;
   digitqt::gui::canvas::PhaseMapView *m_phaseMapView;
   digitqt::gui::canvas::Surface3DView *m_surface3DView;

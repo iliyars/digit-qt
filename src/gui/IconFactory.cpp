@@ -91,6 +91,21 @@ QIcon seedIcon() {
   return QIcon(pixmap);
 }
 
+QIcon fiducialIcon() {
+  QPixmap pixmap = newCanvas();
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  const QColor fiducialColor(0, 200, 255);
+  QPen pen(fiducialColor, 2);
+  painter.setPen(pen);
+  const double cx = kSize / 2.0, cy = kSize / 2.0, arm = 6.0;
+  painter.drawLine(QPointF(cx - arm, cy), QPointF(cx + arm, cy));
+  painter.drawLine(QPointF(cx, cy - arm), QPointF(cx, cy + arm));
+
+  return QIcon(pixmap);
+}
+
 QIcon autoSeedIcon() {
   QPixmap pixmap = newCanvas();
   QPainter painter(&pixmap);

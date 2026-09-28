@@ -22,4 +22,8 @@ target_sources(DigitQt
         RemoveTracedLineCommand.cpp
         AutoExtendFringesCommand.h
         AutoExtendFringesCommand.cpp
+        AddFiducialCommand.h
+        AddFiducialCommand.cpp
+        RemoveFiducialCommand.h
+        RemoveFiducialCommand.cpp
 )

@@ -37,6 +37,7 @@ namespace digitqt::gui {
 using digitqt::core::pipeline::StageId;
 using digitqt::gui::canvas::ActiveController;
 using digitqt::gui::canvas::EditMode;
+using digitqt::gui::canvas::FiducialEditMode;
 using digitqt::gui::canvas::FringeEditMode;
 
 MainWindow::MainWindow(QWidget *parent)
@@ -45,14 +46,16 @@ MainWindow::MainWindow(QWidget *parent)
       m_pipeline(std::make_unique<digitqt::core::pipeline::Pipeline>()),
       m_undoStack(new QUndoStack(this)),
       m_controller(new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)),
-      m_fringeController(new digitqt::gui::canvas::FringeTracingController(m_undoStack, this)) {
+      m_fringeController(new digitqt::gui::canvas::FringeTracingController(m_undoStack, this)),
+      m_fiducialController(new digitqt::gui::canvas::FiducialController(m_undoStack, this)) {
   setWindowTitle(tr("DigitQt — Interferogram Processing"));
   resize(1400, 900);
 
   // --- Central view: one page for image-based stages (Setup, S1),
   // a shared placeholder page for everything else. ---
   m_centralStack = new QStackedWidget(this);
-  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController, this);
+  m_canvas = new digitqt::gui::canvas::ImageCanvas(m_controller, m_fringeController,
+                                                   m_fiducialController, this);
   m_phaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
   m_surface3DView = new digitqt::gui::canvas::Surface3DView(this);
   m_modalPhaseMapView = new digitqt::gui::canvas::PhaseMapView(this);
@@ -89,6 +92,8 @@ MainWindow::MainWindow(QWidget *parent)
           &MainWindow::updateStatusBar);
   connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::tracedLinesChanged,
           this, &MainWindow::updateStatusBar);
+  connect(m_fiducialController, &digitqt::gui::canvas::FiducialController::fiducialsChanged, this,
+          &MainWindow::updateStatusBar);
 
   buildMenusAndToolbars();
   buildLanguageMenu();
@@ -101,6 +106,7 @@ MainWindow::MainWindow(QWidget *parent)
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
   m_fringeController->setPipeline(m_pipeline.get());
+  m_fiducialController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
@@ -220,6 +226,7 @@ void MainWindow::buildMenusAndToolbars() {
   connect(m_undoStack, &QUndoStack::indexChanged, this, [this](int) {
     m_controller->notifyExternalChange();
     m_fringeController->notifyExternalChange();
+    m_fiducialController->notifyExternalChange();
   });
 
   // --- Setup toolbar: boundaries + fringe tracing, all in one place ---
@@ -266,6 +273,19 @@ void MainWindow::buildMenusAndToolbars() {
     return action;
   };
 
+  auto addFiducialModeAction = [&](const QIcon &icon, const QString &tooltip,
+                                   FiducialEditMode mode) {
+    auto *action = toolBar->addAction(icon, tooltip);
+    action->setToolTip(tooltip);
+    action->setCheckable(true);
+    modeGroup->addAction(action);
+    connect(action, &QAction::triggered, this, [this, mode] {
+      m_canvas->setActiveController(ActiveController::Fiducial);
+      m_fiducialController->setMode(mode);
+    });
+    return action;
+  };
+
   // --- Unified select tool: clicking a boundary selects/moves it,
   // clicking a seed selects it instead -- no need to pick which kind of
   // element you're about to click beforehand (see ImageCanvas's
@@ -280,6 +300,7 @@ void MainWindow::buildMenusAndToolbars() {
     m_canvas->setActiveController(ActiveController::Boundary);
     m_controller->setMode(EditMode::Select);
     m_fringeController->setMode(FringeEditMode::Select);
+    m_fiducialController->setMode(FiducialEditMode::Select);
   };
   connect(selectAction, &QAction::triggered, this, activateSelectTool);
   // The action starts pre-checked (it's the default tool), which does NOT
@@ -315,6 +336,8 @@ void MainWindow::buildMenusAndToolbars() {
           switchToSelectTool);
   connect(m_fringeController, &digitqt::gui::canvas::FringeTracingController::tracedLineAdded,
           this, switchToSelectTool);
+  connect(m_fiducialController, &digitqt::gui::canvas::FiducialController::fiducialsChanged, this,
+          switchToSelectTool);
 
   // --- Boundaries (aperture) ---
   addBoundaryModeAction(shapeIcon(/*ellipse=*/true, externalColor, Qt::SolidLine),
@@ -402,6 +425,12 @@ void MainWindow::buildMenusAndToolbars() {
 
   toolBar->addSeparator();
 
+  // --- Fiducials (реперы) ---
+  addFiducialModeAction(digitqt::gui::icons::fiducialIcon(), tr("Add fiducial"),
+                        FiducialEditMode::AddFiducial);
+
+  toolBar->addSeparator();
+
   // --- Shared actions: Delete (whichever tool is active) and Trace ---
   auto *deleteAction =
       toolBar->addAction(style()->standardIcon(QStyle::SP_TrashIcon), tr("Delete selected"));
@@ -410,8 +439,10 @@ void MainWindow::buildMenusAndToolbars() {
   connect(deleteAction, &QAction::triggered, this, [this] {
     if (m_canvas->activeController() == ActiveController::Boundary)
       m_controller->deleteSelection();
-    else
+    else if (m_canvas->activeController() == ActiveController::FringeTracing)
       m_fringeController->deleteSelection();
+    else
+      m_fiducialController->deleteSelection();
   });
 
   auto *traceAction =
@@ -669,6 +700,7 @@ void MainWindow::openImage() {
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
+  m_fiducialController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
@@ -699,6 +731,7 @@ void MainWindow::importMtr() {
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
+  m_fiducialController->setMeasurement(m_measurement.get());
   m_canvas->setMeasurement(m_measurement.get());
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());

@@ -18,4 +18,8 @@ target_sources(DigitQt
         Surface3DView.cpp
         ImageCanvas.h
         ImageCanvas.cpp
+        FiducialItem.h
+        FiducialItem.cpp
+        FiducialController.h
+        FiducialController.cpp
 )

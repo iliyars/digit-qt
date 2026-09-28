@@ -16,10 +16,12 @@
 namespace digitqt::gui::canvas {
 
 ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
-                         FringeTracingController *fringeController, QWidget *parent)
+                         FringeTracingController *fringeController,
+                         FiducialController *fiducialController, QWidget *parent)
     : QGraphicsView(parent),
       m_boundaryController(boundaryController),
-      m_fringeController(fringeController) {
+      m_fringeController(fringeController),
+      m_fiducialController(fiducialController) {
   setScene(&m_scene);
   setRenderHint(QPainter::Antialiasing, true);
   setDragMode(QGraphicsView::NoDrag);
@@ -61,6 +63,11 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
           &ImageCanvas::updateLineEditOverlay);
   connect(m_fringeController, &FringeTracingController::previewChanged, this,
           &ImageCanvas::updatePreviewItem);
+
+  connect(m_fiducialController, &FiducialController::fiducialsChanged, this,
+          &ImageCanvas::rebuildFiducialItems);
+  connect(m_fiducialController, &FiducialController::selectionChanged, this,
+          &ImageCanvas::updateFiducialSelectionHighlight);
 }
 
 void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
@@ -77,6 +84,7 @@ void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
   rebuildBoundaryItems();
   updateBoundaryHandleOverlay();
   rebuildFringeItems();
+  rebuildFiducialItems();
 }
 
 void ImageCanvas::fitImageToView() {
@@ -91,19 +99,27 @@ void ImageCanvas::setActiveController(ActiveController controller) {
 bool ImageCanvas::isUnifiedSelectMode() const {
   return m_boundaryController->mode() == EditMode::Select &&
         m_fringeController->mode() == FringeEditMode::Select &&
-        !m_fringeController->editingLineIndex();
+        !m_fringeController->editingLineIndex() &&
+        m_fiducialController->mode() == FiducialEditMode::Select;
 }
 
 void ImageCanvas::resolveUnifiedSelection(const QPointF &pos) {
-  if (m_fringeController->hasSeedAt(pos) || m_fringeController->hasLineAt(pos)) {
+  if (m_fiducialController->hasFiducialAt(pos)) {
+    m_activeController = ActiveController::Fiducial;
+    m_boundaryController->clearSelection();
+    m_fringeController->clearSelection();
+  } else if (m_fringeController->hasSeedAt(pos) || m_fringeController->hasLineAt(pos)) {
     m_activeController = ActiveController::FringeTracing;
     m_boundaryController->clearSelection();
+    m_fiducialController->clearSelection();
   } else if (m_boundaryController->hasShapeAt(pos)) {
     m_activeController = ActiveController::Boundary;
     m_fringeController->clearSelection();
+    m_fiducialController->clearSelection();
   } else {
     m_boundaryController->clearSelection();
     m_fringeController->clearSelection();
+    m_fiducialController->clearSelection();
   }
 }
 
@@ -121,8 +137,10 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event) {
     resolveUnifiedSelection(pos);
   if (m_activeController == ActiveController::Boundary)
     m_boundaryController->handlePress(pos, primary);
-  else
+  else if (m_activeController == ActiveController::FringeTracing)
     m_fringeController->handlePress(pos, primary);
+  else
+    m_fiducialController->handlePress(pos, primary);
   QGraphicsView::mousePressEvent(event);
 }
 
@@ -139,8 +157,10 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event) {
 
   if (m_activeController == ActiveController::Boundary)
     m_boundaryController->handleMove(scenePos);
-  else
+  else if (m_activeController == ActiveController::FringeTracing)
     m_fringeController->handleMove(scenePos);
+  else
+    m_fiducialController->handleMove(scenePos);
   QGraphicsView::mouseMoveEvent(event);
 }
 
@@ -153,8 +173,10 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event) {
 
   if (m_activeController == ActiveController::Boundary)
     m_boundaryController->handleRelease(mapToScene(event->pos()));
-  else
+  else if (m_activeController == ActiveController::FringeTracing)
     m_fringeController->handleRelease(mapToScene(event->pos()));
+  else
+    m_fiducialController->handleRelease(mapToScene(event->pos()));
   QGraphicsView::mouseReleaseEvent(event);
 }
 
@@ -176,9 +198,10 @@ void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event) {
       m_activeController = ActiveController::FringeTracing;
   } else if (m_activeController == ActiveController::Boundary) {
     m_boundaryController->handleDoubleClick(pos);
-  } else {
+  } else if (m_activeController == ActiveController::FringeTracing) {
     m_fringeController->handleDoubleClick(pos);
   }
+  // Fiducial: no double-click behavior in v1 -- nothing to dispatch to.
   QGraphicsView::mouseDoubleClickEvent(event);
 }
 
@@ -186,8 +209,10 @@ void ImageCanvas::keyPressEvent(QKeyEvent *event) {
   if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
     if (m_activeController == ActiveController::Boundary)
       m_boundaryController->deleteSelection();
-    else
+    else if (m_activeController == ActiveController::FringeTracing)
       m_fringeController->deleteSelection();
+    else
+      m_fiducialController->deleteSelection();
     return;
   }
   if (event->key() == Qt::Key_Escape) {
@@ -220,6 +245,12 @@ void ImageCanvas::setFringeTracingVisible(bool visible) {
   for (auto *item : m_seedItems)
     item->setVisible(visible);
   for (auto *item : m_lineItems)
+    item->setVisible(visible);
+}
+
+void ImageCanvas::setFiducialsVisible(bool visible) {
+  m_fiducialsVisible = visible;
+  for (auto *item : m_fiducialItems)
     item->setVisible(visible);
 }
 
@@ -379,6 +410,32 @@ void ImageCanvas::updateFringeSelectionHighlight() {
   auto lineSel = m_fringeController->selectedLineIndex();
   for (auto *item : m_lineItems)
     item->setSelectedStyle(lineSel && item->lineIndex() == *lineSel);
+}
+
+void ImageCanvas::rebuildFiducialItems() {
+  for (auto *item : m_fiducialItems) {
+    m_scene.removeItem(item);
+    delete item;
+  }
+  m_fiducialItems.clear();
+
+  if (!m_measurement)
+    return;
+  const auto &fiducials = m_measurement->fiducials().fiducials();
+  for (size_t i = 0; i < fiducials.size(); ++i) {
+    auto *item = new FiducialItem(fiducials[i].imageX, fiducials[i].imageY, i);
+    item->setVisible(m_fiducialsVisible);
+    m_scene.addItem(item);
+    m_fiducialItems.push_back(item);
+  }
+
+  updateFiducialSelectionHighlight();
+}
+
+void ImageCanvas::updateFiducialSelectionHighlight() {
+  auto sel = m_fiducialController->selection();
+  for (auto *item : m_fiducialItems)
+    item->setSelectedStyle(sel && item->fiducialIndex() == *sel);
 }
 
 void ImageCanvas::updateLineEditOverlay() {
