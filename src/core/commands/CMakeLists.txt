@@ -26,4 +26,6 @@ target_sources(DigitQt
         AddFiducialCommand.cpp
         RemoveFiducialCommand.h
         RemoveFiducialCommand.cpp
+        SetFiducialReferenceCommand.h
+        SetFiducialReferenceCommand.cpp
 )

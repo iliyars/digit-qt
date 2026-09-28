@@ -25,6 +25,9 @@ add_library(core STATIC
     ImagePadding.cpp
     NumberedFringeLine.h
     Fiducial.h
+    AffineTransform2D.h
+    FiducialTransformFit.h
+    FiducialTransformFit.cpp
     FringeOrdering.h
     FringeOrdering.cpp
     FringeEdgeExtrapolation.h

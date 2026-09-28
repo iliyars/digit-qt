@@ -2,6 +2,7 @@
 
 #include "core/Bitmap.h"
 #include "core/Fiducial.h"
+#include "core/FiducialTransformFit.h"
 #include "core/FringeTracingData.h"
 #include "core/ModalAnalysisResult.h"
 #include "core/ModalFitMethod.h"
@@ -45,6 +46,14 @@ public:
   // --- S0b: реперы ---
   FiducialSet &fiducials() { return m_fiducials; }
   const FiducialSet &fiducials() const { return m_fiducials; }
+
+  /// Результат последней подгонки G2 (СКИ -> СКОС) по реперам -- см.
+  /// core::fitFiducialTransform(). Не пересчитывается автоматически;
+  /// вызывающая сторона (см. MainWindow) считает и кладёт сюда явно.
+  const FiducialTransformFit &fiducialTransformFit() const { return m_fiducialTransformFit; }
+  void setFiducialTransformFit(FiducialTransformFit fit) {
+    m_fiducialTransformFit = std::move(fit);
+  }
 
   // --- S1: fringe tracing (seed points + traced centerlines) ---------
   FringeTracingData &fringeTracing() { return m_fringeTracing; }
@@ -130,6 +139,7 @@ private:
   digitqt::core::PolynomialBasis m_polynomialBasis = digitqt::core::PolynomialBasis::Seregin;
   int m_edgeErosionPixels = 2;
   FiducialSet m_fiducials;
+  FiducialTransformFit m_fiducialTransformFit;
 };
 
 }  // namespace digitqt::core

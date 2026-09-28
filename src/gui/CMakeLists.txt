@@ -10,6 +10,8 @@ target_sources(DigitQt
         ParametersDock.cpp
         NotImplementedPage.h
         NotImplementedPage.cpp
+        FiducialReferenceDialog.h
+        FiducialReferenceDialog.cpp
 )
 
 add_subdirectory(canvas)

@@ -1,9 +1,11 @@
 #include "MainWindow.h"
 
+#include "gui/FiducialReferenceDialog.h"
 #include "gui/IconFactory.h"
 #include "gui/NotImplementedPage.h"
 #include "gui/ParametersDock.h"
 #include "gui/PipelineTreeDock.h"
+#include "core/FiducialTransformFit.h"
 #include "core/ImagePadding.h"
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
@@ -428,6 +430,38 @@ void MainWindow::buildMenusAndToolbars() {
   // --- Fiducials (реперы) ---
   addFiducialModeAction(digitqt::gui::icons::fiducialIcon(), tr("Add fiducial"),
                         FiducialEditMode::AddFiducial);
+
+  auto *editFiducialRefsAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_FileDialogDetailedView),
+      tr("Edit fiducial reference positions..."));
+  editFiducialRefsAction->setToolTip(
+      tr("Enter the known true position for each fiducial (e.g. from a calibration target)"));
+  connect(editFiducialRefsAction, &QAction::triggered, this, [this] {
+    digitqt::gui::FiducialReferenceDialog dialog(m_measurement.get(), m_undoStack, this);
+    dialog.exec();
+  });
+
+  auto *fitRegistrationAction = toolBar->addAction(
+      style()->standardIcon(QStyle::SP_DialogApplyButton), tr("Fit registration (G2)"));
+  fitRegistrationAction->setToolTip(
+      tr("Fit an affine transform (СКИ -> СКОС) from fiducials with a reference position, and "
+         "report the fit quality"));
+  connect(fitRegistrationAction, &QAction::triggered, this, [this] {
+    auto fit = digitqt::core::fitFiducialTransform(m_measurement->fiducials().fiducials());
+    m_measurement->setFiducialTransformFit(fit);
+    if (!fit.ok) {
+      QMessageBox::warning(this, tr("Fit Registration"), QString::fromStdString(fit.errorMessage));
+      return;
+    }
+    QString report = tr("Used %1 fiducials\nRMS error: %2\nMax error: %3\n\n"
+                        "Per-fiducial residuals:\n")
+                         .arg(fit.usedCount)
+                         .arg(fit.rmsError, 0, 'f', 4)
+                         .arg(fit.maxError, 0, 'f', 4);
+    for (const auto &r : fit.residuals)
+      report += tr("  #%1: %2\n").arg(r.fiducialId).arg(r.residual, 0, 'f', 4);
+    QMessageBox::information(this, tr("Fit Registration"), report);
+  });
 
   toolBar->addSeparator();
 
