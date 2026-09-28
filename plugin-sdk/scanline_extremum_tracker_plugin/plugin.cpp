@@ -1,5 +1,12 @@
+// См. sequential_fringe_tracker_plugin/plugin.cpp -- тот же приём, но
+// ScanlineExtremumTracker дополнительно принимает параметры
+// (fringeCenterMode/hasInternalObstruction, через setParam()) и сам
+// вычисляет номер полосы (order/hasOrder на каждой линии) -- единственный
+// из 4 встроенных трекеров, кому реально нужны обе новые возможности ABI
+// v2 (см. dqt_fringe_tracer_abi.h).
+
 #include "core/Bitmap.h"
-#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
+#include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
 #include "dqt_fringe_tracer_abi.h"
 
 #include <cstring>
@@ -9,14 +16,11 @@
 
 namespace {
 
-using digitqt::core::tracing::BinaryThinningTracker;
+using digitqt::core::tracing::ScanlineExtremumTracker;
 using digitqt::core::tracing::TracedLine;
 
-// Держит один трекер + результат последнего extract(), пока хост не
-// вызовет freeLines()/destroy() -- владелец памяти, на которую смотрят
-// возвращённые DqtTracedLine[].
 struct PluginState {
-  BinaryThinningTracker tracker;
+  ScanlineExtremumTracker tracker;
   std::vector<std::vector<DqtTracedPoint>> pointStorage;
   std::vector<DqtTracedLine> lineStorage;
   std::string lastErrorUtf8;
@@ -60,6 +64,8 @@ int extract(DqtFringeTracerHandle self, const DqtSeedPoint *seeds, size_t seedCo
 
   std::vector<TracedLine> lines = state->tracker.extract(seedVec);
   state->lastErrorUtf8 = state->tracker.lastError();
+  const auto &numbers = state->tracker.lastFringeNumbers();
+  const bool haveNumbers = numbers.size() == lines.size();
 
   state->pointStorage.assign(lines.size(), {});
   state->lineStorage.clear();
@@ -70,30 +76,28 @@ int extract(DqtFringeTracerHandle self, const DqtSeedPoint *seeds, size_t seedCo
     dst.reserve(lines[i].size());
     for (const auto &p : lines[i])
       dst.push_back(DqtTracedPoint{p.x, p.y, p.width, p.intensity});
-    // BinaryThinningTracker не вычисляет номер полосы сам -- hasOrder=0,
-    // хост назначит порядок автоматически (см. IFringeTracer::lastFringeOrders()).
-    state->lineStorage.push_back(DqtTracedLine{dst.data(), dst.size(), 0.0, 0});
+    const double order = haveNumbers ? numbers[i] : 0.0;
+    state->lineStorage.push_back(
+        DqtTracedLine{dst.data(), dst.size(), order, haveNumbers ? 1 : 0});
   }
 
   if (!state->lineStorage.empty()) {
     *outLines = state->lineStorage.data();
     *outLineCount = state->lineStorage.size();
   }
-  return 1;  // у BinaryThinningTracker::extract() нет кода неудачи -- пустой результат валиден
+  return 1;
 }
 
 void freeLines(DqtFringeTracerHandle /*self*/, DqtTracedLine * /*lines*/, size_t /*lineCount*/) {
-  // Память держит PluginState и освобождает её сам на destroy()/следующем
-  // extract() -- здесь делать нечего. (Плагин, чей extract() выделяет
-  // свежую память на каждый вызов, освобождал бы её именно тут.)
 }
 
-int setParam(DqtFringeTracerHandle /*self*/, const char * /*key*/, const char * /*value*/) {
-  return 0;  // BinaryThinningTracker не принимает параметров -- все ключи неизвестны
+int setParam(DqtFringeTracerHandle self, const char *key, const char *value) {
+  auto *state = reinterpret_cast<PluginState *>(self);
+  return state->tracker.setParam(key, value) ? 1 : 0;
 }
 
 const char *name(DqtFringeTracerHandle /*self*/) {
-  static const char *const kName = "Binary Thinning Method (FBM) [plugin]";
+  static const char *const kName = "Scanline Extremum Method (FTM) [plugin]";
   return kName;
 }
 
@@ -113,8 +117,8 @@ extern "C" DQT_ABI_EXPORT int dqt_plugin_entry(uint32_t hostAbiVersion, DqtPlugi
     *outVTable = nullptr;
     return 0;
   }
-  outInfo->pluginName = "BinaryThinningTracker (POC plugin)";
-  outInfo->pluginVersion = "0.1.0-poc";
+  outInfo->pluginName = "ScanlineExtremumTracker";
+  outInfo->pluginVersion = "1.0.0";
   *outVTable = &kVTable;
   return 1;
 }

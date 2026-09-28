@@ -13,7 +13,11 @@ extern "C" {
 #define DQT_ABI_EXPORT __attribute__((visibility("default")))
 #endif
 
-#define DQT_FRINGE_TRACER_ABI_VERSION 1u
+#define DQT_FRINGE_TRACER_ABI_VERSION 2u
+/* v2: добавлено поле order/hasOrder в DqtTracedLine и setParam() в
+   DqtFringeTracerVTable -- см. ниже. Версии 1 и 2 несовместимы (хост и
+   плагин обязаны совпадать в точности), т.к. плагинов на реальной v1 ещё
+   не выпускалось (только PoC). */
 
 /* --- Данные: заимствованные, только для чтения представления --- */
 /* Хост владеет памятью на всё время вызова; плагин не должен её освобождать. */
@@ -36,10 +40,16 @@ typedef struct {
   float intensity;
 } DqtTracedPoint;
 
-/* Владеет ПЛАГИН, пока не будет вызван freeLines() с теми же указателями. */
+/* Владеет ПЛАГИН, пока не будет вызван freeLines() с теми же указателями.
+   order/hasOrder -- необязательный номер порядка полосы, если алгоритм
+   умеет вычислить его сам (как ScanlineExtremumTracker); hasOrder = 0
+   означает "не вычислен", хост в этом случае назначает порядок сам
+   (см. autoAssignFringeOrder на стороне хоста). */
 typedef struct {
   const DqtTracedPoint *points;
   size_t count;
+  double order;
+  int32_t hasOrder;
 } DqtTracedLine;
 
 /* Предикат видимости -- замена std::function<bool(int,int)> на границе.
@@ -65,6 +75,14 @@ typedef struct DqtFringeTracerVTable {
                  DqtTracedLine **outLines, size_t *outLineCount);
 
   void (*freeLines)(DqtFringeTracerHandle self, DqtTracedLine *lines, size_t lineCount);
+
+  /* Необязательный именованный параметр алгоритма (напр. "fringeCenterMode"
+     -> "min"/"max"/"minmax"), вызывается ДО initialize(). Возвращает не 0,
+     если ключ распознан и применён, 0 -- если ключ неизвестен плагину
+     (хост должен считать это безопасным no-op, не ошибкой: так же ведёт
+     себя core::tracing::IFringeTracer::setParam() на встроенных
+     трекерах). */
+  int (*setParam)(DqtFringeTracerHandle self, const char *key, const char *value);
 
   /* Возвращаемые строки принадлежат плагину/self и валидны до следующего
      вызова на этом handle либо до destroy(). */

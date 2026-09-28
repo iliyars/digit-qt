@@ -41,6 +41,8 @@ public:
       const std::vector<digitqt::core::tracing::SeedPoint> &seeds) override;
   std::string name() const override;
   const std::string &lastError() const override;
+  bool setParam(const std::string &key, const std::string &value) override;
+  std::vector<double> lastFringeOrders() const override;
 
 private:
   PluginFringeTracer();
@@ -56,6 +58,7 @@ private:
   std::function<bool(int, int)> m_isVisibleCpp;
 
   mutable std::string m_lastErrorCache;
+  std::vector<double> m_lastFringeOrders;
 };
 
 }  // namespace digitqt::plugin_host

@@ -1,5 +1,8 @@
+// См. sequential_fringe_tracker_plugin/plugin.cpp -- тот же приём,
+// StructureTensorTracker вместо SequentialFringeTracker.
+
 #include "core/Bitmap.h"
-#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
+#include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 #include "dqt_fringe_tracer_abi.h"
 
 #include <cstring>
@@ -9,14 +12,11 @@
 
 namespace {
 
-using digitqt::core::tracing::BinaryThinningTracker;
+using digitqt::core::tracing::StructureTensorTracker;
 using digitqt::core::tracing::TracedLine;
 
-// Держит один трекер + результат последнего extract(), пока хост не
-// вызовет freeLines()/destroy() -- владелец памяти, на которую смотрят
-// возвращённые DqtTracedLine[].
 struct PluginState {
-  BinaryThinningTracker tracker;
+  StructureTensorTracker tracker;
   std::vector<std::vector<DqtTracedPoint>> pointStorage;
   std::vector<DqtTracedLine> lineStorage;
   std::string lastErrorUtf8;
@@ -70,8 +70,7 @@ int extract(DqtFringeTracerHandle self, const DqtSeedPoint *seeds, size_t seedCo
     dst.reserve(lines[i].size());
     for (const auto &p : lines[i])
       dst.push_back(DqtTracedPoint{p.x, p.y, p.width, p.intensity});
-    // BinaryThinningTracker не вычисляет номер полосы сам -- hasOrder=0,
-    // хост назначит порядок автоматически (см. IFringeTracer::lastFringeOrders()).
+    // StructureTensorTracker не вычисляет номер полосы сам -- hasOrder=0.
     state->lineStorage.push_back(DqtTracedLine{dst.data(), dst.size(), 0.0, 0});
   }
 
@@ -79,21 +78,20 @@ int extract(DqtFringeTracerHandle self, const DqtSeedPoint *seeds, size_t seedCo
     *outLines = state->lineStorage.data();
     *outLineCount = state->lineStorage.size();
   }
-  return 1;  // у BinaryThinningTracker::extract() нет кода неудачи -- пустой результат валиден
+  return 1;
 }
 
 void freeLines(DqtFringeTracerHandle /*self*/, DqtTracedLine * /*lines*/, size_t /*lineCount*/) {
-  // Память держит PluginState и освобождает её сам на destroy()/следующем
-  // extract() -- здесь делать нечего. (Плагин, чей extract() выделяет
-  // свежую память на каждый вызов, освобождал бы её именно тут.)
 }
 
 int setParam(DqtFringeTracerHandle /*self*/, const char * /*key*/, const char * /*value*/) {
-  return 0;  // BinaryThinningTracker не принимает параметров -- все ключи неизвестны
+  // SetupStage сейчас не настраивает StructureTensorParams -- все ключи
+  // неизвестны, как и у встроенного пути.
+  return 0;
 }
 
 const char *name(DqtFringeTracerHandle /*self*/) {
-  static const char *const kName = "Binary Thinning Method (FBM) [plugin]";
+  static const char *const kName = "Ride Tracking (Structure Tensor) [plugin]";
   return kName;
 }
 
@@ -113,8 +111,8 @@ extern "C" DQT_ABI_EXPORT int dqt_plugin_entry(uint32_t hostAbiVersion, DqtPlugi
     *outVTable = nullptr;
     return 0;
   }
-  outInfo->pluginName = "BinaryThinningTracker (POC plugin)";
-  outInfo->pluginVersion = "0.1.0-poc";
+  outInfo->pluginName = "StructureTensorTracker";
+  outInfo->pluginVersion = "1.0.0";
   *outVTable = &kVTable;
   return 1;
 }

@@ -53,6 +53,25 @@ TracedLine decimateLine(const TracedLine &line, int minRowGap) {
 
 }  // namespace
 
+bool ScanlineExtremumTracker::setParam(const std::string &key, const std::string &value) {
+  if (key == "fringeCenterMode") {
+    if (value == "max")
+      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::Max;
+    else if (value == "min")
+      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::Min;
+    else if (value == "minmax")
+      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::MinMax;
+    else
+      return false;
+    return true;
+  }
+  if (key == "hasInternalObstruction") {
+    m_params.hasInternalObstruction = (value == "1" || value == "true");
+    return true;
+  }
+  return false;
+}
+
 bool ScanlineExtremumTracker::initialize(
     const digitqt::core::Bitmap &image, std::function<bool(int, int)> isVisible) {
   if (image.isNull()) {

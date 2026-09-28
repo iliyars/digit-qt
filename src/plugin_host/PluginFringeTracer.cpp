@@ -82,6 +82,10 @@ std::vector<digitqt::core::tracing::TracedLine> PluginFringeTracer::extract(
 
   std::vector<digitqt::core::tracing::TracedLine> result;
   result.reserve(lineCount);
+  m_lastFringeOrders.clear();
+  std::vector<double> orders;
+  orders.reserve(lineCount);
+  bool allHaveOrder = lineCount > 0;
   for (size_t i = 0; i < lineCount; ++i) {
     digitqt::core::tracing::TracedLine line;
     line.reserve(lines[i].count);
@@ -90,7 +94,15 @@ std::vector<digitqt::core::tracing::TracedLine> PluginFringeTracer::extract(
       line.push_back(digitqt::core::tracing::TracedPoint{p.x, p.y, p.width, p.intensity});
     }
     result.push_back(std::move(line));
+    orders.push_back(lines[i].order);
+    if (!lines[i].hasOrder)
+      allHaveOrder = false;
   }
+  // Только "всё или ничего" -- если хоть одна линия не имеет вычисленного
+  // порядка, считаем, что порядок в принципе не посчитан (см.
+  // IFringeTracer::lastFringeOrders()), а не смешиваем частично.
+  if (allHaveOrder)
+    m_lastFringeOrders = std::move(orders);
 
   m_vtable->freeLines(m_handle, lines, lineCount);
   return result;
@@ -102,6 +114,14 @@ std::string PluginFringeTracer::name() const {
 
 const std::string &PluginFringeTracer::lastError() const {
   return m_lastErrorCache;
+}
+
+bool PluginFringeTracer::setParam(const std::string &key, const std::string &value) {
+  return m_vtable->setParam(m_handle, key.c_str(), value.c_str()) != 0;
+}
+
+std::vector<double> PluginFringeTracer::lastFringeOrders() const {
+  return m_lastFringeOrders;
 }
 
 }  // namespace digitqt::plugin_host

@@ -57,6 +57,23 @@ public:
 
   virtual std::string name() const = 0;
   virtual const std::string &lastError() const = 0;
+
+  /// Optional algorithm-specific parameter, set before initialize().
+  /// Returns true if the key was recognized and applied; unrecognized
+  /// keys are a harmless no-op by default, so callers (SetupStage) can
+  /// set parameters generically on whichever IFringeTracer they got --
+  /// built-in class or DLL plugin (see DllFringeTracer) -- without
+  /// knowing which concrete algorithm it is.
+  virtual bool setParam(const std::string & /*key*/, const std::string & /*value*/) {
+    return false;
+  }
+
+  /// Fringe order computed internally by the algorithm itself, one entry
+  /// per line returned by the most recent extract(), in the same order.
+  /// Empty (the default) means "this tracer doesn't compute order" --
+  /// callers fall back to autoAssignFringeOrder(). Only
+  /// ScanlineExtremumTracker (and its plugin equivalent) populates this.
+  virtual std::vector<double> lastFringeOrders() const { return {}; }
 };
 
 }  // namespace digitqt::core::tracing

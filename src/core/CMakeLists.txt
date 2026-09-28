@@ -48,6 +48,7 @@ target_include_directories(core PUBLIC
 )
 
 target_link_libraries(core PUBLIC Aperture::Core Eigen3::Eigen ${OpenCV_LIBS})
+target_link_libraries(core PRIVATE DigitQt::PluginAbi)
 target_include_directories(core PRIVATE ${OpenCV_INCLUDE_DIRS})
 
 target_compile_features(core PUBLIC cxx_std_17)
@@ -60,3 +61,4 @@ set_target_properties(core PROPERTIES
 
 add_subdirectory(commands)
 add_subdirectory(pipeline)
+add_subdirectory(plugin_loading)

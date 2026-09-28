@@ -41,12 +41,19 @@ public:
   void setParams(const Params &params) { m_params = params; }
   const Params &params() const { return m_params; }
 
+  /// Generic string-keyed equivalent of setParams(), used by SetupStage
+  /// so it doesn't need to know the concrete tracer type (see
+  /// IFringeTracer::setParam()). Recognizes "fringeCenterMode"
+  /// ("max"/"min"/"minmax") and "hasInternalObstruction" ("1"/"0").
+  bool setParam(const std::string &key, const std::string &value) override;
+
   /// The real, globally-consistent fringe number FringeConstructor
   /// computed for each line, in the same order as extract()'s returned
   /// vector. Populated by the most recent extract() call. Callers should
   /// use these as the line order instead of a generic mean-X-based
   /// fallback -- see SetupStage.cpp.
   const std::vector<double> &lastFringeNumbers() const { return m_lastFringeNumbers; }
+  std::vector<double> lastFringeOrders() const override { return m_lastFringeNumbers; }
 
 private:
   digitqt::core::Bitmap m_grayImage;

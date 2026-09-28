@@ -9,6 +9,10 @@ target_sources(core
         ScanlineExtremumTracker.cpp
         BinaryThinningTracker.h
         BinaryThinningTracker.cpp
+        DllFringeTracer.h
+        DllFringeTracer.cpp
+        TracerPluginLoading.h
+        TracerPluginLoading.cpp
 )
 
 add_subdirectory(scanline_extremum)

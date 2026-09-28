@@ -39,10 +39,14 @@ add_subdirectory(src)
 add_subdirectory(translations)
 
 if(DIGITQT_BUILD_PLUGIN_POC)
-    # Separate from add_subdirectory(plugin-sdk) above: these two need
+    # Separate from add_subdirectory(plugin-sdk) above: these need
     # DigitQt::Core (defined inside src/), so must come after add_subdirectory(src).
     add_subdirectory(plugin-sdk/binary_thinning_poc)
+    add_subdirectory(plugin-sdk/sequential_fringe_tracker_plugin)
+    add_subdirectory(plugin-sdk/structure_tensor_tracker_plugin)
+    add_subdirectory(plugin-sdk/scanline_extremum_tracker_plugin)
     add_subdirectory(plugin-sdk/plugin_tracer_check)
+    add_subdirectory(plugin-sdk/tracer_plugin_selftest)
 endif()
 
 if(DIGITQT_BUILD_TESTS)

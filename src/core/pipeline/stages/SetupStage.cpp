@@ -6,6 +6,7 @@
 #include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
 #include "core/pipeline/stages/fringe_tracing/SequentialFringeTracker.h"
 #include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
+#include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
 
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <memory>
@@ -45,44 +46,47 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
   };
 
-  std::unique_ptr<tracing::IFringeTracer> tracer;
-  // Set only for TracerAlgorithm::ScanlineExtremum -- lets us read back its
-  // FringeConstructor-computed fringe numbers after extract() without
-  // widening the shared IFringeTracer contract for every other algorithm.
-  tracing::ScanlineExtremumTracker *scanlineTracerRaw = nullptr;
-  switch (algorithm) {
-    case digitqt::core::TracerAlgorithm::SequentialTracking:
-      tracer = std::make_unique<tracing::SequentialFringeTracker>();
-      break;
-    case digitqt::core::TracerAlgorithm::StructureTensor:
-      tracer = std::make_unique<tracing::StructureTensorTracker>();
-      break;
-    case digitqt::core::TracerAlgorithm::ScanlineExtremum: {
-      auto scanlineTracer = std::make_unique<tracing::ScanlineExtremumTracker>();
-
-      tracing::ScanlineExtremumTracker::Params params;
-      switch (tracingData.fringeCenterMode()) {
-        case digitqt::core::FringeCenterMode::Max:
-          params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::Max;
-          break;
-        case digitqt::core::FringeCenterMode::Min:
-          params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::Min;
-          break;
-        case digitqt::core::FringeCenterMode::MinMax:
-          params.fringeCenterAs = tracing::scanline_extremum::FringeCenterMode::MinMax;
-          break;
-      }
-      params.hasInternalObstruction = !measurement.boundaries().getInternal().empty();
-      scanlineTracer->setParams(params);
-
-      scanlineTracerRaw = scanlineTracer.get();
-      tracer = std::move(scanlineTracer);
-      break;
+  // Плагин предпочтительнее встроенной реализации, если он есть рядом с
+  // exe (<каталог exe>/plugins/tracers/<algo>.dll) -- иначе молча падаем
+  // на встроенный класс (см. tryLoadTracerPlugin()). Плагин при этом
+  // полностью неотличим для остального SetupStage от встроенного
+  // трекера -- один и тот же IFringeTracer* дальше по коду.
+  std::unique_ptr<tracing::IFringeTracer> tracer = tracing::tryLoadTracerPlugin(algorithm);
+  if (!tracer) {
+    switch (algorithm) {
+      case digitqt::core::TracerAlgorithm::SequentialTracking:
+        tracer = std::make_unique<tracing::SequentialFringeTracker>();
+        break;
+      case digitqt::core::TracerAlgorithm::StructureTensor:
+        tracer = std::make_unique<tracing::StructureTensorTracker>();
+        break;
+      case digitqt::core::TracerAlgorithm::ScanlineExtremum:
+        tracer = std::make_unique<tracing::ScanlineExtremumTracker>();
+        break;
+      case digitqt::core::TracerAlgorithm::BinaryThinning:
+        tracer = std::make_unique<tracing::BinaryThinningTracker>();
+        break;
     }
-    case digitqt::core::TracerAlgorithm::BinaryThinning:
-      tracer = std::make_unique<tracing::BinaryThinningTracker>();
+  }
+
+  // Параметры передаются единообразно всем трекерам (встроенным и
+  // плагинам) через generic setParam() -- алгоритмы, которым ключ не
+  // нужен, просто его игнорируют (см. IFringeTracer::setParam()). Так
+  // SetupStage не должен знать конкретный тип tracer, что и позволяет
+  // плагину быть неотличимым от встроенного.
+  switch (tracingData.fringeCenterMode()) {
+    case digitqt::core::FringeCenterMode::Max:
+      tracer->setParam("fringeCenterMode", "max");
+      break;
+    case digitqt::core::FringeCenterMode::Min:
+      tracer->setParam("fringeCenterMode", "min");
+      break;
+    case digitqt::core::FringeCenterMode::MinMax:
+      tracer->setParam("fringeCenterMode", "minmax");
       break;
   }
+  tracer->setParam("hasInternalObstruction",
+                   measurement.boundaries().getInternal().empty() ? "0" : "1");
 
   if (!tracer->initialize(measurement.image(), isVisible)) {
     errorMessage = tracer->lastError();
@@ -99,20 +103,19 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     numberedLines.push_back(std::move(numbered));
   }
 
-  // ScanlineExtremumTracker already computed a real, globally-consistent
-  // fringe number per line (FringeConstructor's chain propagation from a
-  // single main-scanline seed) -- use it directly instead of the generic
-  // mean-X fallback, which would silently discard it and get curved or
-  // obstruction-interrupted fringes wrong.
-  if (scanlineTracerRaw != nullptr) {
-    const auto &numbers = scanlineTracerRaw->lastFringeNumbers();
-    if (numbers.size() == numberedLines.size()) {
-      for (size_t i = 0; i < numberedLines.size(); ++i) {
-        if (!numberedLines[i].orderIsManual)
-          numberedLines[i].order = numbers[i];
-      }
-    } else {
-      digitqt::core::autoAssignFringeOrder(numberedLines);
+  // Some algorithms (ScanlineExtremumTracker, both built-in and plugin)
+  // already compute a real, globally-consistent fringe number per line
+  // (FringeConstructor's chain propagation from a single main-scanline
+  // seed) -- use it directly instead of the generic mean-X fallback,
+  // which would silently discard it and get curved or
+  // obstruction-interrupted fringes wrong. lastFringeOrders() is empty
+  // for tracers that don't compute one (the default, see
+  // IFringeTracer::lastFringeOrders()).
+  const auto orders = tracer->lastFringeOrders();
+  if (orders.size() == numberedLines.size()) {
+    for (size_t i = 0; i < numberedLines.size(); ++i) {
+      if (!numberedLines[i].orderIsManual)
+        numberedLines[i].order = orders[i];
     }
   } else {
     digitqt::core::autoAssignFringeOrder(numberedLines);
