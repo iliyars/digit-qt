@@ -1,8 +1,6 @@
 target_sources(core
     PRIVATE
         IFringeTracer.h
-        SequentialFringeTracker.h
-        SequentialFringeTracker.cpp
         StructureTensorTracker.h
         StructureTensorTracker.cpp
         ScanlineExtremumTracker.h

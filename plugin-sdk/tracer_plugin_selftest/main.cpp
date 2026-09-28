@@ -10,7 +10,6 @@
 
 #include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
 #include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
-#include "core/pipeline/stages/fringe_tracing/SequentialFringeTracker.h"
 #include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 #include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
 #include "io/ImageLoader.h"
@@ -31,10 +30,13 @@ using digitqt::core::tracing::IFringeTracer;
 using digitqt::core::tracing::SeedPoint;
 using digitqt::core::tracing::TracedLine;
 
+// SequentialTracking has no built-in anymore -- its implementation lives
+// only in sequential_fringe_tracker_plugin (see SetupStage.cpp). nullptr
+// here means "nothing to diff against", not a failure.
 std::unique_ptr<IFringeTracer> makeBuiltin(TracerAlgorithm algorithm) {
   switch (algorithm) {
     case TracerAlgorithm::SequentialTracking:
-      return std::make_unique<digitqt::core::tracing::SequentialFringeTracker>();
+      return nullptr;
     case TracerAlgorithm::StructureTensor:
       return std::make_unique<digitqt::core::tracing::StructureTensorTracker>();
     case TracerAlgorithm::ScanlineExtremum:
@@ -129,13 +131,25 @@ int main(int argc, char **argv) {
       builtin->setParam("hasInternalObstruction", "0");
     }
 
-    if (!plugin->initialize(bitmap, isVisible) || !builtin->initialize(bitmap, isVisible)) {
+    if (!plugin->initialize(bitmap, isVisible) || (builtin && !builtin->initialize(bitmap, isVisible))) {
       err << algorithmName(algorithm) << ": FAIL -- initialize() failed\n";
       allOk = false;
       continue;
     }
 
     auto pluginLines = plugin->extract(seeds);
+
+    if (!builtin) {
+      // Нет встроенной реализации для сравнения (алгоритм полностью
+      // вынесен в плагин) -- проверяем только, что плагин вообще
+      // отработал и дал непустой результат.
+      const bool ok = !pluginLines.empty();
+      allOk = allOk && ok;
+      out << algorithmName(algorithm) << ": " << (ok ? "LOADED (no builtin to diff)" : "FAIL -- empty result")
+          << " (plugin=" << plugin->name().c_str() << ", lines=" << pluginLines.size() << ")\n";
+      continue;
+    }
+
     auto builtinLines = builtin->extract(seeds);
     const bool linesMatch = linesEqual(pluginLines, builtinLines);
 

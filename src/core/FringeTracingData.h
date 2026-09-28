@@ -11,7 +11,9 @@ namespace digitqt::core {
 /// use. A user-facing choice (see ParametersDock's algorithm combo box),
 /// not itself undoable -- like the current edit-mode/tool selection.
 enum class TracerAlgorithm {
-  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step tracer (FTM)
+  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step tracer (FTM).
+                       // Plugin-only (plugin-sdk/sequential_fringe_tracker_plugin/) -- no
+                       // built-in fallback in core, see IFringeTracer.h.
   StructureTensor,     // StructureTensorTracker: gradient structure-tensor ridge tracker (FTM)
   ScanlineExtremum,    // ScanlineExtremumTracker: global, row-by-row extrema (FTM)
   BinaryThinning,  // BinaryThinningTracker: adaptive threshold + Zhang-Suen skeletonization (FBM)

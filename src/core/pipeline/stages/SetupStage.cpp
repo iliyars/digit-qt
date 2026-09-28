@@ -4,7 +4,6 @@
 #include "core/Measurement.h"
 #include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
 #include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
-#include "core/pipeline/stages/fringe_tracing/SequentialFringeTracker.h"
 #include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 #include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
 
@@ -51,12 +50,23 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
   // на встроенный класс (см. tryLoadTracerPlugin()). Плагин при этом
   // полностью неотличим для остального SetupStage от встроенного
   // трекера -- один и тот же IFringeTracer* дальше по коду.
+  //
+  // Исключение -- SequentialTracking: его реализация целиком вынесена в
+  // sequential_fringe_tracker_plugin (см. AskUserQuestion-решение в
+  // qt_decoupling_and_plugin_abi.md), встроенной копии в core больше нет.
+  // Если плагина нет -- это настоящая ошибка, а не повод для fallback.
   std::unique_ptr<tracing::IFringeTracer> tracer = tracing::tryLoadTracerPlugin(algorithm);
+  if (!tracer && algorithm == digitqt::core::TracerAlgorithm::SequentialTracking) {
+    errorMessage =
+        "Sequential Fringe Tracking plugin not found "
+        "(plugins/tracers/sequential_fringe_tracker.dll) -- this algorithm has no "
+        "built-in fallback.";
+    return false;
+  }
   if (!tracer) {
     switch (algorithm) {
       case digitqt::core::TracerAlgorithm::SequentialTracking:
-        tracer = std::make_unique<tracing::SequentialFringeTracker>();
-        break;
+        break;  // unreachable -- handled above
       case digitqt::core::TracerAlgorithm::StructureTensor:
         tracer = std::make_unique<tracing::StructureTensorTracker>();
         break;

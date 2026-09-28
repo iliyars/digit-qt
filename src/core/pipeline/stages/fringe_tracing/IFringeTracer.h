@@ -31,14 +31,22 @@ struct SeedPoint {
  *
  * Multiple independent implementations exist on purpose, so they can be
  * run on the same image and compared side by side (see the S1 parameters
- * panel's algorithm picker):
- *   - SequentialFringeTracker: Sequential Fringe Tracking (FTM), step-by-step
- *     from a seed point, ported from the classic SCAN360/STEP.C algorithm.
+ * panel's algorithm picker). Built into `core` (always available, used as
+ * the fallback if the matching plugin DLL is missing -- see
+ * TracerPluginLoading.h):
+ *   - StructureTensorTracker: Ridge Tracking via the image structure
+ *     tensor, step-by-step from a seed point, sub-pixel centering.
  *   - ScanlineExtremumTracker: Scanline Extremum Method (FTM), global
  *     row-by-row extrema + fringe numbering, ported from the original Digit
- * project's RedCenterDetector / FringeConstructor.
- *   - (planned) MorphologicalSkeletonTracer: global morphological
- *     skeleton (OpenCV); needs no seed points at all.
+ *     project's RedCenterDetector / FringeConstructor.
+ *   - BinaryThinningTracker: Fringe Binary Method (FBM), adaptive
+ *     threshold + morphological skeletonization (OpenCV), no seed points.
+ *
+ * Plugin-only (no built-in `core` implementation, see
+ * plugin-sdk/sequential_fringe_tracker_plugin/ -- SetupStage errors out if
+ * its `.dll` is missing rather than falling back):
+ *   - SequentialFringeTracker: Sequential Fringe Tracking (FTM), step-by-step
+ *     from a seed point, ported from the classic SCAN360/STEP.C algorithm.
  */
 class IFringeTracer {
 public:
