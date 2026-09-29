@@ -80,6 +80,24 @@ mkdir -p "$DIST_DIR"
 cp "$BUILD_DIR/src/DigitQt.exe" "$DIST_DIR/"
 cp -r "$BUILD_DIR/src/translations" "$DIST_DIR/"
 
+# core/ no longer contains any built-in fringe-tracer implementation --
+# all 4 (Sequential/StructureTensor/ScanlineExtremum/BinaryThinning) are
+# self-contained DqtFringeTracer C ABI plugins that SetupStage loads at
+# runtime from plugins/tracers/ next to the exe (see
+# core::plugin_loading::pluginsDirectory() and TracerPluginLoading.cpp).
+# They're built unconditionally by the plain `cmake --build` above (not
+# gated behind DIGITQT_BUILD_PLUGIN_POC -- that option only covers the
+# dev-only ABI-validation tools now) and POST_BUILD-copied next to
+# DigitQt.exe inside $BUILD_DIR/src/plugins/tracers/ already; without
+# this copy, every tracer algorithm choice in a packaged release would
+# hit SetupStage's "plugin not found" error -- fringe tracing simply
+# wouldn't work at all.
+if [ ! -d "$BUILD_DIR/src/plugins/tracers" ]; then
+  echo "Missing $BUILD_DIR/src/plugins/tracers -- the tracer plugin targets didn't build?" >&2
+  exit 1
+fi
+cp -r "$BUILD_DIR/src/plugins" "$DIST_DIR/"
+
 echo "==> Deploying Qt dependencies"
 "$MINGW64/bin/windeployqt-qt5.exe" "$DIST_DIR/DigitQt.exe" --release --no-translations --compiler-runtime --no-angle --no-opengl-sw
 
