@@ -2,6 +2,7 @@
 
 #include "core/Bitmap.h"
 #include "core/PhaseMap.h"
+#include "core/pipeline/stages/phase_reconstruction/IPhaseReconstructor.h"
 
 #include <functional>
 #include <string>
@@ -28,19 +29,17 @@ namespace digitqt::core::pipeline {
  * Трассировка полос (S1) не нужна -- метод работает прямо по
  * изображению и маске апертуры, как и Фурье-метод.
  */
-class WaveletPhaseExtractor {
+class WaveletPhaseExtractor : public digitqt::core::IPhaseReconstructor {
 public:
-  struct Result {
-    digitqt::core::PhaseMap phaseMap;  // номер полосы N (та же конвенция, что и у остальных S2)
-    bool ok = false;
-    std::string errorMessage;
-  };
+  PhaseMap reconstruct(int gridWidth, int gridHeight, const digitqt::core::Bitmap &image,
+                       std::function<bool(int, int)> isVisible,
+                       const std::vector<NumberedFringeLine> &lines) override;
 
-  /// image -- полное изображение интерферограммы (используется как
-  /// grayscale). isVisible(x, y) -- та же маска апертуры, что и у
-  /// остальных S2-алгоритмов.
-  Result extract(const digitqt::core::Bitmap &image,
-                const std::function<bool(int, int)> &isVisible) const;
+  std::string name() const override { return "Wavelet Phase Extractor"; }
+  const std::string &lastError() const override { return m_lastError; }
+
+private:
+  std::string m_lastError;
 };
 
 }  // namespace digitqt::core::pipeline

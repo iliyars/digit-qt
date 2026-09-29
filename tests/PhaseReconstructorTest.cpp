@@ -1,3 +1,4 @@
+#include "core/Bitmap.h"
 #include "core/NumberedFringeLine.h"
 #include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
 
@@ -50,7 +51,10 @@ void PhaseReconstructorTest::crossingLinesDoNotBlowUpTheSpline() {
 
   digitqt::core::pipeline::PhaseReconstructor reconstructor;
   auto isVisible = [](int, int) { return true; };
-  const auto phase = reconstructor.reconstruct(60, 21, isVisible, lines);
+  // HorizontalSpline игнорирует image (см. IPhaseReconstructor::reconstruct()) --
+  // размер значения не имеет, просто нужен валидный Bitmap для сигнатуры.
+  digitqt::core::Bitmap unusedImage(60, 21);
+  const auto phase = reconstructor.reconstruct(60, 21, unusedImage, isVisible, lines);
 
   QVERIFY(reconstructor.lastError().empty());
   QVERIFY(!phase.isEmpty());

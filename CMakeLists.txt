@@ -50,11 +50,22 @@ add_subdirectory(plugin-sdk/structure_tensor_tracker_plugin)
 add_subdirectory(plugin-sdk/scanline_extremum_tracker_plugin)
 add_subdirectory(plugin-sdk/binary_thinning_tracker_plugin)
 
+# Аналогично -- реализации сшивки фазы (S2). В отличие от трассировки,
+# core пока ЕЩЁ содержит встроенные PhaseReconstructor/FourierPhaseExtractor/
+# WaveletPhaseExtractor (PhaseReconstructionStage.cpp использует их как
+# fallback, если .dll не найден) -- но плагин предпочтительнее, см.
+# PhasePluginLoading.cpp. Копируют .dll в
+# $<TARGET_FILE_DIR:DigitQt>/plugins/phase/.
+add_subdirectory(plugin-sdk/horizontal_spline_phase_plugin)
+add_subdirectory(plugin-sdk/fourier_phase_plugin)
+add_subdirectory(plugin-sdk/wavelet_phase_plugin)
+
 if(DIGITQT_BUILD_PLUGIN_POC)
     # Инструменты проверки ABI/загрузчиков -- не нужны для обычной сборки
     # или тестов, только при разработке самого плагинного механизма.
     add_subdirectory(plugin-sdk/plugin_tracer_check)
     add_subdirectory(plugin-sdk/tracer_plugin_selftest)
+    add_subdirectory(plugin-sdk/phase_plugin_selftest)
 endif()
 
 if(DIGITQT_BUILD_TESTS)

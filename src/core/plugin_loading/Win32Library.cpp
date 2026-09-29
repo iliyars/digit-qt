@@ -1,24 +1,13 @@
 #include "Win32Library.h"
 
+#include "Utf8Windows.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 namespace digitqt::core::plugin_loading {
 
 namespace {
-
-std::wstring utf8ToWide(const std::string &utf8) {
-  if (utf8.empty())
-    return {};
-  const int wideLen =
-      MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), nullptr, 0);
-  if (wideLen <= 0)
-    return {};
-  std::wstring wide(static_cast<size_t>(wideLen), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), static_cast<int>(utf8.size()), wide.data(),
-                      wideLen);
-  return wide;
-}
 
 std::string lastWin32ErrorMessage() {
   const DWORD code = GetLastError();

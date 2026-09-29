@@ -1,9 +1,14 @@
 target_sources(core
     PRIVATE
+        IPhaseReconstructor.h
         PhaseReconstructor.h
         PhaseReconstructor.cpp
         FourierPhaseExtractor.h
         FourierPhaseExtractor.cpp
         WaveletPhaseExtractor.h
         WaveletPhaseExtractor.cpp
+        DllPhaseReconstructor.h
+        DllPhaseReconstructor.cpp
+        PhasePluginLoading.h
+        PhasePluginLoading.cpp
 )

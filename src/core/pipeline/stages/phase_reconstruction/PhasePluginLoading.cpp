@@ -1,0 +1,86 @@
+#include "PhasePluginLoading.h"
+
+#include "core/pipeline/stages/phase_reconstruction/DllPhaseReconstructor.h"
+#include "core/plugin_loading/DllDirectoryScan.h"
+#include "core/plugin_loading/PluginDirectory.h"
+#include "core/plugin_loading/Win32Library.h"
+#include "dqt_phase_reconstructor_abi.h"
+
+namespace digitqt::core {
+
+namespace {
+
+// Стабильные имена файлов -- не переименовывать без обновления сборки
+// соответствующих plugin-sdk/*_phase_plugin проектов.
+const char *pluginFileName(digitqt::core::PhaseReconstructionAlgorithm algorithm) {
+  switch (algorithm) {
+    case digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline:
+      return "horizontal_spline.dll";
+    case digitqt::core::PhaseReconstructionAlgorithm::FourierTransform:
+      return "fourier.dll";
+    case digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform:
+      return "wavelet.dll";
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+std::unique_ptr<IPhaseReconstructor> tryLoadPhaseReconstructorPlugin(
+    digitqt::core::PhaseReconstructionAlgorithm algorithm) {
+  const char *fileName = pluginFileName(algorithm);
+  if (!fileName)
+    return nullptr;
+
+  const std::string dir = plugin_loading::pluginsDirectory("phase");
+  if (dir.empty())
+    return nullptr;
+
+  std::string error;
+  auto reconstructor = DllPhaseReconstructor::load(dir + "/" + fileName, error);
+  // Отсутствие/повреждение плагина -- не ошибка на этом уровне: в
+  // отличие от трассировки (где built-in больше нет вообще), встроенные
+  // PhaseReconstructor/FourierPhaseExtractor/WaveletPhaseExtractor пока
+  // не удалены из core -- PhaseReconstructionStage переключается на них
+  // молча, если плагина нет.
+  return reconstructor;
+}
+
+std::vector<DiscoveredPhasePlugin> discoverPhaseReconstructorPlugins() {
+  std::vector<DiscoveredPhasePlugin> result;
+
+  const std::string dir = plugin_loading::pluginsDirectory("phase");
+  if (dir.empty())
+    return result;
+
+  // Лёгкий пробный load+query напрямую через Win32Library, а не через
+  // DllPhaseReconstructor -- тот заточен под "загрузить и использовать
+  // один конкретный, уже выбранный плагин", здесь же нужен только опрос
+  // DqtPhasePluginInfo у каждого файла подряд.
+  for (const auto &fileName : plugin_loading::listDllFiles(dir)) {
+    plugin_loading::Win32Library library;
+    if (!library.load(dir + "/" + fileName))
+      continue;  // не грузится -- пропускаем, не ошибка на уровне списка
+
+    auto entry =
+        reinterpret_cast<DqtPhasePluginEntryFn>(library.resolve("dqt_phase_plugin_entry"));
+    if (!entry)
+      continue;  // не экспортирует нужный символ -- не наш плагин
+
+    DqtPhasePluginInfo info{};
+    const DqtPhaseReconstructorVTable *vtable = nullptr;
+    if (!entry(DQT_PHASE_RECONSTRUCTOR_ABI_VERSION, &info, &vtable) || !vtable)
+      continue;  // отказал по версии ABI -- пропускаем
+
+    DiscoveredPhasePlugin discovered;
+    discovered.filePath = dir + "/" + fileName;
+    discovered.pluginName = info.pluginName ? info.pluginName : "";
+    discovered.pluginVersion = info.pluginVersion ? info.pluginVersion : "";
+    discovered.needsFringeLines = info.needsFringeLines != 0;
+    result.push_back(std::move(discovered));
+  }
+
+  return result;
+}
+
+}  // namespace digitqt::core

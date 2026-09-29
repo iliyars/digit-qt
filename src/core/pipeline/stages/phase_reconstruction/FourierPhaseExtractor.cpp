@@ -35,9 +35,15 @@ void fftShift(cv::Mat &m) {
 
 }  // namespace
 
-FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
-    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible) const {
-  Result result;
+PhaseMap FourierPhaseExtractor::reconstruct(int width, int height,
+                                            const digitqt::core::Bitmap &image,
+                                            std::function<bool(int, int)> isVisible,
+                                            const std::vector<NumberedFringeLine> &lines) {
+  m_lastError.clear();
+  if (width != image.width() || height != image.height()) {
+    m_lastError = "FourierPhaseExtractor requires gridWidth/gridHeight to equal image dimensions";
+    return {};
+  }
   const int W = image.width();
   const int H = image.height();
 
@@ -60,8 +66,8 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
     }
   }
   if (count < 100) {
-    result.errorMessage = "Aperture too small or empty";
-    return result;
+    m_lastError = "Aperture too small or empty";
+    return {};
   }
   const double meanVal = sum / count;
 
@@ -132,9 +138,8 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
 
   const double peakDist = std::hypot(peakX - cx0, peakY - cy0);
   if (peakDist < kDcRadius + 1.0) {
-    result.errorMessage =
-        "Could not find a clear carrier frequency -- fringes may be too faint or absent";
-    return result;
+    m_lastError = "Could not find a clear carrier frequency -- fringes may be too faint or absent";
+    return {};
   }
 
   // --- 5. Гауссов фильтр вокруг пика ---
@@ -250,18 +255,18 @@ FourierPhaseExtractor::Result FourierPhaseExtractor::extract(
   const double carrierFreqX = (peakX - cx0) / static_cast<double>(W);
   const double carrierFreqY = (peakY - cy0) / static_cast<double>(H);
 
-  result.phaseMap = digitqt::core::PhaseMap(W, H);
+  PhaseMap result(W, H);
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       if (!hardMask.at<uchar>(y, x))
         continue;
-      const double carrierPhase = 2 * M_PI * (carrierFreqX * (x - apCx) + carrierFreqY * (y - apCy));
+      const double carrierPhase =
+          2 * M_PI * (carrierFreqX * (x - apCx) + carrierFreqY * (y - apCy));
       const double totalPhase = unwrapped.at<double>(y, x) + carrierPhase;
-      result.phaseMap.setValue(x, y, totalPhase / (2 * M_PI));  // -> номер полосы N
+      result.setValue(x, y, totalPhase / (2 * M_PI));  // -> номер полосы N
     }
   }
 
-  result.ok = true;
   return result;
 }
 

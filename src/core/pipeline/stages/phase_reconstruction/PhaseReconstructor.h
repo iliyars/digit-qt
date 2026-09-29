@@ -1,7 +1,9 @@
 #pragma once
 
+#include "core/Bitmap.h"
 #include "core/NumberedFringeLine.h"
 #include "core/PhaseMap.h"
+#include "core/pipeline/stages/phase_reconstruction/IPhaseReconstructor.h"
 
 #include <functional>
 #include <string>
@@ -29,20 +31,26 @@ namespace digitqt::core::pipeline {
  * интерферограмму результат, гораздо ближе к исходному, особенно у края
  * апертуры.
  */
-class PhaseReconstructor {
+class PhaseReconstructor : public digitqt::core::IPhaseReconstructor {
 public:
   /**
    * @brief Построить карту фазы построчной сплайн-интерполяцией.
-   * @param width, height Разрешение сетки решения (может быть меньше
-   * исходного изображения ради скорости -- см. PhaseReconstructionStage).
+   * @param gridWidth, gridHeight Разрешение сетки решения (может быть
+   * меньше исходного изображения ради скорости -- см.
+   * PhaseReconstructionStage). image не используется вообще -- этому
+   * методу нужна только геометрия линий, не пиксели (см.
+   * IPhaseReconstructor::reconstruct()).
    * @param isVisible Предикат видимости в координатах этой сетки
-   * (0..width-1, 0..height-1).
+   * (0..gridWidth-1, 0..gridHeight-1).
    * @param lines Пронумерованные линии полос, в координатах этой же сетки.
    */
-  PhaseMap reconstruct(int width, int height, const std::function<bool(int, int)> &isVisible,
-                       const std::vector<NumberedFringeLine> &lines);
+  PhaseMap reconstruct(int gridWidth, int gridHeight, const digitqt::core::Bitmap &image,
+                       std::function<bool(int, int)> isVisible,
+                       const std::vector<NumberedFringeLine> &lines) override;
 
-  const std::string &lastError() const { return m_lastError; }
+  std::string name() const override { return "Horizontal Spline Interpolation"; }
+
+  const std::string &lastError() const override { return m_lastError; }
 
 private:
   std::string m_lastError;

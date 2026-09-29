@@ -80,11 +80,18 @@ double estimateCarrierPeriod(const cv::Mat &gray, const cv::Mat &hardMask, int W
 
 }  // namespace
 
-WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
-    const digitqt::core::Bitmap &image, const std::function<bool(int, int)> &isVisible) const {
-  Result result;
+PhaseMap WaveletPhaseExtractor::reconstruct(int width, int height,
+                                            const digitqt::core::Bitmap &image,
+                                            std::function<bool(int, int)> isVisible,
+                                            const std::vector<NumberedFringeLine> &lines) {
+  m_lastError.clear();
+  if (width != image.width() || height != image.height()) {
+    m_lastError = "WaveletPhaseExtractor requires gridWidth/gridHeight to equal image dimension";
+    return {};
+  }
   const int W = image.width();
   const int H = image.height();
+  PhaseMap result(W, H);
 
   cv::Mat gray(H, W, CV_64F);
   cv::Mat hardMask(H, W, CV_8U);
@@ -100,15 +107,14 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
     }
   }
   if (totalCount < 100) {
-    result.errorMessage = "Aperture too small or empty";
-    return result;
+    m_lastError = "Aperture too small or empty";
+    return {};
   }
 
   const double period0 = estimateCarrierPeriod(gray, hardMask, W, H);
   if (period0 <= 1.0) {
-    result.errorMessage =
-        "Could not find a clear carrier frequency -- fringes may be too faint or absent";
-    return result;
+    m_lastError = "Could not find a clear carrier frequency -- fringes may be too faint or absent";
+    return {};
   }
 
   // Диапазон масштабов CWT -- на октаву в каждую сторону от грубой
@@ -250,8 +256,8 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
     }
   }
   if (startX < 0 || !hasWrapped.at<uchar>(startY, startX)) {
-    result.errorMessage = "Not enough valid ridge points to unwrap the phase";
-    return result;
+    m_lastError = "Not enough valid ridge points to unwrap the phase";
+    return {};
   }
 
   cv::Mat unwrapped(H, W, CV_64F, cv::Scalar(0));
@@ -281,23 +287,21 @@ WaveletPhaseExtractor::Result WaveletPhaseExtractor::extract(
     }
   }
 
-  result.phaseMap = digitqt::core::PhaseMap(W, H);
   bool any = false;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       if (!visited.at<uchar>(y, x))
         continue;
-      result.phaseMap.setValue(x, y, unwrapped.at<double>(y, x) / (2.0 * M_PI));
+      result.setValue(x, y, unwrapped.at<double>(y, x) / (2.0 * M_PI));
       any = true;
     }
   }
 
   if (!any) {
-    result.errorMessage = "Not enough visible pixels to reconstruct phase";
-    return result;
+    m_lastError = "Not enough visible pixels to reconstruct phase";
+    return {};
   }
 
-  result.ok = true;
   return result;
 }
 

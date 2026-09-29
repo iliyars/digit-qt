@@ -2,11 +2,13 @@
 
 #include "core/Measurement.h"
 #include "core/pipeline/stages/phase_reconstruction/FourierPhaseExtractor.h"
+#include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
 #include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
 #include "core/pipeline/stages/phase_reconstruction/WaveletPhaseExtractor.h"
 
 #include <algorithm>
 #include <aperture/include/visibility/VisibilityChecker.h>
+#include <memory>
 
 
 namespace digitqt::core::pipeline {
@@ -14,10 +16,12 @@ namespace digitqt::core::pipeline {
 namespace {
 // Caps the solver grid's long side for speed. Keeps closely-spaced
 // fringe lines from aliasing onto the same grid row/column, which would
-// otherwise merge distinct fringe crossings in PhaseReconstructor's
-// per-row spline fit. Only applies to HorizontalSpline -- FourierPhase
-// Extractor needs real pixel intensities, not scaled line geometry, so
-// it always runs at native image resolution.
+// otherwise merge distinct fringe crossings in HorizontalSpline's
+// per-row spline fit. Only applies to HorizontalSpline -- Fourier/
+// Wavelet need real pixel intensities, not scaled line geometry, so they
+// always run at native image resolution (IPhaseReconstructor::
+// reconstruct() requires gridWidth/gridHeight == image dimensions for
+// them, see each plugin's reconstruct()).
 constexpr int kMaxGridDimension = 5000;
 }
 
@@ -29,86 +33,92 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
   }
 
   const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
-  if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
-      phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform) {
-    aperture::VisibilityChecker checker(measurement.boundaries());
-    auto isVisible = [&checker](int x, int y) {
-      return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
-    };
+  aperture::VisibilityChecker checker(measurement.boundaries());
 
-    bool ok = false;
-    std::string extractError;
-    digitqt::core::PhaseMap phaseMap;
-    if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform) {
-      FourierPhaseExtractor extractor;
-      auto result = extractor.extract(measurement.image(), isVisible);
-      ok = result.ok;
-      extractError = result.errorMessage;
-      phaseMap = std::move(result.phaseMap);
-    } else {
-      WaveletPhaseExtractor extractor;
-      auto result = extractor.extract(measurement.image(), isVisible);
-      ok = result.ok;
-      extractError = result.errorMessage;
-      phaseMap = std::move(result.phaseMap);
-    }
+  // Разрешение решения, предикат видимости в этих координатах и линии
+  // (только для HorizontalSpline) -- единственная часть, которая всё
+  // ещё зависит от конкретного алгоритма. Дальше -- один и тот же вызов
+  // IPhaseReconstructor::reconstruct() для всех трёх, что и убирает
+  // прежнее дублирование (Fourier/Wavelet-ветка + отдельная
+  // HorizontalSpline-ветка).
+  int gridWidth = 0;
+  int gridHeight = 0;
+  std::function<bool(int, int)> isVisible;
+  std::vector<digitqt::core::NumberedFringeLine> lines;
 
-    if (!ok) {
-      errorMessage = extractError.empty() ? "Phase reconstruction failed"
-                                          : extractError;
+  if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline) {
+    const auto &tracedLines = measurement.fringeTracing().tracedLines();
+    if (tracedLines.empty()) {
+      errorMessage = "No numbered fringe lines. Trace fringes first (Setup stage).";
       return false;
     }
 
-    measurement.phaseMap() = std::move(phaseMap);
-    return true;
-  }
+    const int imgWidth = measurement.image().width();
+    const int imgHeight = measurement.image().height();
+    const int longSide = std::max(imgWidth, imgHeight);
+    const double scale =
+        (longSide > kMaxGridDimension) ? (static_cast<double>(kMaxGridDimension) / longSide) : 1.0;
+    gridWidth = std::max(1, static_cast<int>(imgWidth * scale));
+    gridHeight = std::max(1, static_cast<int>(imgHeight * scale));
 
-  const auto &lines = measurement.fringeTracing().tracedLines();
-  if (lines.empty()) {
-    errorMessage = "No numbered fringe lines. Trace fringes first (Setup stage).";
-    return false;
-  }
+    isVisible = [&checker, scale](int gx, int gy) {
+      const double ix = gx / scale;
+      const double iy = gy / scale;
+      return checker.isVisible(aperture::Point{ix, iy});
+    };
 
-  const int imgWidth = measurement.image().width();
-  const int imgHeight = measurement.image().height();
-  const int longSide = std::max(imgWidth, imgHeight);
-
-  const double scale =
-      (longSide > kMaxGridDimension) ? (static_cast<double>(kMaxGridDimension) / longSide) : 1.0;
-  const int gridWidth = std::max(1, static_cast<int>(imgWidth * scale));
-  const int gridHeight = std::max(1, static_cast<int>(imgHeight * scale));
-
-  aperture::VisibilityChecker checker(measurement.boundaries());
-  auto isVisibleGrid = [&checker, scale](int gx, int gy) {
-    const double ix = gx / scale;
-    const double iy = gy / scale;
-    return checker.isVisible(aperture::Point{ix, iy});
-  };
-
-  // Пронумерованные линии -- в координатах сетки решения.
-  std::vector<digitqt::core::NumberedFringeLine> scaledLines;
-  scaledLines.reserve(lines.size());
-  for (const auto &line : lines) {
-    digitqt::core::NumberedFringeLine scaled;
-    scaled.order = line.order;
-    scaled.orderIsManual = line.orderIsManual;
-    scaled.points.reserve(line.points.size());
-    for (const auto &p : line.points) {
-      tracing::TracedPoint sp = p;
-      sp.x = p.x * scale;
-      sp.y = p.y * scale;
-      scaled.points.push_back(sp);
+    // Пронумерованные линии -- в координатах сетки решения.
+    lines.reserve(tracedLines.size());
+    for (const auto &line : tracedLines) {
+      digitqt::core::NumberedFringeLine scaled;
+      scaled.order = line.order;
+      scaled.orderIsManual = line.orderIsManual;
+      scaled.points.reserve(line.points.size());
+      for (const auto &p : line.points) {
+        tracing::TracedPoint sp = p;
+        sp.x = p.x * scale;
+        sp.y = p.y * scale;
+        scaled.points.push_back(sp);
+      }
+      lines.push_back(std::move(scaled));
     }
-    scaledLines.push_back(std::move(scaled));
+  } else {
+    // Fourier/Wavelet -- всегда в полном разрешении картинки, линии не
+    // нужны (остаются пустыми, IPhaseReconstructor::reconstruct() это
+    // допускает).
+    gridWidth = measurement.image().width();
+    gridHeight = measurement.image().height();
+    isVisible = [&checker](int x, int y) {
+      return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
+    };
   }
 
-  PhaseReconstructor reconstructor;
-  auto phaseMap = reconstructor.reconstruct(gridWidth, gridHeight, isVisibleGrid, scaledLines);
+  // Плагин предпочтительнее встроенной реализации, если он есть рядом с
+  // exe (<каталог exe>/plugins/phase/<algo>.dll) -- иначе молча падаем
+  // на встроенный класс (в отличие от трассировки, где built-in больше
+  // нет вообще -- здесь ещё есть, см. PhasePluginLoading.cpp).
+  std::unique_ptr<digitqt::core::IPhaseReconstructor> reconstructor =
+      digitqt::core::tryLoadPhaseReconstructorPlugin(phaseAlgorithm);
+  if (!reconstructor) {
+    switch (phaseAlgorithm) {
+      case digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline:
+        reconstructor = std::make_unique<PhaseReconstructor>();
+        break;
+      case digitqt::core::PhaseReconstructionAlgorithm::FourierTransform:
+        reconstructor = std::make_unique<FourierPhaseExtractor>();
+        break;
+      case digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform:
+        reconstructor = std::make_unique<WaveletPhaseExtractor>();
+        break;
+    }
+  }
+
+  auto phaseMap =
+      reconstructor->reconstruct(gridWidth, gridHeight, measurement.image(), isVisible, lines);
 
   if (phaseMap.isEmpty()) {
-    errorMessage = reconstructor.lastError().empty()
-                       ? "Phase reconstruction failed"
-                       : reconstructor.lastError();
+    errorMessage = reconstructor->lastError().empty() ? "Phase reconstruction failed"
+                                                       : reconstructor->lastError();
     return false;
   }
 

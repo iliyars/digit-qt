@@ -4,4 +4,8 @@ target_sources(core
         Win32Library.cpp
         PluginDirectory.h
         PluginDirectory.cpp
+        Utf8Windows.h
+        Utf8Windows.cpp
+        DllDirectoryScan.h
+        DllDirectoryScan.cpp
 )

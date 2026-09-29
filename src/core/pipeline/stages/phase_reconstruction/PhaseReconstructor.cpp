@@ -189,7 +189,8 @@ private:
 }  // namespace
 
 PhaseMap PhaseReconstructor::reconstruct(int width, int height,
-                                         const std::function<bool(int, int)> &isVisible,
+                                         const digitqt::core::Bitmap & /*image*/,
+                                         std::function<bool(int, int)> isVisible,
                                          const std::vector<NumberedFringeLine> &lines) {
   m_lastError.clear();
 
