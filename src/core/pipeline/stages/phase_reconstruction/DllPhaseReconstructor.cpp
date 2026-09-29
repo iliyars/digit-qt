@@ -35,6 +35,7 @@ std::unique_ptr<DllPhaseReconstructor> DllPhaseReconstructor::load(const std::st
         "Plugin refused host ABI version " + std::to_string(DQT_PHASE_RECONSTRUCTOR_ABI_VERSION);
     return nullptr;
   }
+  result->m_needsFringeLines = info.needsFringeLines != 0;
 
   result->m_handle = result->m_vtable->create();
   if (!result->m_handle) {

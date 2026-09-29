@@ -57,6 +57,20 @@ private slots:
   void refreshOrderEditor();
 
 private:
+  /// Пересобирает m_phaseAlgorithmCombo: первые 3 пункта (известные
+  /// алгоритмы) не трогает, всё, что после них -- сторонние плагины,
+  /// найденные заново сканированием plugins/phase/ (см.
+  /// core::discoverPhaseReconstructorPlugins()). Вызывается при каждом
+  /// переключении на стадию S2, чтобы список не устаревал между
+  /// запусками приложения.
+  void refreshPhaseAlgorithmList();
+
+  /// Нужны ли сейчас выбранному методу сшивки фазы трассированные линии
+  /// -- по enum для одного из 3 известных, по сохранённому в
+  /// m_phaseAlgorithmCombo флагу needsFringeLines для стороннего плагина
+  /// (не перезагружает DLL только ради текста подсказки).
+  bool currentPhaseAlgorithmNeedsFringeLines() const;
+
   digitqt::core::Measurement *m_measurement = nullptr;
   digitqt::gui::canvas::FringeTracingController *m_fringeController = nullptr;
   digitqt::gui::canvas::PhaseMapView *m_phaseMapView = nullptr;

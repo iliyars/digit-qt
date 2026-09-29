@@ -36,12 +36,20 @@ class DllPhaseReconstructor : public IPhaseReconstructor {
   std::string name() const override;
   const std::string &lastError() const override;
 
+  /// То, что плагин заявил о себе через DqtPhasePluginInfo::needsFringeLines
+  /// (ABI v2) при load() -- нужно вызывающей стороне, когда плагин выбран
+  /// по явному пути (не через один из 3 известных PhaseReconstructionAlgorithm),
+  /// чтобы решить, нужна ли трассировка (S1) и какую сетку/линии готовить
+  /// перед reconstruct() -- см. SetupStage.cpp/PhaseReconstructionStage.cpp.
+  bool needsFringeLines() const { return m_needsFringeLines; }
+
  private:
   DllPhaseReconstructor() = default;
 
   plugin_loading::Win32Library m_library;
   const DqtPhaseReconstructorVTable *m_vtable = nullptr;
   DqtPhaseReconstructorHandle m_handle = nullptr;
+  bool m_needsFringeLines = false;
 
   mutable std::string m_lastErrorCache;
 };

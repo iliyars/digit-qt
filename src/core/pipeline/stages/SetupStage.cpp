@@ -3,11 +3,40 @@
 #include "core/FringeOrdering.h"
 #include "core/Measurement.h"
 #include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
+#include "core/pipeline/stages/phase_reconstruction/DllPhaseReconstructor.h"
 
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <memory>
 
 namespace digitqt::core::pipeline {
+
+namespace {
+
+// Нужна ли для выбранного метода сшивки фазы трассировка полос (S1),
+// прежде чем что-либо в этой функции запускать. Для одного из 3
+// известных алгоритмов -- по enum, как и раньше. Для явно выбранного
+// стороннего плагина (см. Measurement::customPhaseReconstructorPluginPath())
+// -- спрашиваем сам плагин (ABI v2, DqtPhasePluginInfo::needsFringeLines),
+// а не гадаем: хост ничего не знает заранее про чужой плагин. Загрузка
+// здесь -- только ради этого одного флага; PhaseReconstructionStage.cpp
+// загружает тот же .dll заново для самого расчёта (см. там же, почему
+// это не проблема -- Win32Library не выгружает DLL, повторный
+// LoadLibraryW на уже отображённый файл дёшев).
+bool phaseReconstructionNeedsFringeLines(const digitqt::core::Measurement &measurement) {
+  const auto &customPath = measurement.customPhaseReconstructorPluginPath();
+  if (!customPath.empty()) {
+    std::string loadError;
+    auto custom = digitqt::core::DllPhaseReconstructor::load(customPath, loadError);
+    // Если кастомный плагин не загрузился вообще -- решение всё равно
+    // примет PhaseReconstructionStage (там это настоящая ошибка), здесь
+    // же безопаснее по умолчанию трассировать, чем молча пропустить S1.
+    return !custom || custom->needsFringeLines();
+  }
+  return measurement.phaseReconstructionAlgorithm() ==
+         digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline;
+}
+
+}  // namespace
 
 bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string &errorMessage) {
   if (!measurement.hasImage()) {
@@ -15,12 +44,11 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     return false;
   }
 
-  // Методы Фурье- и вейвлет-анализа полос (S2) работают прямо по
-  // изображению + маске апертуры, им не нужны пронумерованные линии --
-  // трассировка здесь просто не запускается.
-  const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
-  if (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
-      phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform) {
+  // Методы Фурье- и вейвлет-анализа полос (и любой сторонний плагин,
+  // заявивший needsFringeLines=false) работают прямо по изображению +
+  // маске апертуры, им не нужны пронумерованные линии -- трассировка
+  // здесь просто не запускается.
+  if (!phaseReconstructionNeedsFringeLines(measurement)) {
     measurement.fringeTracing().tracedLines().clear();
     return true;
   }

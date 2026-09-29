@@ -9,10 +9,14 @@
 // нашёл тот же build/.../plugins/phase/, куда POST_BUILD-шаги плагинов
 // кладут .dll.
 
+#include "core/Measurement.h"
+#include "core/pipeline/stages/PhaseReconstructionStage.h"
+#include "core/pipeline/stages/SetupStage.h"
 #include "core/pipeline/stages/phase_reconstruction/FourierPhaseExtractor.h"
 #include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
 #include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
 #include "core/pipeline/stages/phase_reconstruction/WaveletPhaseExtractor.h"
+#include "core/plugin_loading/PluginDirectory.h"
 #include "io/ImageLoader.h"
 
 #include <aperture/include/geometry/Ellipse.h>
@@ -200,6 +204,53 @@ int main(int argc, char **argv) {
     err << "FAIL -- discovery didn't find all 3 expected plugins by name\n";
     allOk = false;
   }
+
+  // Сквозная проверка того, что реально соберёт ParametersDock/
+  // PhaseReconstructionStage.cpp: Measurement::customPhaseReconstructorPluginPath()
+  // выбирает плагин по ПУТИ, а не по enum -- SetupStage должен сам решить,
+  // нужна ли трассировка (S1), спросив у плагина needsFringeLines(), а
+  // PhaseReconstructionStage -- реально посчитать через него карту фазы.
+  out << "--- custom plugin path (SetupStage + PhaseReconstructionStage) ---\n";
+  const std::string phaseDir = digitqt::core::plugin_loading::pluginsDirectory("phase");
+
+  auto runCustomPluginCase = [&](const char *label, const std::string &dllName,
+                                 bool expectTracing) {
+    digitqt::core::Measurement measurement;
+    measurement.setImage(bitmap, "selftest");
+    measurement.boundaries().addExternal(std::make_unique<aperture::Ellipse>(radius, radius, cx, cy));
+    measurement.fringeTracing().setAlgorithm(digitqt::core::TracerAlgorithm::ScanlineExtremum);
+    measurement.setCustomPhaseReconstructorPluginPath(phaseDir + "/" + dllName);
+
+    digitqt::core::pipeline::SetupStage setup;
+    if (!setup.compute(measurement)) {
+      err << label << ": FAIL -- SetupStage: " << setup.errorMessage().c_str() << "\n";
+      allOk = false;
+      return;
+    }
+    const bool tracedSomething = !measurement.fringeTracing().tracedLines().empty();
+    if (tracedSomething != expectTracing) {
+      err << label << ": FAIL -- expected tracing=" << expectTracing
+          << " but tracedLines().empty()=" << !tracedSomething << "\n";
+      allOk = false;
+      return;
+    }
+
+    digitqt::core::pipeline::PhaseReconstructionStage phase;
+    if (!phase.compute(measurement)) {
+      err << label << ": FAIL -- PhaseReconstructionStage: " << phase.errorMessage().c_str() << "\n";
+      allOk = false;
+      return;
+    }
+    const bool ok = !measurement.phaseMap().isEmpty();
+    allOk = allOk && ok;
+    out << label << ": " << (ok ? "OK" : "FAIL -- empty phaseMap")
+        << " (tracedLines=" << measurement.fringeTracing().tracedLines().size() << ")\n";
+  };
+
+  runCustomPluginCase("custom=fourier.dll (needsFringeLines=false)", "fourier.dll",
+                     /*expectTracing=*/false);
+  runCustomPluginCase("custom=horizontal_spline.dll (needsFringeLines=true)", "horizontal_spline.dll",
+                     /*expectTracing=*/true);
 
   out << (allOk ? "ALL OK\n" : "SOME FAILED\n");
   return allOk ? 0 : 1;

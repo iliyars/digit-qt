@@ -6,6 +6,7 @@
 #include "core/ModalAnalysisReportData.h"
 #include "core/PhaseMap.h"
 #include "core/PolynomialBasis.h"
+#include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -37,6 +38,14 @@ bool computeRange(const digitqt::core::PhaseMap &map, double &outMin, double &ou
   }
   return any;
 }
+
+// Дополнительные роли данных m_phaseAlgorithmCombo -- хранят путь к
+// стороннему плагину и его заявленный needsFringeLines (ABI v2) для
+// пунктов, добавленных refreshPhaseAlgorithmList() поверх 3 известных.
+// У известных пунктов эти роли просто не заданы (QVariant() -> пустая
+// строка/false), отдельно инициализировать их не нужно.
+constexpr int kCustomPluginPathRole = Qt::UserRole + 1;
+constexpr int kCustomPluginNeedsLinesRole = Qt::UserRole + 2;
 
 }  // namespace
 
@@ -122,9 +131,21 @@ ParametersDock::ParametersDock(QWidget *parent)
          "aperture -- no fringe tracing needed in Setup"));
   connect(m_phaseAlgorithmCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
           [this](int) {
-            if (m_measurement)
+            if (!m_measurement)
+              return;
+            // Пункты, добавленные refreshPhaseAlgorithmList() поверх 3
+            // известных, несут путь к .dll в kCustomPluginPathRole --
+            // непустой путь означает "выбран сторонний плагин", enum в
+            // этом случае игнорируется (см. PhaseReconstructionStage.cpp).
+            const QString customPath =
+                m_phaseAlgorithmCombo->currentData(kCustomPluginPathRole).toString();
+            if (!customPath.isEmpty()) {
+              m_measurement->setCustomPhaseReconstructorPluginPath(customPath.toStdString());
+            } else {
+              m_measurement->setCustomPhaseReconstructorPluginPath({});
               m_measurement->setPhaseReconstructionAlgorithm(static_cast<PhaseReconstructionAlgorithm>(
                   m_phaseAlgorithmCombo->currentData().toInt()));
+            }
           });
 
   m_edgeErosionSpin->setRange(0, 20);
@@ -310,6 +331,69 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_label);
   layout->addStretch();
   setWidget(container);
+
+  // Первый проход -- найдёт то, что уже лежит в plugins/phase/ на
+  // момент запуска приложения; setStage() пересобирает список заново
+  // при каждом переключении на S2.
+  refreshPhaseAlgorithmList();
+}
+
+void ParametersDock::refreshPhaseAlgorithmList() {
+  // Первые 3 пункта -- известные алгоритмы (добавлены выше, один раз за
+  // всё время жизни виджета) -- не трогаем. Всё после них пересобираем
+  // заново из discoverPhaseReconstructorPlugins(), пропуская плагины,
+  // которые называют себя одним из известных имён -- те уже
+  // представлены штатными тремя пунктами независимо от того, лежит ли
+  // рядом их .dll (PhaseReconstructionStage сам решит, плагин это или
+  // fallback на встроенную реализацию).
+  constexpr int kKnownCount = 3;
+  while (m_phaseAlgorithmCombo->count() > kKnownCount)
+    m_phaseAlgorithmCombo->removeItem(m_phaseAlgorithmCombo->count() - 1);
+
+  auto isKnownName = [](const QString &name) {
+    return name == QLatin1String("HorizontalSplinePhaseReconstructor") ||
+           name == QLatin1String("FourierPhaseExtractor") ||
+           name == QLatin1String("WaveletPhaseExtractor");
+  };
+
+  for (const auto &plugin : digitqt::core::discoverPhaseReconstructorPlugins()) {
+    const QString name = QString::fromStdString(plugin.pluginName);
+    if (isKnownName(name))
+      continue;
+
+    const int index = m_phaseAlgorithmCombo->count();
+    m_phaseAlgorithmCombo->addItem(tr("%1 (plugin)").arg(name), -1);
+    m_phaseAlgorithmCombo->setItemData(index, QString::fromStdString(plugin.filePath),
+                                       kCustomPluginPathRole);
+    m_phaseAlgorithmCombo->setItemData(index, plugin.needsFringeLines, kCustomPluginNeedsLinesRole);
+    m_phaseAlgorithmCombo->setItemData(
+        index,
+        tr("Third-party plugin (v%1)\n%2")
+            .arg(QString::fromStdString(plugin.pluginVersion))
+            .arg(QString::fromStdString(plugin.filePath)),
+        Qt::ToolTipRole);
+  }
+}
+
+bool ParametersDock::currentPhaseAlgorithmNeedsFringeLines() const {
+  if (!m_measurement)
+    return true;  // безопасный дефолт -- лучше лишняя трассировка, чем пропущенная нужная
+
+  const auto &customPath = m_measurement->customPhaseReconstructorPluginPath();
+  if (customPath.empty()) {
+    return m_measurement->phaseReconstructionAlgorithm() ==
+           digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline;
+  }
+
+  // Ищем среди уже построенного списка -- не грузим DLL заново только
+  // ради текста подсказки в UI (сам расчёт всё равно перезагрузит его
+  // в PhaseReconstructionStage.cpp).
+  const QString qCustomPath = QString::fromStdString(customPath);
+  for (int i = 0; i < m_phaseAlgorithmCombo->count(); ++i) {
+    if (m_phaseAlgorithmCombo->itemData(i, kCustomPluginPathRole).toString() == qCustomPath)
+      return m_phaseAlgorithmCombo->itemData(i, kCustomPluginNeedsLinesRole).toBool();
+  }
+  return true;  // плагин пропал из списка (файл удалили) -- безопасный дефолт
 }
 
 void ParametersDock::setMeasurement(digitqt::core::Measurement *measurement) {
@@ -369,11 +453,33 @@ void ParametersDock::setStage(StageId id) {
 
   m_phaseAlgorithmRow->setVisible(id == StageId::S2);
   if (id == StageId::S2 && m_measurement) {
+    // Список плагинов мог измениться с прошлого раза (пользователь
+    // добавил/убрал .dll в plugins/phase/ между запусками) --
+    // пересобираем при каждом заходе на S2, не только один раз в
+    // конструкторе.
+    refreshPhaseAlgorithmList();
+
     const QSignalBlocker blocker(m_phaseAlgorithmCombo);
-    const int phaseAlgoIndex = m_phaseAlgorithmCombo->findData(
-        static_cast<int>(m_measurement->phaseReconstructionAlgorithm()));
-    if (phaseAlgoIndex >= 0)
-      m_phaseAlgorithmCombo->setCurrentIndex(phaseAlgoIndex);
+    const auto &customPath = m_measurement->customPhaseReconstructorPluginPath();
+    int targetIndex = -1;
+    if (!customPath.empty()) {
+      const QString qCustomPath = QString::fromStdString(customPath);
+      for (int i = 0; i < m_phaseAlgorithmCombo->count(); ++i) {
+        if (m_phaseAlgorithmCombo->itemData(i, kCustomPluginPathRole).toString() == qCustomPath) {
+          targetIndex = i;
+          break;
+        }
+      }
+      // Если не нашли (файл убрали с диска) -- оставляем текущий выбор
+      // как есть, не молчим и не сбрасываем на известный алгоритм за
+      // пользователя; при реальном расчёте PhaseReconstructionStage
+      // выдаст понятную ошибку загрузки.
+    } else {
+      targetIndex = m_phaseAlgorithmCombo->findData(
+          static_cast<int>(m_measurement->phaseReconstructionAlgorithm()));
+    }
+    if (targetIndex >= 0)
+      m_phaseAlgorithmCombo->setCurrentIndex(targetIndex);
   }
 
   const bool showIsolineStep = (id == StageId::S2 || id == StageId::S4);
@@ -533,11 +639,7 @@ void ParametersDock::refresh() {
   } else if (m_currentStage == StageId::S2 && m_measurement) {
     const auto &phase = m_measurement->phaseMap();
     if (phase.isEmpty()) {
-      const bool needsNoTracing =
-          m_measurement->phaseReconstructionAlgorithm() ==
-              digitqt::core::PhaseReconstructionAlgorithm::FourierTransform ||
-          m_measurement->phaseReconstructionAlgorithm() ==
-              digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform;
+      const bool needsNoTracing = !currentPhaseAlgorithmNeedsFringeLines();
       text += needsNoTracing
                   ? tr("Not computed yet. Press ▶ Compute phase in the toolbar "
                        "(needs the aperture set up in Setup first -- no fringe "

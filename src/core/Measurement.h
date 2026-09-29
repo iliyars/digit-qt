@@ -77,6 +77,23 @@ public:
     m_phaseReconstructionAlgorithm = algorithm;
   }
 
+  /// Путь к DLL-плагину сшивки фазы, выбранному ЯВНО пользователем из
+  /// списка, который нашёл discoverPhaseReconstructorPlugins() -- НЕ
+  /// совпадающему ни с одним из 3 "известных" алгоритмов
+  /// (PhaseReconstructionAlgorithm). Пустая строка -- игнорировать,
+  /// использовать phaseReconstructionAlgorithm() как раньше; непустая
+  /// строка имеет приоритет над ним (см. PhaseReconstructionStage.cpp/
+  /// SetupStage.cpp). Не сбрасывается при setImage()/
+  /// setImportedPhaseMap() -- тот же принцип, что и у
+  /// phaseReconstructionAlgorithm(): это пользовательская настройка,
+  /// а не результат, привязанный к конкретному изображению.
+  const std::string &customPhaseReconstructorPluginPath() const {
+    return m_customPhaseReconstructorPluginPath;
+  }
+  void setCustomPhaseReconstructorPluginPath(std::string path) {
+    m_customPhaseReconstructorPluginPath = std::move(path);
+  }
+
   // --- S4: длина волны и восстановленная карта волнового фронта ------
   // (та же структура PhaseMap, но значения уже в физических единицах —
   // нанометрах, а не в номерах полос).
@@ -128,6 +145,7 @@ private:
   PhaseMap m_phaseMap;
   PhaseReconstructionAlgorithm m_phaseReconstructionAlgorithm =
       PhaseReconstructionAlgorithm::HorizontalSpline;
+  std::string m_customPhaseReconstructorPluginPath;
   double m_wavelengthNm =
       632.8;  // He-Ne laser -- самая распространённая длина волны в интерферометрии
   bool m_doublePass = true;
