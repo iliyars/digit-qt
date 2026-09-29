@@ -1,12 +1,18 @@
-// Грузит binary_thinning_poc_plugin через plugin_host::PluginFringeTracer
-// (обёртка вокруг DqtFringeTracer C ABI -- см. src/plugin_host/) и
-// сверяет результат со встроенным BinaryThinningTracker (тот же алгоритм,
-// вызванный напрямую через C++), чтобы убедиться: сама обёртка, которую
-// будет использовать остальное приложение, ведёт себя ТОЧНО так же, как
-// прямые вызовы через сырой vtable (что уже было проверено раньше этим
-// же инструментом).
+// Грузит один и тот же DqtFringeTracer-плагин ДВУМЯ независимыми
+// загрузчиками -- plugin_host::PluginFringeTracer (QLibrary, используется
+// только этим инструментом сейчас) и core::tracing::DllFringeTracer
+// (Win32Library, реально используется SetupStage через
+// tryLoadTracerPlugin()) -- и сверяет результат, чтобы убедиться: оба
+// независимых по коду загрузчика ABI ведут себя идентично на одном и том
+// же плагине.
+//
+// До выноса всех 4 трекеров в самодостаточные плагины (см. историю в
+// памяти qt_decoupling_and_plugin_abi) здесь была сверка с ВСТРОЕННЫМ
+// core::tracing::BinaryThinningTracker -- этого класса больше не
+// существует, поэтому сравнение теперь между двумя загрузчиками, а не
+// загрузчиком и built-in.
 
-#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
+#include "core/pipeline/stages/fringe_tracing/DllFringeTracer.h"
 #include "io/ImageLoader.h"
 #include "plugin_host/PluginFringeTracer.h"
 
@@ -29,14 +35,26 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  QString loadError;
-  auto plugin = digitqt::plugin_host::PluginFringeTracer::load(
-      QString::fromLocal8Bit(argv[1]), loadError);
-  if (!plugin) {
-    err << "Failed to load plugin: " << loadError << "\n";
+  QString qtLoadError;
+  auto qtLoadedPlugin =
+      digitqt::plugin_host::PluginFringeTracer::load(QString::fromLocal8Bit(argv[1]), qtLoadError);
+  if (!qtLoadedPlugin) {
+    err << "Failed to load plugin via PluginFringeTracer (QLibrary): " << qtLoadError << "\n";
     return 1;
   }
-  out << "Loaded plugin: " << QString::fromStdString(plugin->name()) << "\n";
+  out << "Loaded via PluginFringeTracer (QLibrary): "
+      << QString::fromStdString(qtLoadedPlugin->name()) << "\n";
+
+  std::string win32LoadError;
+  auto win32LoadedPlugin = digitqt::core::tracing::DllFringeTracer::load(
+      std::string(argv[1]), win32LoadError);
+  if (!win32LoadedPlugin) {
+    err << "Failed to load plugin via DllFringeTracer (Win32Library): "
+        << QString::fromStdString(win32LoadError) << "\n";
+    return 1;
+  }
+  out << "Loaded via DllFringeTracer (Win32Library): "
+      << QString::fromStdString(win32LoadedPlugin->name()) << "\n";
 
   auto loadResult = digitqt::io::loadImage(QString::fromLocal8Bit(argv[2]));
   if (!loadResult.ok()) {
@@ -56,44 +74,47 @@ int main(int argc, char **argv) {
     return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
   };
 
-  // --- Через обёртку (использует ABI под капотом) ---
-  if (!plugin->initialize(bitmap, isVisible)) {
-    err << "Plugin initialize() failed: " << QString::fromStdString(plugin->lastError()) << "\n";
+  if (!qtLoadedPlugin->initialize(bitmap, isVisible)) {
+    err << "PluginFringeTracer initialize() failed: "
+        << QString::fromStdString(qtLoadedPlugin->lastError()) << "\n";
     return 1;
   }
-  auto pluginLines = plugin->extract({});
+  if (!win32LoadedPlugin->initialize(bitmap, isVisible)) {
+    err << "DllFringeTracer initialize() failed: "
+        << QString::fromStdString(win32LoadedPlugin->lastError()) << "\n";
+    return 1;
+  }
 
-  size_t pluginPointTotal = 0;
-  for (const auto &line : pluginLines)
-    pluginPointTotal += line.size();
+  auto qtLines = qtLoadedPlugin->extract({});
+  auto win32Lines = win32LoadedPlugin->extract({});
 
-  // --- Напрямую, встроенным трекером ---
-  digitqt::core::tracing::BinaryThinningTracker builtin;
-  builtin.initialize(bitmap, isVisible);
-  auto builtinLines = builtin.extract({});
-  size_t builtinPointTotal = 0;
-  for (const auto &line : builtinLines)
-    builtinPointTotal += line.size();
+  size_t qtPointTotal = 0;
+  for (const auto &line : qtLines)
+    qtPointTotal += line.size();
+  size_t win32PointTotal = 0;
+  for (const auto &line : win32Lines)
+    win32PointTotal += line.size();
 
-  out << "Plugin:  lines=" << pluginLines.size() << " points=" << pluginPointTotal << "\n";
-  out << "Builtin: lines=" << builtinLines.size() << " points=" << builtinPointTotal << "\n";
+  out << "QLibrary loader:    lines=" << qtLines.size() << " points=" << qtPointTotal << "\n";
+  out << "Win32Library loader: lines=" << win32Lines.size() << " points=" << win32PointTotal
+      << "\n";
 
-  bool match = pluginLines.size() == builtinLines.size();
-  for (size_t i = 0; match && i < pluginLines.size(); ++i) {
-    if (pluginLines[i].size() != builtinLines[i].size()) {
+  bool match = qtLines.size() == win32Lines.size();
+  for (size_t i = 0; match && i < qtLines.size(); ++i) {
+    if (qtLines[i].size() != win32Lines[i].size()) {
       match = false;
       break;
     }
-    for (size_t j = 0; j < pluginLines[i].size(); ++j) {
-      const auto &pp = pluginLines[i][j];
-      const auto &bp = builtinLines[i][j];
-      if (pp.x != bp.x || pp.y != bp.y || pp.width != bp.width || pp.intensity != bp.intensity) {
+    for (size_t j = 0; j < qtLines[i].size(); ++j) {
+      const auto &qp = qtLines[i][j];
+      const auto &wp = win32Lines[i][j];
+      if (qp.x != wp.x || qp.y != wp.y || qp.width != wp.width || qp.intensity != wp.intensity) {
         match = false;
         break;
       }
     }
   }
 
-  out << (match ? "MATCH -- PluginFringeTracer wrapper is exact\n" : "MISMATCH -- see above\n");
+  out << (match ? "MATCH -- both ABI loaders agree\n" : "MISMATCH -- see above\n");
   return match ? 0 : 1;
 }

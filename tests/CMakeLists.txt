@@ -79,6 +79,13 @@ target_link_libraries(digitqt_e2e_synthetic_tests PRIVATE Qt5::Test Qt5::Widgets
 set_target_properties(digitqt_e2e_synthetic_tests PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
+    # Эксплуатирует реальный ScanlineExtremum-трекер (S1), а он больше не
+    # встроен в core -- только plugins/tracers/scanline_extremum_tracker.dll
+    # (см. IFringeTracer.h). Ставим тот же output dir, что и у DigitQt.exe,
+    # чтобы core::plugin_loading::pluginsDirectory() (GetModuleFileNameW
+    # этого процесса) нашёл тот же plugins/tracers/, куда плагины
+    # копируются POST_BUILD (см. plugin-sdk/*_tracker_plugin/CMakeLists.txt).
+    RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:DigitQt>"
 )
 
 add_test(NAME EndToEndSyntheticInterferogramTest COMMAND digitqt_e2e_synthetic_tests)

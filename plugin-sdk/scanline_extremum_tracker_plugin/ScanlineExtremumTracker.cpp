@@ -1,38 +1,29 @@
 #include "ScanlineExtremumTracker.h"
 
-#include "core/pipeline/stages/fringe_tracing/scanline_extremum/FringeConstructor.h"
-#include "core/pipeline/stages/fringe_tracing/scanline_extremum/RedCenterDetector.h"
+#include "FringeConstructor.h"
+#include "RedCenterDetector.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace digitqt::core::tracing {
+namespace scanline_extremum_plugin {
 
 namespace {
 
-// The legacy Digit app never emitted one point per scanned row: its
-// CreateZAPSections() picked a small, fixed COUNT of section rows --
-// proportional to fringe count and aspect ratio, not to image
-// resolution -- and PutDotsOnZAPSections() placed one point per fringe
-// per section. RedCenterDetector/FringeConstructor here scan every row
-// with no equivalent decimation, so a straight port emits an order of
-// magnitude more points than the legacy app ever produced for the same
-// image. Mirror the legacy row-spacing formula to match its point
-// density instead.
+// Порт из core::tracing::ScanlineExtremumTracker.cpp -- см. там же
+// объяснение (легаси CreateZAPSections()/PutDotsOnZAPSections() не
+// эмитили точку на каждую сканированную строку, а RedCenterDetector/
+// FringeConstructor здесь эмитят; децимация повторяет плотность легаси).
 int minRowGapForDecimation(int fringeCount, int imageWidth, int imageHeight) {
   if (fringeCount < 1)
     fringeCount = 1;
   if (imageWidth < 1 || imageHeight < 1)
     return 1;
-  const double nSections =
-      std::max(2.0, 2.0 * fringeCount * imageHeight / imageWidth);
+  const double nSections = std::max(2.0, 2.0 * fringeCount * imageHeight / imageWidth);
   const int gap = static_cast<int>(std::ceil(imageHeight / (nSections - 1.0)));
   return std::max(gap, 1);
 }
 
-// Keeps a fringe's first and last point (endpoint fidelity, e.g. at
-// aperture edges/obstructions) and thins the rest to at most one point
-// per minRowGap rows, in original row order.
 TracedLine decimateLine(const TracedLine &line, int minRowGap) {
   if (minRowGap <= 1 || line.size() < 3)
     return line;
@@ -56,11 +47,11 @@ TracedLine decimateLine(const TracedLine &line, int minRowGap) {
 bool ScanlineExtremumTracker::setParam(const std::string &key, const std::string &value) {
   if (key == "fringeCenterMode") {
     if (value == "max")
-      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::Max;
+      m_params.fringeCenterAs = FringeCenterMode::Max;
     else if (value == "min")
-      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::Min;
+      m_params.fringeCenterAs = FringeCenterMode::Min;
     else if (value == "minmax")
-      m_params.fringeCenterAs = scanline_extremum::FringeCenterMode::MinMax;
+      m_params.fringeCenterAs = FringeCenterMode::MinMax;
     else
       return false;
     return true;
@@ -72,14 +63,16 @@ bool ScanlineExtremumTracker::setParam(const std::string &key, const std::string
   return false;
 }
 
-bool ScanlineExtremumTracker::initialize(
-    const digitqt::core::Bitmap &image, std::function<bool(int, int)> isVisible) {
-  if (image.isNull()) {
+bool ScanlineExtremumTracker::initialize(const uint8_t *pixels, int width, int height,
+                                         std::function<bool(int, int)> isVisible) {
+  if (!pixels || width <= 0 || height <= 0) {
     m_lastError = "Empty image";
     return false;
   }
-
-  m_grayImage = image;
+  m_pixelStorage.assign(pixels, pixels + static_cast<size_t>(width) * height);
+  m_image = m_pixelStorage.data();
+  m_width = width;
+  m_height = height;
   m_isVisible = std::move(isVisible);
   m_lastError.clear();
   return true;
@@ -87,43 +80,41 @@ bool ScanlineExtremumTracker::initialize(
 
 std::vector<TracedLine> ScanlineExtremumTracker::extract(
     const std::vector<SeedPoint> & /*seeds*/) {
-  // Global algorithm -- seeds are not used, see IFringeTracer's contract.
   std::vector<TracedLine> result;
   m_lastFringeNumbers.clear();
 
-  if (m_grayImage.isNull()) {
+  if (!m_image) {
     m_lastError = "Tracer not initialized. Call initialize() first.";
     return result;
   }
 
-  scanline_extremum::DigitizationInput input;
-  input.bitmapData = m_grayImage.data();
-  input.imageWidth = m_grayImage.width();
-  input.imageHeight = m_grayImage.height();
-  input.bytesPerLine = m_grayImage.width();
+  DigitizationInput input;
+  input.bitmapData = m_image;
+  input.imageWidth = m_width;
+  input.imageHeight = m_height;
+  input.bytesPerLine = m_width;
   input.isVisible = m_isVisible;
   input.fringeCenterAs = m_params.fringeCenterAs;
   input.fringeStep = m_params.fringeStep;
   input.toleranceFactor = m_params.toleranceFactor;
 
-  auto scanlines = scanline_extremum::RedCenterDetector::detectExtrema(input);
+  auto scanlines = RedCenterDetector::detectExtrema(input);
   if (scanlines.empty()) {
     m_lastError = "No extrema detected -- check the aperture and fringe contrast";
     return result;
   }
 
-  auto fringes = scanline_extremum::FringeConstructor::constructFringes(
-      scanlines, input.imageWidth, input.imageHeight, m_isVisible,
-      m_params.fringeCenterAs, m_params.fringeStep, m_params.toleranceFactor,
-      m_params.hasInternalObstruction);
+  auto fringes = FringeConstructor::constructFringes(
+      scanlines, input.imageWidth, input.imageHeight, m_isVisible, m_params.fringeCenterAs,
+      m_params.fringeStep, m_params.toleranceFactor, m_params.hasInternalObstruction);
 
   if (fringes.empty()) {
     m_lastError = "Extrema were detected but no continuous fringes could be constructed";
     return result;
   }
 
-  const int minRowGap = minRowGapForDecimation(
-      static_cast<int>(fringes.size()), input.imageWidth, input.imageHeight);
+  const int minRowGap =
+      minRowGapForDecimation(static_cast<int>(fringes.size()), input.imageWidth, input.imageHeight);
 
   result.reserve(fringes.size());
   m_lastFringeNumbers.reserve(fringes.size());
@@ -137,9 +128,8 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
       tp.width = 0.0f;
       const int px = static_cast<int>(p.x + 0.5);
       const int py = static_cast<int>(p.y + 0.5);
-      tp.intensity = (px >= 0 && px < m_grayImage.width() && py >= 0 &&
-                      py < m_grayImage.height())
-                         ? static_cast<float>(m_grayImage.pixel(px, py))
+      tp.intensity = (px >= 0 && px < m_width && py >= 0 && py < m_height)
+                         ? static_cast<float>(m_image[py * m_width + px])
                          : 0.0f;
       line.push_back(tp);
     }
@@ -151,4 +141,4 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
   return result;
 }
 
-}  // namespace digitqt::core::tracing
+}  // namespace scanline_extremum_plugin

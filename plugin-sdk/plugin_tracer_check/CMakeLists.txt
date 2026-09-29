@@ -1,8 +1,9 @@
-# Хост-инструмент для проверки PoC-плагина (см. ../binary_thinning_poc):
-# грузит DLL через src/plugin_host/PluginFringeTracer (та же обёртка,
-# которую использует остальное приложение) и сверяет результат со
-# встроенным трекером. Не часть приложения -- собирается только при
-# -DDIGITQT_BUILD_PLUGIN_POC=ON.
+# Грузит один плагин двумя независимыми ABI-загрузчиками --
+# src/plugin_host/PluginFringeTracer (QLibrary) и
+# core::tracing::DllFringeTracer (Win32Library, реально используется
+# SetupStage) -- и сверяет результат между ними (встроенных трекеров для
+# сравнения больше нет, см. main.cpp). Не часть приложения -- собирается
+# только при -DDIGITQT_BUILD_PLUGIN_POC=ON.
 
 add_executable(plugin_tracer_check
     main.cpp

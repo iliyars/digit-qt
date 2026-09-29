@@ -38,13 +38,21 @@ add_subdirectory(plugin-sdk)   # DigitQt::PluginAbi -- needed by src/plugin_host
 add_subdirectory(src)
 add_subdirectory(translations)
 
+# Настоящие реализации всех 4 алгоритмов трассировки -- core больше не
+# содержит ни одной встроенной (см. IFringeTracer.h), так что это не
+# опциональный PoC, а единственный способ DigitQt.exe вообще что-то
+# оттрассировать. Собираются всегда, не под DIGITQT_BUILD_PLUGIN_POC --
+# этот флаг остался только для инструментов проверки ABI ниже. Каждый
+# таргет копирует свой .dll в $<TARGET_FILE_DIR:DigitQt>/plugins/tracers/
+# (см. их CMakeLists.txt), поэтому должны идти после add_subdirectory(src).
+add_subdirectory(plugin-sdk/sequential_fringe_tracker_plugin)
+add_subdirectory(plugin-sdk/structure_tensor_tracker_plugin)
+add_subdirectory(plugin-sdk/scanline_extremum_tracker_plugin)
+add_subdirectory(plugin-sdk/binary_thinning_tracker_plugin)
+
 if(DIGITQT_BUILD_PLUGIN_POC)
-    # Separate from add_subdirectory(plugin-sdk) above: these need
-    # DigitQt::Core (defined inside src/), so must come after add_subdirectory(src).
-    add_subdirectory(plugin-sdk/binary_thinning_poc)
-    add_subdirectory(plugin-sdk/sequential_fringe_tracker_plugin)
-    add_subdirectory(plugin-sdk/structure_tensor_tracker_plugin)
-    add_subdirectory(plugin-sdk/scanline_extremum_tracker_plugin)
+    # Инструменты проверки ABI/загрузчиков -- не нужны для обычной сборки
+    # или тестов, только при разработке самого плагинного механизма.
     add_subdirectory(plugin-sdk/plugin_tracer_check)
     add_subdirectory(plugin-sdk/tracer_plugin_selftest)
 endif()

@@ -1,16 +1,15 @@
 // Сквозная проверка ИМЕННО того пути, которым реально пользуется
-// SetupStage.cpp: core::tracing::tryLoadTracerPlugin() (grep the real
-// production entry point, not a manually указанный .dll путь, как в
-// plugin_tracer_check) -- для всех 4 алгоритмов трассировки сразу.
+// SetupStage.cpp: core::tracing::tryLoadTracerPlugin() -- для всех 4
+// алгоритмов трассировки сразу. Ни у одного нет больше встроенной
+// реализации в core (все 4 -- самодостаточные плагины, см. историю в
+// памяти qt_decoupling_and_plugin_abi), так что здесь только проверяется
+// "плагин загрузился и дал разумный результат", без diff против builtin.
 //
 // Собирается и запускается рядом с DigitQt.exe (см. CMakeLists.txt,
 // RUNTIME_OUTPUT_DIRECTORY), чтобы core::plugin_loading::pluginsDirectory()
 // нашёл тот же build/.../plugins/tracers/, куда POST_BUILD-шаги плагинов
 // кладут .dll.
 
-#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
-#include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
-#include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 #include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
 #include "io/ImageLoader.h"
 
@@ -26,26 +25,7 @@
 namespace {
 
 using digitqt::core::TracerAlgorithm;
-using digitqt::core::tracing::IFringeTracer;
 using digitqt::core::tracing::SeedPoint;
-using digitqt::core::tracing::TracedLine;
-
-// SequentialTracking has no built-in anymore -- its implementation lives
-// only in sequential_fringe_tracker_plugin (see SetupStage.cpp). nullptr
-// here means "nothing to diff against", not a failure.
-std::unique_ptr<IFringeTracer> makeBuiltin(TracerAlgorithm algorithm) {
-  switch (algorithm) {
-    case TracerAlgorithm::SequentialTracking:
-      return nullptr;
-    case TracerAlgorithm::StructureTensor:
-      return std::make_unique<digitqt::core::tracing::StructureTensorTracker>();
-    case TracerAlgorithm::ScanlineExtremum:
-      return std::make_unique<digitqt::core::tracing::ScanlineExtremumTracker>();
-    case TracerAlgorithm::BinaryThinning:
-      return std::make_unique<digitqt::core::tracing::BinaryThinningTracker>();
-  }
-  return nullptr;
-}
 
 const char *algorithmName(TracerAlgorithm algorithm) {
   switch (algorithm) {
@@ -55,22 +35,6 @@ const char *algorithmName(TracerAlgorithm algorithm) {
     case TracerAlgorithm::BinaryThinning: return "BinaryThinning";
   }
   return "?";
-}
-
-bool linesEqual(const std::vector<TracedLine> &a, const std::vector<TracedLine> &b) {
-  if (a.size() != b.size())
-    return false;
-  for (size_t i = 0; i < a.size(); ++i) {
-    if (a[i].size() != b[i].size())
-      return false;
-    for (size_t j = 0; j < a[i].size(); ++j) {
-      const auto &pa = a[i][j];
-      const auto &pb = b[i][j];
-      if (pa.x != pb.x || pa.y != pb.y || pa.width != pb.width || pa.intensity != pb.intensity)
-        return false;
-    }
-  }
-  return true;
 }
 
 }  // namespace
@@ -120,50 +84,40 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    auto builtin = makeBuiltin(algorithm);
-
     // ScanlineExtremum -- прогоняем ещё и setParam(), как это делает
     // SetupStage, чтобы проверить именно эту часть ABI v2.
     if (algorithm == TracerAlgorithm::ScanlineExtremum) {
       plugin->setParam("fringeCenterMode", "minmax");
       plugin->setParam("hasInternalObstruction", "0");
-      builtin->setParam("fringeCenterMode", "minmax");
-      builtin->setParam("hasInternalObstruction", "0");
     }
 
-    if (!plugin->initialize(bitmap, isVisible) || (builtin && !builtin->initialize(bitmap, isVisible))) {
-      err << algorithmName(algorithm) << ": FAIL -- initialize() failed\n";
+    if (!plugin->initialize(bitmap, isVisible)) {
+      err << algorithmName(algorithm) << ": FAIL -- initialize() failed: " << plugin->lastError().c_str()
+          << "\n";
       allOk = false;
       continue;
     }
 
-    auto pluginLines = plugin->extract(seeds);
+    auto lines = plugin->extract(seeds);
+    bool ok = !lines.empty();
 
-    if (!builtin) {
-      // Нет встроенной реализации для сравнения (алгоритм полностью
-      // вынесен в плагин) -- проверяем только, что плагин вообще
-      // отработал и дал непустой результат.
-      const bool ok = !pluginLines.empty();
-      allOk = allOk && ok;
-      out << algorithmName(algorithm) << ": " << (ok ? "LOADED (no builtin to diff)" : "FAIL -- empty result")
-          << " (plugin=" << plugin->name().c_str() << ", lines=" << pluginLines.size() << ")\n";
-      continue;
-    }
-
-    auto builtinLines = builtin->extract(seeds);
-    const bool linesMatch = linesEqual(pluginLines, builtinLines);
-
-    bool ordersMatch = true;
+    bool ordersOk = true;
     if (algorithm == TracerAlgorithm::ScanlineExtremum) {
-      ordersMatch = plugin->lastFringeOrders() == builtin->lastFringeOrders() &&
-                   !plugin->lastFringeOrders().empty();
+      // ScanlineExtremum -- единственный, что должен сам посчитать
+      // номер полосы (см. IFringeTracer::lastFringeOrders()).
+      const auto orders = plugin->lastFringeOrders();
+      ordersOk = !orders.empty() && orders.size() == lines.size();
+      ok = ok && ordersOk;
     }
 
-    const bool ok = linesMatch && ordersMatch;
     allOk = allOk && ok;
-    out << algorithmName(algorithm) << ": " << (ok ? "MATCH" : "MISMATCH")
-        << " (plugin=" << plugin->name().c_str() << ", lines=" << pluginLines.size()
-        << ", ordersMatch=" << (ordersMatch ? "yes" : "no") << ")\n";
+    out << algorithmName(algorithm) << ": " << (ok ? "OK" : "FAIL") << " (plugin="
+        << plugin->name().c_str() << ", lines=" << lines.size()
+        << (algorithm == TracerAlgorithm::ScanlineExtremum
+                ? (ordersOk ? ", ordersOk=yes" : ", ordersOk=NO")
+                : "")
+        << ")\n";
+    out.flush();
   }
 
   out << (allOk ? "ALL OK\n" : "SOME FAILED\n");

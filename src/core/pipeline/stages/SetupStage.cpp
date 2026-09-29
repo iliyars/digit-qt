@@ -2,9 +2,6 @@
 
 #include "core/FringeOrdering.h"
 #include "core/Measurement.h"
-#include "core/pipeline/stages/fringe_tracing/BinaryThinningTracker.h"
-#include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
-#include "core/pipeline/stages/fringe_tracing/StructureTensorTracker.h"
 #include "core/pipeline/stages/fringe_tracing/TracerPluginLoading.h"
 
 #include <aperture/include/visibility/VisibilityChecker.h>
@@ -45,38 +42,19 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     return checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
   };
 
-  // Плагин предпочтительнее встроенной реализации, если он есть рядом с
-  // exe (<каталог exe>/plugins/tracers/<algo>.dll) -- иначе молча падаем
-  // на встроенный класс (см. tryLoadTracerPlugin()). Плагин при этом
-  // полностью неотличим для остального SetupStage от встроенного
-  // трекера -- один и тот же IFringeTracer* дальше по коду.
-  //
-  // Исключение -- SequentialTracking: его реализация целиком вынесена в
-  // sequential_fringe_tracker_plugin (см. AskUserQuestion-решение в
-  // qt_decoupling_and_plugin_abi.md), встроенной копии в core больше нет.
-  // Если плагина нет -- это настоящая ошибка, а не повод для fallback.
+  // Ни у одного из 4 алгоритмов трассировки больше нет встроенной
+  // реализации в core -- все они полностью вынесены в самодостаточные
+  // DqtFringeTracer C ABI-плагины (plugin-sdk/*_tracker_plugin/, см.
+  // историю в памяти qt_decoupling_and_plugin_abi). Отсутствие нужного
+  // .dll рядом с exe -- настоящая ошибка, не повод для fallback (держать
+  // встроенную копию "на всякий случай" воспроизвело бы именно ту
+  // дублирующуюся реализацию, ради устранения которой всё это делалось).
   std::unique_ptr<tracing::IFringeTracer> tracer = tracing::tryLoadTracerPlugin(algorithm);
-  if (!tracer && algorithm == digitqt::core::TracerAlgorithm::SequentialTracking) {
-    errorMessage =
-        "Sequential Fringe Tracking plugin not found "
-        "(plugins/tracers/sequential_fringe_tracker.dll) -- this algorithm has no "
-        "built-in fallback.";
-    return false;
-  }
   if (!tracer) {
-    switch (algorithm) {
-      case digitqt::core::TracerAlgorithm::SequentialTracking:
-        break;  // unreachable -- handled above
-      case digitqt::core::TracerAlgorithm::StructureTensor:
-        tracer = std::make_unique<tracing::StructureTensorTracker>();
-        break;
-      case digitqt::core::TracerAlgorithm::ScanlineExtremum:
-        tracer = std::make_unique<tracing::ScanlineExtremumTracker>();
-        break;
-      case digitqt::core::TracerAlgorithm::BinaryThinning:
-        tracer = std::make_unique<tracing::BinaryThinningTracker>();
-        break;
-    }
+    errorMessage = "Tracer plugin not found or failed to load "
+                   "(plugins/tracers/ next to the executable) -- this algorithm has no "
+                   "built-in implementation.";
+    return false;
   }
 
   // Параметры передаются единообразно всем трекерам (встроенным и
@@ -113,14 +91,13 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     numberedLines.push_back(std::move(numbered));
   }
 
-  // Some algorithms (ScanlineExtremumTracker, both built-in and plugin)
-  // already compute a real, globally-consistent fringe number per line
-  // (FringeConstructor's chain propagation from a single main-scanline
-  // seed) -- use it directly instead of the generic mean-X fallback,
-  // which would silently discard it and get curved or
-  // obstruction-interrupted fringes wrong. lastFringeOrders() is empty
-  // for tracers that don't compute one (the default, see
-  // IFringeTracer::lastFringeOrders()).
+  // Some algorithms (ScanlineExtremumTracker's plugin) already compute a
+  // real, globally-consistent fringe number per line (FringeConstructor's
+  // chain propagation from a single main-scanline seed) -- use it
+  // directly instead of the generic mean-X fallback, which would
+  // silently discard it and get curved or obstruction-interrupted
+  // fringes wrong. lastFringeOrders() is empty for tracers that don't
+  // compute one (the default, see IFringeTracer::lastFringeOrders()).
   const auto orders = tracer->lastFringeOrders();
   if (orders.size() == numberedLines.size()) {
     for (size_t i = 0; i < numberedLines.size(); ++i) {

@@ -29,24 +29,28 @@ struct SeedPoint {
 /**
  * @brief Common contract for fringe-centerline extraction algorithms.
  *
- * Multiple independent implementations exist on purpose, so they can be
- * run on the same image and compared side by side (see the S1 parameters
- * panel's algorithm picker). Built into `core` (always available, used as
- * the fallback if the matching plugin DLL is missing -- see
- * TracerPluginLoading.h):
- *   - StructureTensorTracker: Ridge Tracking via the image structure
- *     tensor, step-by-step from a seed point, sub-pixel centering.
- *   - ScanlineExtremumTracker: Scanline Extremum Method (FTM), global
- *     row-by-row extrema + fringe numbering, ported from the original Digit
- *     project's RedCenterDetector / FringeConstructor.
- *   - BinaryThinningTracker: Fringe Binary Method (FBM), adaptive
- *     threshold + morphological skeletonization (OpenCV), no seed points.
- *
- * Plugin-only (no built-in `core` implementation, see
- * plugin-sdk/sequential_fringe_tracker_plugin/ -- SetupStage errors out if
- * its `.dll` is missing rather than falling back):
- *   - SequentialFringeTracker: Sequential Fringe Tracking (FTM), step-by-step
- *     from a seed point, ported from the classic SCAN360/STEP.C algorithm.
+ * No implementation lives in `core` anymore -- all 4 algorithms (see
+ * core::TracerAlgorithm) are self-contained DqtFringeTracer C ABI plugins
+ * under plugin-sdk/ (one "_tracker_plugin" subdirectory each), loaded at
+ * runtime by
+ * TracerPluginLoading.h's tryLoadTracerPlugin(). A missing/broken plugin
+ * `.dll` is a real error from SetupStage, not a fallback -- see the
+ * qt_decoupling_and_plugin_abi memory note for why (keeping a built-in
+ * copy "just in case" would reintroduce exactly the source duplication
+ * this design eliminates):
+ *   - SequentialFringeTracker (plugin-sdk/sequential_fringe_tracker_plugin/):
+ *     Sequential Fringe Tracking (FTM), step-by-step from a seed point,
+ *     ported from the classic SCAN360/STEP.C algorithm.
+ *   - StructureTensorTracker (plugin-sdk/structure_tensor_tracker_plugin/):
+ *     Ridge Tracking via the image structure tensor, step-by-step from a
+ *     seed point, sub-pixel centering.
+ *   - ScanlineExtremumTracker (plugin-sdk/scanline_extremum_tracker_plugin/):
+ *     Scanline Extremum Method (FTM), global row-by-row extrema + fringe
+ *     numbering, ported from the original Digit project's
+ *     RedCenterDetector / FringeConstructor.
+ *   - BinaryThinningTracker (plugin-sdk/binary_thinning_tracker_plugin/):
+ *     Fringe Binary Method (FBM), adaptive threshold + morphological
+ *     skeletonization (OpenCV), no seed points.
  */
 class IFringeTracer {
 public:

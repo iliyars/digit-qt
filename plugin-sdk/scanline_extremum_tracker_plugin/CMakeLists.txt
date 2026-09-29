@@ -1,12 +1,26 @@
-# ScanlineExtremumTracker за границей DqtFringeTracer C ABI -- см.
-# sequential_fringe_tracker_plugin/CMakeLists.txt. Единственный из 4
-# трекеров, реально использующий setParam()/order-hasOrder (ABI v2).
+# Полностью самодостаточный плагин: ScanlineExtremumTracker (+ его
+# внутренние RedCenterDetector/MiddleAlgorithm/FringeConstructor) реализован
+# целиком внутри этого проекта, никакого DigitQt::Core -- см.
+# sequential_fringe_tracker_plugin/CMakeLists.txt (та же выноска).
+#
+# ВАЖНО: у SetupStage больше нет встроенной реализации этого алгоритма --
+# без этого .dll рядом с DigitQt.exe выбор Scanline Extremum в UI
+# завершится ошибкой, а не тихим fallback'ом.
 
 add_library(scanline_extremum_tracker_plugin MODULE
     plugin.cpp
+    ScanlineExtremumTypes.h
+    RedCenterDetector.h
+    RedCenterDetector.cpp
+    MiddleAlgorithm.h
+    MiddleAlgorithm.cpp
+    FringeConstructor.h
+    FringeConstructor.cpp
+    ScanlineExtremumTracker.h
+    ScanlineExtremumTracker.cpp
 )
 
-target_link_libraries(scanline_extremum_tracker_plugin PRIVATE DigitQt::Core DigitQt::PluginAbi)
+target_link_libraries(scanline_extremum_tracker_plugin PRIVATE DigitQt::PluginAbi)
 
 set_target_properties(scanline_extremum_tracker_plugin PROPERTIES
     CXX_STANDARD 17

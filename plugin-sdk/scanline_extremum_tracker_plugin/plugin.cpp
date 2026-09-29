@@ -1,12 +1,13 @@
-// См. sequential_fringe_tracker_plugin/plugin.cpp -- тот же приём, но
-// ScanlineExtremumTracker дополнительно принимает параметры
-// (fringeCenterMode/hasInternalObstruction, через setParam()) и сам
-// вычисляет номер полосы (order/hasOrder на каждой линии) -- единственный
-// из 4 встроенных трекеров, кому реально нужны обе новые возможности ABI
-// v2 (см. dqt_fringe_tracer_abi.h).
+/**
+ * @file plugin.cpp
+ * @brief Scanline Extremum Method (FTM) -- самодостаточный DqtFringeTracer
+ * C ABI-плагин. Не подключает и не линкует DigitQt::Core -- вся реализация
+ * (ScanlineExtremumTracker.{h,cpp} + scanline_extremum/-эквивалент:
+ * ScanlineExtremumTypes/RedCenterDetector/MiddleAlgorithm/FringeConstructor)
+ * живёт прямо в этом плагине.
+ */
 
-#include "core/Bitmap.h"
-#include "core/pipeline/stages/fringe_tracing/ScanlineExtremumTracker.h"
+#include "ScanlineExtremumTracker.h"
 #include "dqt_fringe_tracer_abi.h"
 
 #include <cstring>
@@ -16,8 +17,8 @@
 
 namespace {
 
-using digitqt::core::tracing::ScanlineExtremumTracker;
-using digitqt::core::tracing::TracedLine;
+using scanline_extremum_plugin::ScanlineExtremumTracker;
+using scanline_extremum_plugin::TracedLine;
 
 struct PluginState {
   ScanlineExtremumTracker tracker;
@@ -34,19 +35,13 @@ void destroy(DqtFringeTracerHandle self) {
   delete reinterpret_cast<PluginState *>(self);
 }
 
-int initialize(DqtFringeTracerHandle self, const DqtBitmapView *image,
-              DqtVisibilityFn isVisible, void *isVisibleUserData) {
+int initialize(DqtFringeTracerHandle self, const DqtBitmapView *image, DqtVisibilityFn isVisible,
+              void *isVisibleUserData) {
   auto *state = reinterpret_cast<PluginState *>(self);
-
-  digitqt::core::Bitmap bitmap(image->width, image->height);
-  std::memcpy(bitmap.data(), image->pixels,
-              static_cast<size_t>(image->width) * static_cast<size_t>(image->height));
-
   auto predicate = [isVisible, isVisibleUserData](int x, int y) {
     return isVisible(x, y, isVisibleUserData) != 0;
   };
-
-  const bool ok = state->tracker.initialize(bitmap, predicate);
+  const bool ok = state->tracker.initialize(image->pixels, image->width, image->height, predicate);
   state->lastErrorUtf8 = state->tracker.lastError();
   return ok ? 1 : 0;
 }
@@ -57,7 +52,7 @@ int extract(DqtFringeTracerHandle self, const DqtSeedPoint *seeds, size_t seedCo
   *outLines = nullptr;
   *outLineCount = 0;
 
-  std::vector<digitqt::core::tracing::SeedPoint> seedVec;
+  std::vector<scanline_extremum_plugin::SeedPoint> seedVec;
   seedVec.reserve(seedCount);
   for (size_t i = 0; i < seedCount; ++i)
     seedVec.push_back({seeds[i].x, seeds[i].y});
@@ -97,7 +92,7 @@ int setParam(DqtFringeTracerHandle self, const char *key, const char *value) {
 }
 
 const char *name(DqtFringeTracerHandle /*self*/) {
-  static const char *const kName = "Scanline Extremum Method (FTM) [plugin]";
+  static const char *const kName = "Scanline Extremum Method (FTM)";
   return kName;
 }
 
@@ -118,7 +113,7 @@ extern "C" DQT_ABI_EXPORT int dqt_plugin_entry(uint32_t hostAbiVersion, DqtPlugi
     return 0;
   }
   outInfo->pluginName = "ScanlineExtremumTracker";
-  outInfo->pluginVersion = "1.0.0";
+  outInfo->pluginVersion = "2.0.0";  // 2.0.0: полностью самодостаточная реализация
   *outVTable = &kVTable;
   return 1;
 }

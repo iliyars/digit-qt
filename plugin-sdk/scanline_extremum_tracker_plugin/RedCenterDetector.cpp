@@ -4,13 +4,11 @@
 
 #include <algorithm>
 
-namespace digitqt::core::tracing::scanline_extremum {
+namespace scanline_extremum_plugin {
 
-std::vector<Section> RedCenterDetector::detectExtrema(
-    const DigitizationInput &input) {
+std::vector<Section> RedCenterDetector::detectExtrema(const DigitizationInput &input) {
   std::vector<Section> results;
-  if (!input.bitmapData || input.imageWidth <= 0 || input.imageHeight <= 0 ||
-      !input.isVisible)
+  if (!input.bitmapData || input.imageWidth <= 0 || input.imageHeight <= 0 || !input.isVisible)
     return results;
 
   const int width = input.imageWidth;
@@ -41,19 +39,16 @@ std::vector<Section> RedCenterDetector::detectExtrema(
 
     if (wantRed) {
       removeBackground(line.data(), 0, width - 1);
-      redXs = detectPeaks(line.data(), static_cast<size_t>(width), y,
-                          input.isVisible);
+      redXs = detectPeaks(line.data(), static_cast<size_t>(width), y, input.isVisible);
     }
     if (wantBlack) {
       removeBackground(invLine.data(), 0, width - 1);
-      blackXs = detectPeaks(invLine.data(), static_cast<size_t>(width), y,
-                            input.isVisible);
+      blackXs = detectPeaks(invLine.data(), static_cast<size_t>(width), y, input.isVisible);
     }
 
-    auto appendResults = [y, width, &lineResult](
-                             const std::vector<double> &xs,
-                             const std::vector<uint8_t> &sourceLine,
-                             ExtremumType type) {
+    auto appendResults = [y, width, &lineResult](const std::vector<double> &xs,
+                                                 const std::vector<uint8_t> &sourceLine,
+                                                 ExtremumType type) {
       for (const double x : xs) {
         const int sampleX = static_cast<int>(x + 0.5);
         double intensity = 0.0;
@@ -95,4 +90,4 @@ std::vector<Section> RedCenterDetector::detectExtrema(
   return results;
 }
 
-}  // namespace digitqt::core::tracing::scanline_extremum
+}  // namespace scanline_extremum_plugin

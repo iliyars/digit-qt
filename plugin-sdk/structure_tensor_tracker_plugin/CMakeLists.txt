@@ -1,11 +1,16 @@
-# StructureTensorTracker за границей DqtFringeTracer C ABI -- см.
-# sequential_fringe_tracker_plugin/CMakeLists.txt.
+# Полностью самодостаточный плагин: StructureTensorTracker реализован
+# целиком внутри plugin.cpp, никакого DigitQt::Core -- см.
+# sequential_fringe_tracker_plugin/CMakeLists.txt (та же выноска).
+#
+# ВАЖНО: у SetupStage больше нет встроенной реализации этого алгоритма --
+# без этого .dll рядом с DigitQt.exe выбор Structure Tensor в UI
+# завершится ошибкой, а не тихим fallback'ом.
 
 add_library(structure_tensor_tracker_plugin MODULE
     plugin.cpp
 )
 
-target_link_libraries(structure_tensor_tracker_plugin PRIVATE DigitQt::Core DigitQt::PluginAbi)
+target_link_libraries(structure_tensor_tracker_plugin PRIVATE DigitQt::PluginAbi)
 
 set_target_properties(structure_tensor_tracker_plugin PROPERTIES
     CXX_STANDARD 17

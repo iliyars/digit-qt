@@ -10,10 +10,11 @@ namespace digitqt::core {
 /// Which IFringeTracer implementation the Setup stage's compute() should
 /// use. A user-facing choice (see ParametersDock's algorithm combo box),
 /// not itself undoable -- like the current edit-mode/tool selection.
+// Все 4 -- самодостаточные DqtFringeTracer C ABI-плагины (plugin-sdk/,
+// см. IFringeTracer.h), встроенной реализации в core больше нет ни у
+// одного; отсутствие .dll -- ошибка SetupStage, не fallback.
 enum class TracerAlgorithm {
-  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step tracer (FTM).
-                       // Plugin-only (plugin-sdk/sequential_fringe_tracker_plugin/) -- no
-                       // built-in fallback in core, see IFringeTracer.h.
+  SequentialTracking,  // SequentialFringeTracker: classic STEP.C-derived step tracer (FTM)
   StructureTensor,     // StructureTensorTracker: gradient structure-tensor ridge tracker (FTM)
   ScanlineExtremum,    // ScanlineExtremumTracker: global, row-by-row extrema (FTM)
   BinaryThinning,  // BinaryThinningTracker: adaptive threshold + Zhang-Suen skeletonization (FBM)

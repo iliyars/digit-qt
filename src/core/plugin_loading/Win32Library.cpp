@@ -37,10 +37,9 @@ std::string lastWin32ErrorMessage() {
 
 }  // namespace
 
-Win32Library::~Win32Library() {
-  if (m_handle)
-    FreeLibrary(static_cast<HMODULE>(m_handle));
-}
+// Намеренно НЕ вызывает FreeLibrary -- см. .h. Деструктор просто обнуляет
+// m_handle, ничего не выгружая.
+Win32Library::~Win32Library() = default;
 
 Win32Library::Win32Library(Win32Library &&other) noexcept
     : m_handle(other.m_handle), m_lastError(std::move(other.m_lastError)) {
@@ -49,8 +48,8 @@ Win32Library::Win32Library(Win32Library &&other) noexcept
 
 Win32Library &Win32Library::operator=(Win32Library &&other) noexcept {
   if (this != &other) {
-    if (m_handle)
-      FreeLibrary(static_cast<HMODULE>(m_handle));
+    // Тот же приём, что и в деструкторе -- см. .h: не выгружаем m_handle,
+    // даже если он был загружен и сейчас затирается.
     m_handle = other.m_handle;
     m_lastError = std::move(other.m_lastError);
     other.m_handle = nullptr;
