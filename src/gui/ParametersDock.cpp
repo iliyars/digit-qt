@@ -11,7 +11,10 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QLabel>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -64,6 +67,7 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_doublePassCheck(new QCheckBox(tr("Double pass (reflection)"), this)),
       m_isolineStepSpin(new QDoubleSpinBox(this)),
       m_phaseAlgorithmCombo(new QComboBox(this)),
+      m_phaseAlgorithmBrowseButton(new QPushButton(tr("Browse..."), this)),
       m_fitMethodCombo(new QComboBox(this)),
       m_polynomialBasisCombo(new QComboBox(this)),
       m_edgeErosionSpin(new QSpinBox(this)),
@@ -244,6 +248,12 @@ ParametersDock::ParametersDock(QWidget *parent)
   phaseAlgorithmLabel->setContentsMargins(8, 8, 8, 0);
   phaseAlgorithmLayout->addWidget(phaseAlgorithmLabel);
   phaseAlgorithmLayout->addWidget(m_phaseAlgorithmCombo);
+  m_phaseAlgorithmBrowseButton->setContentsMargins(8, 0, 8, 0);
+  m_phaseAlgorithmBrowseButton->setToolTip(
+      tr("Pick any DqtPhaseReconstructor plugin .dll, not necessarily inside plugins/phase/"));
+  connect(m_phaseAlgorithmBrowseButton, &QPushButton::clicked, this,
+          &ParametersDock::onBrowsePhaseAlgorithmPlugin);
+  phaseAlgorithmLayout->addWidget(m_phaseAlgorithmBrowseButton);
   layout->addWidget(m_phaseAlgorithmRow);
   m_phaseAlgorithmRow->setVisible(false);
 
@@ -341,7 +351,9 @@ ParametersDock::ParametersDock(QWidget *parent)
 void ParametersDock::refreshPhaseAlgorithmList() {
   // Первые 3 пункта -- известные алгоритмы (добавлены выше, один раз за
   // всё время жизни виджета) -- не трогаем. Всё после них пересобираем
-  // заново из discoverPhaseReconstructorPlugins(), пропуская плагины,
+  // заново: сканирование plugins/phase/ + m_manuallyAddedPhasePlugins
+  // (выбранные вручную через "Browse...", сканирование их не найдёт
+  // заново, если они лежат не в plugins/phase/). Пропускаем плагины,
   // которые называют себя одним из известных имён -- те уже
   // представлены штатными тремя пунктами независимо от того, лежит ли
   // рядом их .dll (PhaseReconstructionStage сам решит, плагин это или
@@ -356,11 +368,8 @@ void ParametersDock::refreshPhaseAlgorithmList() {
            name == QLatin1String("WaveletPhaseExtractor");
   };
 
-  for (const auto &plugin : digitqt::core::discoverPhaseReconstructorPlugins()) {
+  auto addPluginItem = [this](const digitqt::core::DiscoveredPhasePlugin &plugin) {
     const QString name = QString::fromStdString(plugin.pluginName);
-    if (isKnownName(name))
-      continue;
-
     const int index = m_phaseAlgorithmCombo->count();
     m_phaseAlgorithmCombo->addItem(tr("%1 (plugin)").arg(name), -1);
     m_phaseAlgorithmCombo->setItemData(index, QString::fromStdString(plugin.filePath),
@@ -372,6 +381,23 @@ void ParametersDock::refreshPhaseAlgorithmList() {
             .arg(QString::fromStdString(plugin.pluginVersion))
             .arg(QString::fromStdString(plugin.filePath)),
         Qt::ToolTipRole);
+  };
+
+  std::vector<std::string> addedPaths;  // дедупликация между сканом и ручным списком
+
+  for (const auto &plugin : digitqt::core::discoverPhaseReconstructorPlugins()) {
+    if (isKnownName(QString::fromStdString(plugin.pluginName)))
+      continue;
+    addPluginItem(plugin);
+    addedPaths.push_back(plugin.filePath);
+  }
+
+  for (const auto &plugin : m_manuallyAddedPhasePlugins) {
+    if (isKnownName(QString::fromStdString(plugin.pluginName)))
+      continue;
+    if (std::find(addedPaths.begin(), addedPaths.end(), plugin.filePath) != addedPaths.end())
+      continue;  // тот же файл уже нашёлся сканированием plugins/phase/
+    addPluginItem(plugin);
   }
 }
 
@@ -394,6 +420,40 @@ bool ParametersDock::currentPhaseAlgorithmNeedsFringeLines() const {
       return m_phaseAlgorithmCombo->itemData(i, kCustomPluginNeedsLinesRole).toBool();
   }
   return true;  // плагин пропал из списка (файл удалили) -- безопасный дефолт
+}
+
+void ParametersDock::onBrowsePhaseAlgorithmPlugin() {
+  if (!m_measurement)
+    return;
+
+  const QString filePath = QFileDialog::getOpenFileName(
+      this, tr("Select a phase reconstructor plugin"), QString(), tr("Plugin DLL (*.dll)"));
+  if (filePath.isEmpty())
+    return;  // пользователь отменил диалог
+
+  // Та же проверка, что discoverPhaseReconstructorPlugins() делает для
+  // каждого файла в plugins/phase/ -- просто для пути, который явно
+  // назвал пользователь, а не найденного сканированием.
+  auto probed = digitqt::core::probePhaseReconstructorPlugin(filePath.toStdString());
+  if (!probed) {
+    QMessageBox::warning(this, tr("Invalid plugin"),
+                         tr("%1 does not look like a valid DqtPhaseReconstructor plugin "
+                            "(failed to load, missing dqt_phase_plugin_entry, or refused the "
+                            "host's ABI version).")
+                             .arg(filePath));
+    return;
+  }
+
+  m_manuallyAddedPhasePlugins.push_back(*probed);
+  refreshPhaseAlgorithmList();
+
+  const QString qPath = QString::fromStdString(probed->filePath);
+  for (int i = 0; i < m_phaseAlgorithmCombo->count(); ++i) {
+    if (m_phaseAlgorithmCombo->itemData(i, kCustomPluginPathRole).toString() == qPath) {
+      m_phaseAlgorithmCombo->setCurrentIndex(i);  // triggers the existing currentIndexChanged handler
+      break;
+    }
+  }
 }
 
 void ParametersDock::setMeasurement(digitqt::core::Measurement *measurement) {

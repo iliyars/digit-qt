@@ -1,14 +1,18 @@
 #pragma once
 
 #include "core/pipeline/PipelineStageId.h"
+#include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
 
 #include <QDockWidget>
+
+#include <vector>
 
 class QLabel;
 class QComboBox;
 class QDoubleSpinBox;
 class QSpinBox;
 class QCheckBox;
+class QPushButton;
 class QWidget;
 
 namespace digitqt::core {
@@ -55,14 +59,18 @@ private slots:
   void onEdgeErosionChanged(int value);
   void onEdgeExtensionMarginChanged(int value);
   void refreshOrderEditor();
+  void onBrowsePhaseAlgorithmPlugin();
 
 private:
   /// Пересобирает m_phaseAlgorithmCombo: первые 3 пункта (известные
   /// алгоритмы) не трогает, всё, что после них -- сторонние плагины,
   /// найденные заново сканированием plugins/phase/ (см.
-  /// core::discoverPhaseReconstructorPlugins()). Вызывается при каждом
-  /// переключении на стадию S2, чтобы список не устаревал между
-  /// запусками приложения.
+  /// core::discoverPhaseReconstructorPlugins()), плюс m_manuallyAddedPhasePlugins
+  /// (выбранные через "Browse..." вручную, не обязательно внутри
+  /// plugins/phase/ -- сканирование их не найдёт заново, поэтому список
+  /// держим отдельно и подмешиваем сюда при каждой пересборке). Вызывается
+  /// при каждом переключении на стадию S2, чтобы список не устаревал
+  /// между запусками приложения.
   void refreshPhaseAlgorithmList();
 
   /// Нужны ли сейчас выбранному методу сшивки фазы трассированные линии
@@ -97,6 +105,12 @@ private:
 
   QWidget *m_phaseAlgorithmRow;
   QComboBox *m_phaseAlgorithmCombo;
+  QPushButton *m_phaseAlgorithmBrowseButton;
+  /// Плагины, выбранные через "Browse..." за время жизни этого
+  /// виджета -- не персистентны между запусками приложения (тот же
+  /// принцип, что и у customPhaseReconstructorPluginPath() на
+  /// Measurement: сессионная настройка, не сохраняемый файл проекта).
+  std::vector<digitqt::core::DiscoveredPhasePlugin> m_manuallyAddedPhasePlugins;
 
   QWidget *m_modalTermsRow;
   QCheckBox *m_termTiltCheck;

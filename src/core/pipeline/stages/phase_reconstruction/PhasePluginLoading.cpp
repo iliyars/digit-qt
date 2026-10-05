@@ -46,6 +46,32 @@ std::unique_ptr<IPhaseReconstructor> tryLoadPhaseReconstructorPlugin(
   return reconstructor;
 }
 
+std::optional<DiscoveredPhasePlugin> probePhaseReconstructorPlugin(const std::string &filePath) {
+  // Лёгкий пробный load+query напрямую через Win32Library, а не через
+  // DllPhaseReconstructor -- тот заточен под "загрузить и использовать
+  // один конкретный, уже выбранный плагин", здесь же нужен только опрос
+  // DqtPhasePluginInfo.
+  plugin_loading::Win32Library library;
+  if (!library.load(filePath))
+    return std::nullopt;  // не грузится
+
+  auto entry = reinterpret_cast<DqtPhasePluginEntryFn>(library.resolve("dqt_phase_plugin_entry"));
+  if (!entry)
+    return std::nullopt;  // не экспортирует нужный символ -- не наш плагин
+
+  DqtPhasePluginInfo info{};
+  const DqtPhaseReconstructorVTable *vtable = nullptr;
+  if (!entry(DQT_PHASE_RECONSTRUCTOR_ABI_VERSION, &info, &vtable) || !vtable)
+    return std::nullopt;  // отказал по версии ABI
+
+  DiscoveredPhasePlugin discovered;
+  discovered.filePath = filePath;
+  discovered.pluginName = info.pluginName ? info.pluginName : "";
+  discovered.pluginVersion = info.pluginVersion ? info.pluginVersion : "";
+  discovered.needsFringeLines = info.needsFringeLines != 0;
+  return discovered;
+}
+
 std::vector<DiscoveredPhasePlugin> discoverPhaseReconstructorPlugins() {
   std::vector<DiscoveredPhasePlugin> result;
 
@@ -53,31 +79,11 @@ std::vector<DiscoveredPhasePlugin> discoverPhaseReconstructorPlugins() {
   if (dir.empty())
     return result;
 
-  // Лёгкий пробный load+query напрямую через Win32Library, а не через
-  // DllPhaseReconstructor -- тот заточен под "загрузить и использовать
-  // один конкретный, уже выбранный плагин", здесь же нужен только опрос
-  // DqtPhasePluginInfo у каждого файла подряд.
   for (const auto &fileName : plugin_loading::listDllFiles(dir)) {
-    plugin_loading::Win32Library library;
-    if (!library.load(dir + "/" + fileName))
-      continue;  // не грузится -- пропускаем, не ошибка на уровне списка
-
-    auto entry =
-        reinterpret_cast<DqtPhasePluginEntryFn>(library.resolve("dqt_phase_plugin_entry"));
-    if (!entry)
-      continue;  // не экспортирует нужный символ -- не наш плагин
-
-    DqtPhasePluginInfo info{};
-    const DqtPhaseReconstructorVTable *vtable = nullptr;
-    if (!entry(DQT_PHASE_RECONSTRUCTOR_ABI_VERSION, &info, &vtable) || !vtable)
-      continue;  // отказал по версии ABI -- пропускаем
-
-    DiscoveredPhasePlugin discovered;
-    discovered.filePath = dir + "/" + fileName;
-    discovered.pluginName = info.pluginName ? info.pluginName : "";
-    discovered.pluginVersion = info.pluginVersion ? info.pluginVersion : "";
-    discovered.needsFringeLines = info.needsFringeLines != 0;
-    result.push_back(std::move(discovered));
+    // Один повреждённый .dll не должен ронять весь список остальных --
+    // тихо пропускаем (см. probePhaseReconstructorPlugin()).
+    if (auto plugin = probePhaseReconstructorPlugin(dir + "/" + fileName))
+      result.push_back(std::move(*plugin));
   }
 
   return result;

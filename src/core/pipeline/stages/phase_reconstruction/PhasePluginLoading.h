@@ -4,6 +4,7 @@
 #include "core/pipeline/stages/phase_reconstruction/IPhaseReconstructor.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -42,5 +43,16 @@ struct DiscoveredPhasePlugin {
  * .dll не должен ронять весь список остальных.
  */
 std::vector<DiscoveredPhasePlugin> discoverPhaseReconstructorPlugins();
+
+/**
+ * @brief Пробует опросить ОДИН конкретный .dll (произвольный путь, не
+ * обязательно внутри plugins/phase/) -- та же проверка, что делает
+ * discoverPhaseReconstructorPlugins() для каждого найденного файла, но
+ * для пути, который явно назвал пользователь (см. "Browse..." в
+ * ParametersDock). std::nullopt при неудаче (файл не грузится, не
+ * экспортирует dqt_phase_plugin_entry, отказал по версии ABI) --
+ * вызывающая сторона сама решает, как об этом сообщить пользователю.
+ */
+std::optional<DiscoveredPhasePlugin> probePhaseReconstructorPlugin(const std::string &filePath);
 
 }  // namespace digitqt::core

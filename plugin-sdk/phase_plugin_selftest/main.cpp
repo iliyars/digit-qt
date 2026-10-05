@@ -157,6 +157,25 @@ int main(int argc, char **argv) {
     allOk = false;
   }
 
+  // probePhaseReconstructorPlugin() -- то, чем пользуется "Browse..." в
+  // ParametersDock для произвольного пути: должен дать ровно то же, что
+  // discoverPhaseReconstructorPlugins() нашла для этого же файла
+  // сканированием, и явно отказать на файле, который не плагин вовсе.
+  out << "--- probePhaseReconstructorPlugin() ---\n";
+  if (!discovered.empty()) {
+    const auto &expected = discovered.front();
+    auto probed = digitqt::core::probePhaseReconstructorPlugin(expected.filePath);
+    const bool probeOk = probed.has_value() && probed->pluginName == expected.pluginName &&
+                        probed->needsFringeLines == expected.needsFringeLines;
+    allOk = allOk && probeOk;
+    out << "probe(" << expected.filePath.c_str() << "): " << (probeOk ? "OK" : "FAIL") << "\n";
+  }
+  auto probedBogus = digitqt::core::probePhaseReconstructorPlugin(
+      digitqt::core::plugin_loading::pluginsDirectory("phase") + "/not_a_plugin.dll");
+  const bool bogusRejected = !probedBogus.has_value();
+  allOk = allOk && bogusRejected;
+  out << "probe(not_a_plugin.dll): " << (bogusRejected ? "OK (rejected)" : "FAIL (accepted!)") << "\n";
+
   // Сквозная проверка того, что реально соберёт ParametersDock/
   // PhaseReconstructionStage.cpp: Measurement::customPhaseReconstructorPluginPath()
   // выбирает плагин по ПУТИ, а не по enum -- SetupStage должен сам решить,
