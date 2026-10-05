@@ -58,6 +58,11 @@ target_link_libraries(digitqt_phase_reconstructor_tests PRIVATE Qt5::Test Qt5::W
 set_target_properties(digitqt_phase_reconstructor_tests PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
+    # Грузит реальный horizontal_spline.dll -- HorizontalSpline больше не
+    # встроена в core (см. IPhaseReconstructor.h). Тот же приём, что у
+    # digitqt_e2e_synthetic_tests ниже -- общий output dir с DigitQt.exe,
+    # чтобы pluginsDirectory() нашёл тот же plugins/phase/.
+    RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:DigitQt>"
 )
 
 add_test(NAME PhaseReconstructorTest COMMAND digitqt_phase_reconstructor_tests)

@@ -38,11 +38,11 @@ std::unique_ptr<IPhaseReconstructor> tryLoadPhaseReconstructorPlugin(
 
   std::string error;
   auto reconstructor = DllPhaseReconstructor::load(dir + "/" + fileName, error);
-  // Отсутствие/повреждение плагина -- не ошибка на этом уровне: в
-  // отличие от трассировки (где built-in больше нет вообще), встроенные
-  // PhaseReconstructor/FourierPhaseExtractor/WaveletPhaseExtractor пока
-  // не удалены из core -- PhaseReconstructionStage переключается на них
-  // молча, если плагина нет.
+  // nullptr при отсутствии/повреждении плагина -- не ошибка на уровне
+  // ЭТОЙ функции, вызывающая сторона (PhaseReconstructionStage.cpp)
+  // сама решает, что с этим делать. Встроенной реализации в core больше
+  // нет ни у одного из 3 методов (см. CMakeLists.txt в этой папке), так
+  // что на практике nullptr здесь означает настоящую ошибку расчёта.
   return reconstructor;
 }
 

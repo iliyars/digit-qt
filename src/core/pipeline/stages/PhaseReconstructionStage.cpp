@@ -2,10 +2,7 @@
 
 #include "core/Measurement.h"
 #include "core/pipeline/stages/phase_reconstruction/DllPhaseReconstructor.h"
-#include "core/pipeline/stages/phase_reconstruction/FourierPhaseExtractor.h"
 #include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
-#include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
-#include "core/pipeline/stages/phase_reconstruction/WaveletPhaseExtractor.h"
 
 #include <algorithm>
 #include <aperture/include/visibility/VisibilityChecker.h>
@@ -36,11 +33,17 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
   const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
   const auto &customPluginPath = measurement.customPhaseReconstructorPluginPath();
 
-  // Выбор реализации -- либо явно выбранный сторонний плагин (по пути,
-  // не по enum), либо один из 3 известных (плагин, если найден, иначе
-  // встроенный fallback, как раньше). needsLines в обоих случаях решает,
-  // какую сетку готовить ниже -- либо из ABI v2 needsFringeLines
-  // кастомного плагина, либо (для известных 3) по enum, как и раньше.
+  // Ни у одного из 3 методов сшивки фазы больше нет встроенной
+  // реализации в core -- все вынесены в самодостаточные
+  // DqtPhaseReconstructor C ABI-плагины (plugin-sdk/*_phase_plugin/, см.
+  // историю в памяти qt_decoupling_and_plugin_abi). Отсутствие нужного
+  // .dll -- настоящая ошибка, не повод для fallback (та же причина, что
+  // и у трассировки -- держать встроенную копию "на всякий случай"
+  // воспроизвело бы именно ту дублирующуюся реализацию, ради устранения
+  // которой всё это делалось).
+  //
+  // needsLines решает, какую сетку готовить ниже -- из ABI v2
+  // needsFringeLines кастомного плагина, либо (для известных 3) по enum.
   std::unique_ptr<digitqt::core::IPhaseReconstructor> reconstructor;
   bool needsLines = false;
 
@@ -56,24 +59,12 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
     reconstructor = std::move(custom);
   } else {
     needsLines = (phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline);
-    // Плагин предпочтительнее встроенной реализации, если он есть рядом
-    // с exe (<каталог exe>/plugins/phase/<algo>.dll) -- иначе молча
-    // падаем на встроенный класс (в отличие от трассировки, где
-    // built-in больше нет вообще -- здесь ещё есть, см.
-    // PhasePluginLoading.cpp).
     reconstructor = digitqt::core::tryLoadPhaseReconstructorPlugin(phaseAlgorithm);
     if (!reconstructor) {
-      switch (phaseAlgorithm) {
-        case digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline:
-          reconstructor = std::make_unique<PhaseReconstructor>();
-          break;
-        case digitqt::core::PhaseReconstructionAlgorithm::FourierTransform:
-          reconstructor = std::make_unique<FourierPhaseExtractor>();
-          break;
-        case digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform:
-          reconstructor = std::make_unique<WaveletPhaseExtractor>();
-          break;
-      }
+      errorMessage = "Phase reconstructor plugin not found or failed to load "
+                     "(plugins/phase/ next to the executable) -- this algorithm has no "
+                     "built-in implementation.";
+      return false;
     }
   }
 

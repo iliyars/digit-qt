@@ -10,6 +10,23 @@
 
 namespace digitqt::core {
 
+/**
+ * @brief Общий контракт методов сшивки фазы (S2).
+ *
+ * Как и у IFringeTracer, в core не осталось ни одной встроенной
+ * реализации -- все 3 метода самодостаточны и живут только как
+ * DqtPhaseReconstructor C ABI-плагины, загружаются
+ * PhasePluginLoading.h в рантайме. Отсутствие нужного .dll --
+ * настоящая ошибка от PhaseReconstructionStage, не fallback:
+ *   - HorizontalSplinePhaseReconstructor (plugin-sdk/horizontal_spline_phase_plugin/):
+ *     построчная кубическая сплайн-интерполяция по пронумерованным
+ *     линиям полос, порт WavefrontFromContoursSolver_HorizontalSpline.
+ *   - FourierPhaseExtractor (plugin-sdk/fourier_phase_plugin/):
+ *     метод Фурье-анализа (Такеда, 1982), прямо по пикселям картинки.
+ *   - WaveletPhaseExtractor (plugin-sdk/wavelet_phase_plugin/):
+ *     непрерывный вейвлет-анализ (Zhong & Weng, 2004), тоже прямо по
+ *     пикселям.
+ */
 class IPhaseReconstructor {
 public:
   virtual ~IPhaseReconstructor() = default;

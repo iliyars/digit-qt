@@ -1,8 +1,10 @@
 // Сквозная проверка ИМЕННО того пути, которым реально пользуется
 // PhaseReconstructionStage.cpp: core::tryLoadPhaseReconstructorPlugin()
-// -- для всех 3 методов сшивки фазы сразу, со сверкой против всё ещё
-// существующих встроенных реализаций (в отличие от трассировки, где
-// built-in уже нет -- см. tracer_plugin_selftest).
+// -- для всех 3 методов сшивки фазы сразу. Ни у одного нет больше
+// встроенной реализации в core (все 3 -- самодостаточные плагины, см.
+// историю в памяти qt_decoupling_and_plugin_abi), так что здесь только
+// "загрузился и дал разумный результат", без diff против builtin --
+// тот же принцип, что у tracer_plugin_selftest.
 //
 // Собирается и запускается рядом с DigitQt.exe (см. CMakeLists.txt,
 // RUNTIME_OUTPUT_DIRECTORY), чтобы core::plugin_loading::pluginsDirectory()
@@ -12,10 +14,7 @@
 #include "core/Measurement.h"
 #include "core/pipeline/stages/PhaseReconstructionStage.h"
 #include "core/pipeline/stages/SetupStage.h"
-#include "core/pipeline/stages/phase_reconstruction/FourierPhaseExtractor.h"
 #include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
-#include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
-#include "core/pipeline/stages/phase_reconstruction/WaveletPhaseExtractor.h"
 #include "core/plugin_loading/PluginDirectory.h"
 #include "io/ImageLoader.h"
 
@@ -26,25 +25,11 @@
 #include <QTextStream>
 
 #include <algorithm>
-#include <cmath>
 #include <memory>
 
 namespace {
 
-using digitqt::core::IPhaseReconstructor;
 using digitqt::core::PhaseReconstructionAlgorithm;
-
-std::unique_ptr<IPhaseReconstructor> makeBuiltin(PhaseReconstructionAlgorithm algorithm) {
-  switch (algorithm) {
-    case PhaseReconstructionAlgorithm::HorizontalSpline:
-      return std::make_unique<digitqt::core::pipeline::PhaseReconstructor>();
-    case PhaseReconstructionAlgorithm::FourierTransform:
-      return std::make_unique<digitqt::core::pipeline::FourierPhaseExtractor>();
-    case PhaseReconstructionAlgorithm::WaveletTransform:
-      return std::make_unique<digitqt::core::pipeline::WaveletPhaseExtractor>();
-  }
-  return nullptr;
-}
 
 const char *algorithmName(PhaseReconstructionAlgorithm algorithm) {
   switch (algorithm) {
@@ -53,29 +38,6 @@ const char *algorithmName(PhaseReconstructionAlgorithm algorithm) {
     case PhaseReconstructionAlgorithm::WaveletTransform: return "WaveletTransform";
   }
   return "?";
-}
-
-// Сравнивает две PhaseMap поточечно, допуская небольшую погрешность --
-// плагин и built-in делают идентичную арифметику, но проходят через
-// разные пути хранения промежуточных double (ABI-буфер туда-обратно),
-// так что бит-в-бит не гарантирован в отличие от трассировки (там
-// сравнивались только исходные double от алгоритма, тут ещё копирование
-// через плоский буфер).
-bool phaseMapsMatch(const digitqt::core::PhaseMap &a, const digitqt::core::PhaseMap &b,
-                    double tolerance) {
-  if (a.width() != b.width() || a.height() != b.height())
-    return false;
-  for (int y = 0; y < a.height(); ++y) {
-    for (int x = 0; x < a.width(); ++x) {
-      const bool ha = a.hasValue(x, y);
-      const bool hb = b.hasValue(x, y);
-      if (ha != hb)
-        return false;
-      if (ha && std::abs(a.value(x, y) - b.value(x, y)) > tolerance)
-        return false;
-    }
-  }
-  return true;
 }
 
 }  // namespace
@@ -139,8 +101,6 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    auto builtin = makeBuiltin(algorithm);
-
     const int gridWidth = bitmap.width();
     const int gridHeight = bitmap.height();
     static const std::vector<digitqt::core::NumberedFringeLine> kNoLines;
@@ -148,21 +108,13 @@ int main(int argc, char **argv) {
         (algorithm == PhaseReconstructionAlgorithm::HorizontalSpline) ? lines : kNoLines;
 
     auto pluginMap = plugin->reconstruct(gridWidth, gridHeight, bitmap, isVisible, lineArg);
-    auto builtinMap = builtin->reconstruct(gridWidth, gridHeight, bitmap, isVisible, lineArg);
 
-    if (pluginMap.isEmpty() || builtinMap.isEmpty()) {
-      err << algorithmName(algorithm) << ": FAIL -- plugin.isEmpty()=" << pluginMap.isEmpty()
-          << " builtin.isEmpty()=" << builtinMap.isEmpty()
-          << " pluginError=" << plugin->lastError().c_str()
-          << " builtinError=" << builtin->lastError().c_str() << "\n";
-      allOk = false;
-      continue;
-    }
-
-    const bool match = phaseMapsMatch(pluginMap, builtinMap, 1e-6);
-    allOk = allOk && match;
-    out << algorithmName(algorithm) << ": " << (match ? "MATCH" : "MISMATCH")
+    const bool ok = !pluginMap.isEmpty();
+    allOk = allOk && ok;
+    out << algorithmName(algorithm) << ": " << (ok ? "OK" : "FAIL -- empty phaseMap")
         << " (plugin=" << plugin->name().c_str() << ")\n";
+    if (!ok)
+      err << algorithmName(algorithm) << ": " << plugin->lastError().c_str() << "\n";
   }
 
   // Проверка обнаружения: discoverPhaseReconstructorPlugins() должна

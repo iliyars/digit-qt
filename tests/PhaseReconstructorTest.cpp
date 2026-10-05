@@ -1,6 +1,7 @@
 #include "core/Bitmap.h"
 #include "core/NumberedFringeLine.h"
-#include "core/pipeline/stages/phase_reconstruction/PhaseReconstructor.h"
+#include "core/pipeline/stages/phase_reconstruction/DllPhaseReconstructor.h"
+#include "core/plugin_loading/PluginDirectory.h"
 
 #include <QtTest/QtTest>
 
@@ -49,14 +50,25 @@ void PhaseReconstructorTest::crossingLinesDoNotBlowUpTheSpline() {
       makeLine(6.0, {{50.0, 0.0}, {50.0, 10.0}, {50.0, 20.0}}),
   };
 
-  digitqt::core::pipeline::PhaseReconstructor reconstructor;
+  // HorizontalSpline больше не встроена в core -- живёт только как
+  // самодостаточный плагин (см. историю в памяти qt_decoupling_and_plugin_abi).
+  // Грузим ровно тот .dll, которым реально пользуется
+  // PhaseReconstructionStage -- RUNTIME_OUTPUT_DIRECTORY этого теста
+  // (см. tests/CMakeLists.txt) совпадает с DigitQt.exe, поэтому
+  // pluginsDirectory() находит тот же build/.../plugins/phase/.
+  const std::string pluginPath =
+      digitqt::core::plugin_loading::pluginsDirectory("phase") + "/horizontal_spline.dll";
+  std::string loadError;
+  auto reconstructor = digitqt::core::DllPhaseReconstructor::load(pluginPath, loadError);
+  QVERIFY2(reconstructor != nullptr, qPrintable(QString::fromStdString(loadError)));
+
   auto isVisible = [](int, int) { return true; };
   // HorizontalSpline игнорирует image (см. IPhaseReconstructor::reconstruct()) --
   // размер значения не имеет, просто нужен валидный Bitmap для сигнатуры.
   digitqt::core::Bitmap unusedImage(60, 21);
-  const auto phase = reconstructor.reconstruct(60, 21, unusedImage, isVisible, lines);
+  const auto phase = reconstructor->reconstruct(60, 21, unusedImage, isVisible, lines);
 
-  QVERIFY(reconstructor.lastError().empty());
+  QVERIFY(reconstructor->lastError().empty());
   QVERIFY(!phase.isEmpty());
 
   // The whole line set only spans fringe orders 0..6 -- any well-behaved
