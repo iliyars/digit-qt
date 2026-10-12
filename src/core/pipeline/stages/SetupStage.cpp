@@ -43,6 +43,14 @@ bool SetupStage::doCompute(digitqt::core::Measurement &measurement, std::string 
     errorMessage = "No image loaded";
     return false;
   }
+  // Раньше любой другой ветки: и трассировка, и "пропуск трассировки"
+  // ниже перезаписывают tracedLines(), а на холсте без пикселей это
+  // единственные данные, которые есть (импортированные полосы).
+  if (measurement.imageIsPlaceholder()) {
+    errorMessage = "No interferogram image: the fringes were imported without one, so there is "
+                   "nothing to trace. Open the image to trace fringes again.";
+    return false;
+  }
 
   // Методы Фурье- и вейвлет-анализа полос (и любой сторонний плагин,
   // заявивший needsFringeLines=false) работают прямо по изображению +

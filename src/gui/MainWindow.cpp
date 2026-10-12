@@ -7,13 +7,14 @@
 #include "gui/PipelineTreeDock.h"
 #include "core/FiducialTransformFit.h"
 #include "core/ImagePadding.h"
+#include "formats/FormatRegistry.h"
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
 #include "io/ModalReportExporter.h"
 #include "io/MtrExporter.h"
-#include "io/MtrImporter.h"
 
 #include <QActionGroup>
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QKeySequence>
@@ -33,6 +34,7 @@
 #include <QtConcurrent>
 
 #include <algorithm>
+#include <cmath>
 
 namespace digitqt::gui {
 
@@ -126,11 +128,10 @@ void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
   auto *openAction = fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
-  auto *importMtrAction =
-      fileMenu->addAction(tr("&Import Wavefront (.mtr)..."), this, &MainWindow::importMtr);
-  importMtrAction->setToolTip(
-      tr("Load a WinFringe .mtr wavefront matrix directly into Phase/Wavefront/Modal "
-         "Analysis, skipping Setup and fringe tracing"));
+  auto *importAction = fileMenu->addAction(tr("&Import..."), this, &MainWindow::importFile);
+  importAction->setToolTip(
+      tr("Load a WinFringe .mtr wavefront matrix (straight into Phase/Wavefront/Modal "
+         "Analysis) or a .frn file with aperture shapes and numbered fringes (into Setup)"));
   auto *exportMtrAction = fileMenu->addAction(tr("Export &Wavefront (.mtr)..."));
   connect(exportMtrAction, &QAction::triggered, this, [this] {
     if (m_measurement->wavefrontMap().isEmpty()) {
@@ -731,6 +732,11 @@ void MainWindow::openImage() {
     return;
   }
   m_measurement->setImage(digitqt::core::padImageBackground(result.image), path.toStdString());
+  resetViewsToMeasurement();
+  updateStatusBar();
+}
+
+void MainWindow::resetViewsToMeasurement() {
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
@@ -739,37 +745,99 @@ void MainWindow::openImage() {
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
   m_modalPhaseMapView->setMeasurement(m_measurement.get());
-  updateStatusBar();
 }
 
-void MainWindow::importMtr() {
-  const QString path = QFileDialog::getOpenFileName(this, tr("Import Wavefront"), QString(),
-                                                     tr("WinFringe Matrix (*.mtr)"));
+void MainWindow::importFile() {
+  namespace formats = digitqt::formats;
+
+  QStringList filters, allPatterns;
+  for (const formats::IFormatAdapter *adapter : formats::importAdapters()) {
+    QStringList patterns;
+    for (const std::string &extension : adapter->extensions())
+      patterns << QStringLiteral("*.") + QString::fromStdString(extension);
+    allPatterns << patterns;
+    filters << QStringLiteral("%1 (%2)").arg(QString::fromStdString(adapter->displayName()),
+                                             patterns.join(QLatin1Char(' ')));
+  }
+  filters.prepend(tr("All supported files (%1)").arg(allPatterns.join(QLatin1Char(' '))));
+  filters << tr("All files (*)");
+
+  const QString path = QFileDialog::getOpenFileName(this, tr("Import"), QString(),
+                                                     filters.join(QStringLiteral(";;")));
   if (path.isEmpty())
     return;
 
-  digitqt::core::PhaseMap phase;
-  QString err;
-  if (!digitqt::core::io::readMtrFile(path, phase, err)) {
-    QMessageBox::warning(this, tr("Import"), tr("Import failed:\n%1").arg(err));
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    QMessageBox::warning(this, tr("Import"), tr("Could not open file for reading:\n%1").arg(path));
+    return;
+  }
+  const QByteArray bytes = file.readAll();
+  const std::string_view data(bytes.constData(), static_cast<size_t>(bytes.size()));
+
+  // The extension only chose which files the dialog listed -- what the
+  // file actually is gets decided by its content.
+  const formats::IFormatAdapter *adapter =
+      formats::detectFormat(data.substr(0, formats::kProbeBytes));
+  if (!adapter) {
+    QMessageBox::warning(this, tr("Import"), tr("Unrecognized file format:\n%1").arg(path));
     return;
   }
 
-  // .mtr has no Setup/S1 behind it (no image, no boundaries, no fringe
-  // tracing) -- it drops straight into S2's slot. S4 and S5 only need
-  // phaseMap()/wavefrontMap() (see WavefrontReconstructionStage and
+  formats::ImportedData imported;
+  std::string error;
+  if (!adapter->importData(data, imported, error)) {
+    QMessageBox::warning(this, tr("Import"),
+                         tr("Import failed:\n%1").arg(QString::fromStdString(error)));
+    return;
+  }
+
+  // What to do with the result follows from which fields the adapter
+  // filled, not from which format the file was.
+  if (imported.phaseMap) {
+    applyImportedPhaseMap(std::move(*imported.phaseMap));
+  } else if (imported.boundaries || !imported.fringeLines.empty()) {
+    applyImportedFringes(imported, path);
+  } else {
+    QMessageBox::warning(this, tr("Import"), tr("The file contains nothing this program can use."));
+    return;
+  }
+
+  QStringList reportLines;
+  for (const formats::FidelityNote &note : imported.report) {
+    QString kind;
+    switch (note.kind) {
+      case formats::Fidelity::Lossless:
+        kind = tr("As is");
+        break;
+      case formats::Fidelity::Converted:
+        kind = tr("Converted");
+        break;
+      case formats::Fidelity::Dropped:
+        kind = tr("Dropped");
+        break;
+      case formats::Fidelity::Missing:
+        kind = tr("Missing");
+        break;
+    }
+    reportLines << QStringLiteral("%1: %2").arg(kind, QString::fromStdString(note.what));
+  }
+  QMessageBox::information(this, tr("Import"),
+                           tr("Imported %1 as %2.\n\n%3")
+                               .arg(QFileInfo(path).fileName(),
+                                    QString::fromStdString(adapter->displayName()),
+                                    reportLines.join(QLatin1Char('\n'))));
+}
+
+void MainWindow::applyImportedPhaseMap(digitqt::core::PhaseMap phase) {
+  // A ready phase map has no Setup/S1 behind it (no image, no boundaries,
+  // no fringe tracing) -- it drops straight into S2's slot. S4 and S5 only
+  // need phaseMap()/wavefrontMap() (see WavefrontReconstructionStage and
   // ModalAnalysisStage, which derives the aperture from the map's own
   // bounding box rather than Measurement::boundaries()), so running them
   // right away fills the whole rest of the pipeline in one step.
   m_measurement->setImportedPhaseMap(std::move(phase));
-  m_undoStack->clear();
-  m_controller->setMeasurement(m_measurement.get());
-  m_fringeController->setMeasurement(m_measurement.get());
-  m_fiducialController->setMeasurement(m_measurement.get());
-  m_canvas->setMeasurement(m_measurement.get());
-  m_phaseMapView->setMeasurement(m_measurement.get());
-  m_surface3DView->setMeasurement(m_measurement.get());
-  m_modalPhaseMapView->setMeasurement(m_measurement.get());
+  resetViewsToMeasurement();
 
   m_pipeline->stage(StageId::S2).markComputed();
   // Chained, not fired together: each stage now runs on a background
@@ -783,6 +851,94 @@ void MainWindow::importMtr() {
       updateStatusBar();
     });
   });
+}
+
+void MainWindow::applyImportedFringes(digitqt::formats::ImportedData &data,
+                                      const QString &sourcePath) {
+  // The pipeline needs the image only for its size (the phase grid) and
+  // the canvas for a backdrop -- shapes and fringes are complete without
+  // it. So the image the file names is used if it happens to lie next to
+  // the file, and is not asked for otherwise: usually it isn't there.
+  const QString imageName = QString::fromStdString(data.imageFileName);
+  const QString imagePath =
+      imageName.isEmpty() ? QString() : QFileInfo(sourcePath).dir().filePath(imageName);
+  const auto loaded = QFileInfo::exists(imagePath) ? digitqt::io::loadImage(imagePath)
+                                                   : digitqt::io::ImageLoadResult{};
+
+  double dx = 0.0, dy = 0.0;
+  if (loaded.ok()) {
+    digitqt::core::Bitmap padded = digitqt::core::padImageBackground(loaded.image);
+    // The model works on the padded image (see openImage()), so coordinates
+    // relative to the original image move by the padding margin. A file
+    // written by our own FrnExporter already refers to the padded size.
+    if (data.imageWidth != padded.width() || data.imageHeight != padded.height()) {
+      dx = (padded.width() - loaded.image.width()) / 2.0;
+      dy = (padded.height() - loaded.image.height()) / 2.0;
+      if (data.imageWidth != loaded.image.width() || data.imageHeight != loaded.image.height())
+        data.report.push_back(
+            {digitqt::formats::Fidelity::Missing,
+             "Image size in the file (" + std::to_string(data.imageWidth) + "x" +
+                 std::to_string(data.imageHeight) + ") does not match " + imageName.toStdString() +
+                 " (" + std::to_string(loaded.image.width()) + "x" +
+                 std::to_string(loaded.image.height()) + "); coordinates may be misplaced"});
+    }
+    m_measurement->setImage(std::move(padded), imagePath.toStdString());
+  } else {
+    // No image: a blank canvas of the size the file states, or -- if it
+    // states none -- just large enough to hold everything imported.
+    int width = data.imageWidth, height = data.imageHeight;
+    if (width <= 0 || height <= 0) {
+      double maxX = 0.0, maxY = 0.0;
+      if (data.boundaries) {
+        const auto bounds = data.boundaries->getCombinedBounds();
+        maxX = bounds.maxX();
+        maxY = bounds.maxY();
+      }
+      for (const auto &line : data.fringeLines) {
+        for (const auto &point : line.points) {
+          maxX = std::max(maxX, point.x);
+          maxY = std::max(maxY, point.y);
+        }
+      }
+      width = static_cast<int>(std::ceil(maxX)) + 1;
+      height = static_cast<int>(std::ceil(maxY)) + 1;
+    }
+    m_measurement->setPlaceholderImage(width, height);
+    data.report.push_back(
+        {digitqt::formats::Fidelity::Missing,
+         (imageName.isEmpty() ? std::string("No image is named in the file")
+                              : "Image " + imageName.toStdString() + " was not found next to the file") +
+             "; a blank " + std::to_string(width) + "x" + std::to_string(height) +
+             " canvas is used instead"});
+  }
+
+  if (data.boundaries) {
+    for (const auto *shapes : {&data.boundaries->getExternal(), &data.boundaries->getInternal(),
+                               &data.boundaries->getApertures()}) {
+      for (const auto &shape : *shapes) {
+        shape->shiftX(dx);
+        shape->shiftY(dy);
+      }
+    }
+    m_measurement->boundaries() = std::move(*data.boundaries);
+    m_measurement->boundaries().notifyShapeModified();
+  }
+  for (auto &line : data.fringeLines) {
+    for (auto &point : line.points) {
+      point.x += dx;
+      point.y += dy;
+    }
+  }
+  m_measurement->fringeTracing().tracedLines() = std::move(data.fringeLines);
+
+  resetViewsToMeasurement();
+  // Numbered fringes are what Setup produces; everything after it has to
+  // be computed from them.
+  m_pipeline->invalidateFrom(StageId::S2);
+  if (!m_measurement->fringeTracing().tracedLines().empty())
+    m_pipeline->stage(StageId::Setup).markComputed();
+  m_pipelineDock->selectStage(StageId::Setup);
+  updateStatusBar();
 }
 
 void MainWindow::updateStatusBar() {

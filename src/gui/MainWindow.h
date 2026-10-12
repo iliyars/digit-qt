@@ -8,6 +8,7 @@
 #include "canvas/Surface3DView.h"
 #include "core/Measurement.h"
 #include "core/pipeline/Pipeline.h"
+#include "formats/FormatAdapter.h"
 
 #include <QList>
 #include <QMainWindow>
@@ -34,13 +35,13 @@ public:
 
 private slots:
   void openImage();
-  void importMtr();
+  void importFile();
   void updateStatusBar();
   void onStageSelected(digitqt::core::pipeline::StageId id);
   void runTracing();
   void computePhase();
   // `then` (if given) runs after this stage's own success/failure
-  // handling and view refresh -- see importMtr(), which chains
+  // handling and view refresh -- see applyImportedPhaseMap(), which chains
   // computeWavefront() -> computeModalAnalysis() this way instead of
   // firing both at once (each now runs on a background thread, so
   // firing both immediately would race S5 reading wavefrontMap()
@@ -52,6 +53,16 @@ private:
   void buildMenusAndToolbars();
   void buildLanguageMenu();
   void buildDocks();
+
+  /// Re-points every controller/view at m_measurement after its image or
+  /// imported data was replaced wholesale.
+  void resetViewsToMeasurement();
+  /// The two things an imported file can turn into (see importFile()):
+  /// a ready phase map that drops straight into S2, or aperture shapes +
+  /// numbered fringes, which fill Setup -- over the image the file names
+  /// if it lies next to the file, over a blank canvas otherwise.
+  void applyImportedPhaseMap(digitqt::core::PhaseMap phase);
+  void applyImportedFringes(digitqt::formats::ImportedData &data, const QString &sourcePath);
 
   /// Runs `compute` on a background thread (QtConcurrent) and shows an
   /// indeterminate busy indicator + `busyText` in the status bar while

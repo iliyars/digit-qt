@@ -36,6 +36,14 @@ public:
   // Measurement only stores the result.
   void setImage(digitqt::core::Bitmap image, std::string path);
   bool hasImage() const { return !m_image.isNull(); }
+  /// Пустой холст width x height вместо изображения -- для данных,
+  /// пришедших без него (например, импорт полос и апертуры из .frn): у
+  /// конвейера есть размер сетки, у окна -- фон, но пикселей
+  /// интерферограммы нет. Сбрасывает всё остальное так же, как setImage().
+  /// Всё, что читает сами пиксели (трассировка, Fourier/Wavelet), обязано
+  /// проверять imageIsPlaceholder() и отказываться.
+  void setPlaceholderImage(int width, int height);
+  bool imageIsPlaceholder() const { return m_imageIsPlaceholder; }
   const digitqt::core::Bitmap &image() const { return m_image; }
   const std::string &imagePath() const { return m_imagePath; }
 
@@ -140,6 +148,7 @@ public:
 private:
   digitqt::core::Bitmap m_image;
   std::string m_imagePath;
+  bool m_imageIsPlaceholder = false;
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;

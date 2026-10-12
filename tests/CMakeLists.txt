@@ -94,3 +94,64 @@ set_target_properties(digitqt_e2e_synthetic_tests PROPERTIES
 )
 
 add_test(NAME EndToEndSyntheticInterferogramTest COMMAND digitqt_e2e_synthetic_tests)
+
+# Адаптеры форматов (src/formats/). Сам адаптер Qt-свободен; Qt здесь
+# нужен только тесту -- и io/MtrImporter.cpp, старой Qt-реализации того
+# же чтения, с которой новая сверяется на реальных файлах из test_data/.
+add_executable(digitqt_mtr_adapter_tests
+    MtrAdapterTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/io/MtrImporter.cpp
+)
+
+target_link_libraries(digitqt_mtr_adapter_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Formats)
+
+target_compile_definitions(digitqt_mtr_adapter_tests PRIVATE
+    DIGITQT_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test_data"
+)
+
+set_target_properties(digitqt_mtr_adapter_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME MtrAdapterTest COMMAND digitqt_mtr_adapter_tests)
+
+add_executable(digitqt_frn_adapter_tests
+    FrnAdapterTest.cpp
+)
+
+target_link_libraries(digitqt_frn_adapter_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Formats)
+
+target_compile_definitions(digitqt_frn_adapter_tests PRIVATE
+    DIGITQT_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test_data"
+)
+
+set_target_properties(digitqt_frn_adapter_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME FrnAdapterTest COMMAND digitqt_frn_adapter_tests)
+
+# Импортированные из .frn полосы без изображения: реальные S1/S2 на
+# холсте-заглушке (см. Measurement::setPlaceholderImage()).
+add_executable(digitqt_imported_fringes_tests
+    ImportedFringesPipelineTest.cpp
+)
+
+target_link_libraries(digitqt_imported_fringes_tests PRIVATE Qt5::Test Qt5::Widgets
+                                                              DigitQt::Formats)
+
+target_compile_definitions(digitqt_imported_fringes_tests PRIVATE
+    DIGITQT_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test_data"
+)
+
+set_target_properties(digitqt_imported_fringes_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    # Грузит реальный horizontal_spline.dll -- тот же приём, что у
+    # digitqt_phase_reconstructor_tests выше.
+    RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:DigitQt>"
+)
+
+add_test(NAME ImportedFringesPipelineTest COMMAND digitqt_imported_fringes_tests)

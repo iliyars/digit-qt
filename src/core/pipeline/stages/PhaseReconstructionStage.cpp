@@ -121,6 +121,11 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
     // needsFringeLines=false) -- всегда в полном разрешении картинки,
     // линии не нужны (остаются пустыми, IPhaseReconstructor::
     // reconstruct() это допускает).
+    if (measurement.imageIsPlaceholder()) {
+      errorMessage = "This phase reconstruction method works on the interferogram image, but the "
+                     "fringes were imported without one. Use Horizontal Spline instead.";
+      return false;
+    }
     gridWidth = measurement.image().width();
     gridHeight = measurement.image().height();
     isVisible = [&checker](int x, int y) {
