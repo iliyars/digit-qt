@@ -21,7 +21,7 @@ struct Edge {
 }  // namespace
 
 bool unwrapPhase(const PhaseMap &wrapped, const PhaseMap &quality, UnwrapResult &out,
-                 std::string &error) {
+                 std::string &error, int minRegionSize) {
   const int width = wrapped.width();
   const int height = wrapped.height();
   if (wrapped.isEmpty()) {
@@ -71,13 +71,16 @@ bool unwrapPhase(const PhaseMap &wrapped, const PhaseMap &quality, UnwrapResult 
     }
   };
 
-  int regions = 0;
+  // done: 0 -- не тронута, 1 -- развёрнута, 2 -- в слишком мелкой области.
+  int regions = 0, dropped = 0;
+  std::vector<int32_t> members;
   for (const int32_t seed : seeds) {
     if (done[seed])
       continue;
-    ++regions;
+    members.clear();
     unwrapped[seed] = wrapped.value(seed % width, seed / width);
     done[seed] = 1;
+    members.push_back(seed);
     pushNeighbours(seed);
 
     while (!edges.empty()) {
@@ -89,18 +92,33 @@ bool unwrapPhase(const PhaseMap &wrapped, const PhaseMap &quality, UnwrapResult 
       // Из w + 2*pi*k -- ближайшее к уже развёрнутому соседу.
       unwrapped[edge.to] = w + twoPi * std::round((unwrapped[edge.from] - w) / twoPi);
       done[edge.to] = 1;
+      members.push_back(edge.to);
       pushNeighbours(edge.to);
     }
+
+    if (static_cast<int>(members.size()) < minRegionSize) {
+      for (const int32_t index : members)
+        done[index] = 2;
+      dropped += static_cast<int>(members.size());
+    } else {
+      ++regions;
+    }
+  }
+  if (regions == 0) {
+    error = "Nothing to unwrap: every connected area is smaller than " +
+            std::to_string(minRegionSize) + " points";
+    return false;
   }
 
   PhaseMap orders(width, height);
   for (int y = 0; y < height; ++y)
     for (int x = 0; x < width; ++x)
-      if (done[static_cast<size_t>(y) * width + x])
+      if (done[static_cast<size_t>(y) * width + x] == 1)
         orders.setValue(x, y, unwrapped[static_cast<size_t>(y) * width + x] / twoPi);
 
   out.orders = std::move(orders);
   out.regionCount = regions;
+  out.droppedPoints = dropped;
   return true;
 }
 

@@ -836,15 +836,17 @@ void ParametersDock::refresh() {
                   .arg(comaStr)
                   .arg(trefoilStr)
                   .arg(sphericalStr)
-                  .arg(data.rmsBeforeNm, 0, 'f', 1)
-                  .arg(data.rmsBeforeNm / data.wavelengthNm, 0, 'f', 3)
-                  .arg(data.rmsAfterNm, 0, 'f', 1)
-                  .arg(data.rmsAfterNm / data.wavelengthNm, 0, 'f', 3)
-                  .arg(data.pvBeforeNm, 0, 'f', 1)
-                  .arg(data.pvBeforeNm / data.wavelengthNm, 0, 'f', 3)
-                  .arg(data.pvAfterNm, 0, 'f', 1)
-                  .arg(data.pvAfterNm / data.wavelengthNm, 0, 'f', 3)
-                  .arg(data.strehl, 0, 'f', 3);
+                  // 5 знаков в λ: остаток хорошего PSI -- тысячные и
+                  // десятитысячные доли волны, при 3 знаках он виден как 0.000.
+                  .arg(data.rmsBeforeNm, 0, 'f', 2)
+                  .arg(data.rmsBeforeNm / data.wavelengthNm, 0, 'f', 5)
+                  .arg(data.rmsAfterNm, 0, 'f', 2)
+                  .arg(data.rmsAfterNm / data.wavelengthNm, 0, 'f', 5)
+                  .arg(data.pvBeforeNm, 0, 'f', 2)
+                  .arg(data.pvBeforeNm / data.wavelengthNm, 0, 'f', 5)
+                  .arg(data.pvAfterNm, 0, 'f', 2)
+                  .arg(data.pvAfterNm / data.wavelengthNm, 0, 'f', 5)
+                  .arg(data.strehl, 0, 'f', 5);
     }
   } else {
     text += tr("No parameters yet — this stage is not implemented.");

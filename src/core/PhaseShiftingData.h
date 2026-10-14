@@ -34,6 +34,7 @@ public:
     bool mirrored = false;  ///< см. psi::PsiResult::mirrored
     int regionCount = 0;    ///< см. UnwrapResult::regionCount
     int maskedLowModulation = 0;  ///< точек апертуры, выброшенных из-за слабых полос
+    int droppedIslandPoints = 0;  ///< точек в мелких оторванных островках, тоже выброшенных
   };
   const Report &report() const { return m_report; }
   void setReport(Report report) { m_report = std::move(report); }

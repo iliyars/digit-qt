@@ -15,6 +15,9 @@ struct UnwrapResult {
   /// Больше 1 -- между областями неизвестна целая разность порядков, каждая
   /// развёрнута от своей точки отсчёта.
   int regionCount = 0;
+  /// Точек в областях меньше minRegionSize -- они оставлены NaN и в
+  /// regionCount не входят.
+  int droppedPoints = 0;
 };
 
 /**
@@ -33,8 +36,11 @@ struct UnwrapResult {
  * @param wrapped Свёрнутая фаза в радианах; NaN -- точка не участвует.
  * @param quality Надёжность каждой точки, больше -- лучше (для PSI --
  *        модуляция). Пустая карта -- все точки равноценны.
+ * @param minRegionSize Связные области меньше этого числа точек
+ *        выбрасываются: одиночные шумовые пиксели у края апертуры иначе
+ *        считались бы отдельными "областями" с неизвестным порядком.
  */
 bool unwrapPhase(const PhaseMap &wrapped, const PhaseMap &quality, UnwrapResult &out,
-                 std::string &error);
+                 std::string &error, int minRegionSize = 1);
 
 }  // namespace digitqt::core

@@ -386,6 +386,18 @@ void PhaseShiftingTest::unwrapCountsDisconnectedRegions() {
   QCOMPARE(result.regionCount, 2);
   QVERIFY(!result.orders.hasValue(kSize / 2, kSize / 2));
 
+  // Одиночная точка вне апертуры -- островок: с порогом размера она
+  // выбрасывается и областью не считается.
+  wrapped.setValue(1, 1, 0.5);
+  QVERIFY2(digitqt::core::unwrapPhase(wrapped, digitqt::core::PhaseMap(), result, error),
+           error.c_str());
+  QCOMPARE(result.regionCount, 3);
+  QVERIFY2(digitqt::core::unwrapPhase(wrapped, digitqt::core::PhaseMap(), result, error, 100),
+           error.c_str());
+  QCOMPARE(result.regionCount, 2);
+  QCOMPARE(result.droppedPoints, 1);
+  QVERIFY(!result.orders.hasValue(1, 1));
+
   QVERIFY(!digitqt::core::unwrapPhase(digitqt::core::PhaseMap(kSize, kSize),
                                       digitqt::core::PhaseMap(), result, error));
 }

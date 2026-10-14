@@ -33,6 +33,12 @@ constexpr int kMaxGridDimension = 5000;
 // нужна полная уверенность, а здесь достаточно, чтобы полосы вообще были.
 constexpr double kPsiMinModulationForMap = 0.1;
 
+// Связные куски карты меньше этого -- шумовые островки (обычно одиночные
+// пиксели у края апертуры, случайно прошедшие порог модуляции): у них нет
+// связи с основной областью, их порядок полосы неизвестен, и без этого
+// порога каждый считался бы отдельной "областью" в предупреждении.
+constexpr int kPsiMinRegionPixels = 100;
+
 bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &errorMessage) {
   auto &psiData = measurement.phaseShifting();
   if (!psiData.hasSeries()) {
@@ -73,7 +79,8 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   }
 
   digitqt::core::UnwrapResult unwrapped;
-  if (!digitqt::core::unwrapPhase(psi.wrappedPhase, psi.modulation, unwrapped, errorMessage))
+  if (!digitqt::core::unwrapPhase(psi.wrappedPhase, psi.modulation, unwrapped, errorMessage,
+                                  kPsiMinRegionPixels))
     return false;
 
   digitqt::core::PhaseShiftingData::Report report;
@@ -84,6 +91,7 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   report.mirrored = psi.mirrored;
   report.regionCount = unwrapped.regionCount;
   report.maskedLowModulation = masked;
+  report.droppedIslandPoints = unwrapped.droppedPoints;
   psiData.setReport(std::move(report));
 
   measurement.phaseMap() = std::move(unwrapped.orders);
