@@ -20,6 +20,8 @@ const char *pluginFileName(digitqt::core::PhaseReconstructionAlgorithm algorithm
       return "fourier.dll";
     case digitqt::core::PhaseReconstructionAlgorithm::WaveletTransform:
       return "wavelet.dll";
+    case digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting:
+      return nullptr;  // встроен в core, см. PhaseReconstructionAlgorithm.h
   }
   return nullptr;
 }

@@ -130,9 +130,12 @@ ParametersDock::ParametersDock(QWidget *parent)
                                  static_cast<int>(PhaseReconstructionAlgorithm::FourierTransform));
   m_phaseAlgorithmCombo->addItem(tr("Wavelet Transform Method (Zhong-Weng)"),
                                  static_cast<int>(PhaseReconstructionAlgorithm::WaveletTransform));
+  m_phaseAlgorithmCombo->addItem(tr("Phase Shifting (PSI, frame series)"),
+                                 static_cast<int>(PhaseReconstructionAlgorithm::PhaseShifting));
   m_phaseAlgorithmCombo->setToolTip(
       tr("Fourier and Wavelet Transform Methods work directly from the image + "
-         "aperture -- no fringe tracing needed in Setup"));
+         "aperture -- no fringe tracing needed in Setup. Phase Shifting needs a "
+         "series of frames (File -> Open Phase-Shifting Series...)"));
   connect(m_phaseAlgorithmCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
           [this](int) {
             if (!m_measurement)
@@ -150,6 +153,7 @@ ParametersDock::ParametersDock(QWidget *parent)
               m_measurement->setPhaseReconstructionAlgorithm(static_cast<PhaseReconstructionAlgorithm>(
                   m_phaseAlgorithmCombo->currentData().toInt()));
             }
+            refreshPsiStepRow();
           });
 
   m_edgeErosionSpin->setRange(0, 20);
@@ -257,6 +261,30 @@ ParametersDock::ParametersDock(QWidget *parent)
   layout->addWidget(m_phaseAlgorithmRow);
   m_phaseAlgorithmRow->setVisible(false);
 
+  m_psiStepRow = new QWidget(container);
+  auto *psiStepLayout = new QVBoxLayout(m_psiStepRow);
+  psiStepLayout->setContentsMargins(0, 0, 0, 0);
+  auto *psiStepLabel = new QLabel(tr("<b>Nominal phase step</b>"), m_psiStepRow);
+  psiStepLabel->setContentsMargins(8, 8, 8, 0);
+  psiStepLayout->addWidget(psiStepLabel);
+  m_psiStepSpin = new QDoubleSpinBox(m_psiStepRow);
+  m_psiStepSpin->setRange(1.0, 359.0);
+  m_psiStepSpin->setDecimals(1);
+  m_psiStepSpin->setSuffix(tr(" deg"));
+  m_psiStepSpin->setToolTip(
+      tr("Expected phase shift between neighbouring frames. Only a starting point: the "
+         "real shifts are estimated from the frames themselves, so vibration or an "
+         "uncalibrated phase shifter is tolerated. It also fixes the sign of the map -- "
+         "the frames alone cannot tell a bump from a dip."));
+  connect(m_psiStepSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+          [this](double value) {
+            if (m_measurement)
+              m_measurement->phaseShifting().setNominalStepDeg(value);
+          });
+  psiStepLayout->addWidget(m_psiStepSpin);
+  layout->addWidget(m_psiStepRow);
+  m_psiStepRow->setVisible(false);
+
   m_modalTermsRow = new QWidget(container);
   auto *modalLayout = new QVBoxLayout(m_modalTermsRow);
   modalLayout->setContentsMargins(0, 0, 0, 0);
@@ -358,7 +386,7 @@ void ParametersDock::refreshPhaseAlgorithmList() {
   // представлены штатными тремя пунктами независимо от того, лежит ли
   // рядом их .dll (PhaseReconstructionStage сам решит, плагин это или
   // fallback на встроенную реализацию).
-  constexpr int kKnownCount = 3;
+  constexpr int kKnownCount = 4;  // 3 метода-плагина + встроенный PSI
   while (m_phaseAlgorithmCombo->count() > kKnownCount)
     m_phaseAlgorithmCombo->removeItem(m_phaseAlgorithmCombo->count() - 1);
 
@@ -420,6 +448,18 @@ bool ParametersDock::currentPhaseAlgorithmNeedsFringeLines() const {
       return m_phaseAlgorithmCombo->itemData(i, kCustomPluginNeedsLinesRole).toBool();
   }
   return true;  // плагин пропал из списка (файл удалили) -- безопасный дефолт
+}
+
+void ParametersDock::refreshPsiStepRow() {
+  const bool show = m_currentStage == StageId::S2 && m_measurement &&
+                    m_measurement->customPhaseReconstructorPluginPath().empty() &&
+                    m_measurement->phaseReconstructionAlgorithm() ==
+                        digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+  m_psiStepRow->setVisible(show);
+  if (show) {
+    const QSignalBlocker blocker(m_psiStepSpin);
+    m_psiStepSpin->setValue(m_measurement->phaseShifting().nominalStepDeg());
+  }
 }
 
 void ParametersDock::onBrowsePhaseAlgorithmPlugin() {
@@ -541,6 +581,7 @@ void ParametersDock::setStage(StageId id) {
     if (targetIndex >= 0)
       m_phaseAlgorithmCombo->setCurrentIndex(targetIndex);
   }
+  refreshPsiStepRow();
 
   const bool showIsolineStep = (id == StageId::S2 || id == StageId::S4);
   m_isolineStepRow->setVisible(showIsolineStep);

@@ -8,6 +8,8 @@ void Measurement::setImage(digitqt::core::Bitmap image, std::string path) {
   m_image = std::move(image);
   m_imagePath = std::move(path);
   m_imageIsPlaceholder = false;
+  m_phaseShifting.m_frames.clear();
+  m_phaseShifting.m_report = {};
   m_boundaries.clear();
   m_fringeTracing.clear();
   m_fiducials.clear();
@@ -25,10 +27,19 @@ void Measurement::setPlaceholderImage(int width, int height) {
   m_imageIsPlaceholder = true;
 }
 
+void Measurement::setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> frames,
+                                         std::string path) {
+  digitqt::core::Bitmap first = frames.empty() ? digitqt::core::Bitmap() : frames.front();
+  setImage(std::move(first), std::move(path));
+  m_phaseShifting.m_frames = std::move(frames);
+}
+
 void Measurement::setImportedPhaseMap(PhaseMap phase) {
   m_image = digitqt::core::Bitmap();
   m_imagePath.clear();
   m_imageIsPlaceholder = false;
+  m_phaseShifting.m_frames.clear();
+  m_phaseShifting.m_report = {};
   m_boundaries.clear();
   m_fringeTracing.clear();
   m_fiducials.clear();

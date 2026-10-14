@@ -155,3 +155,17 @@ set_target_properties(digitqt_imported_fringes_tests PROPERTIES
 )
 
 add_test(NAME ImportedFringesPipelineTest COMMAND digitqt_imported_fringes_tests)
+
+# Фазовый сдвиг (src/core/psi/) на синтетических сериях кадров.
+add_executable(digitqt_phase_shifting_tests
+    PhaseShiftingTest.cpp
+)
+
+target_link_libraries(digitqt_phase_shifting_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Core)
+
+set_target_properties(digitqt_phase_shifting_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME PhaseShiftingTest COMMAND digitqt_phase_shifting_tests)

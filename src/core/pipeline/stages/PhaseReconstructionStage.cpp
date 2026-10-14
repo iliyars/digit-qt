@@ -3,8 +3,12 @@
 #include "core/Measurement.h"
 #include "core/pipeline/stages/phase_reconstruction/DllPhaseReconstructor.h"
 #include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
+#include "core/PhaseUnwrapping.h"
+#include "core/psi/PhaseShifting.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <aperture/include/visibility/VisibilityChecker.h>
 #include <memory>
 
@@ -21,6 +25,70 @@ namespace {
 // reconstruct() requires gridWidth/gridHeight == image dimensions for
 // them, see each plugin's reconstruct()).
 constexpr int kMaxGridDimension = 5000;
+
+// Точки с модуляцией ниже этого порога в итоговую карту PSI не попадают:
+// полос там практически нет (тень, блик, край апертуры), и фаза в них --
+// шум, который развёртка разнесла бы по соседям. Ниже порога
+// PsiOptions::minModulation: тот отбирает точки для оценки сдвигов, где
+// нужна полная уверенность, а здесь достаточно, чтобы полосы вообще были.
+constexpr double kPsiMinModulationForMap = 0.1;
+
+bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &errorMessage) {
+  auto &psiData = measurement.phaseShifting();
+  if (!psiData.hasSeries()) {
+    errorMessage = "Phase shifting needs a series of at least 3 frames "
+                   "(File -> Open Phase-Shifting Series...)";
+    return false;
+  }
+  const auto &frames = psiData.frames();
+
+  // Без апертуры -- весь кадр: точки без полос (фон, поле вокруг
+  // изображения) всё равно отсеет порог модуляции.
+  aperture::VisibilityChecker checker(measurement.boundaries());
+  const bool hasAperture = measurement.boundaries().hasAnyExternal();
+  auto isVisible = [&checker, hasAperture](int x, int y) {
+    return !hasAperture ||
+           checker.isVisible(aperture::Point{static_cast<double>(x), static_cast<double>(y)});
+  };
+
+  const double pi = std::acos(-1.0);
+  std::vector<double> expectedShifts;
+  for (size_t n = 0; n < frames.size(); ++n)
+    expectedShifts.push_back(static_cast<double>(n) * psiData.nominalStepDeg() * pi / 180.0);
+
+  digitqt::core::psi::PsiResult psi;
+  if (!digitqt::core::psi::solveWithUnknownShifts(frames, expectedShifts, isVisible,
+                                                  digitqt::core::psi::PsiOptions{}, psi,
+                                                  errorMessage))
+    return false;
+
+  int masked = 0;
+  for (int y = 0; y < psi.wrappedPhase.height(); ++y) {
+    for (int x = 0; x < psi.wrappedPhase.width(); ++x) {
+      if (psi.wrappedPhase.hasValue(x, y) && psi.modulation.value(x, y) < kPsiMinModulationForMap) {
+        psi.wrappedPhase.setValue(x, y, std::numeric_limits<double>::quiet_NaN());
+        ++masked;
+      }
+    }
+  }
+
+  digitqt::core::UnwrapResult unwrapped;
+  if (!digitqt::core::unwrapPhase(psi.wrappedPhase, psi.modulation, unwrapped, errorMessage))
+    return false;
+
+  digitqt::core::PhaseShiftingData::Report report;
+  for (const double shift : psi.shifts)
+    report.shiftsDeg.push_back(shift * 180.0 / pi);
+  report.iterations = psi.iterations;
+  report.converged = psi.converged;
+  report.mirrored = psi.mirrored;
+  report.regionCount = unwrapped.regionCount;
+  report.maskedLowModulation = masked;
+  psiData.setReport(std::move(report));
+
+  measurement.phaseMap() = std::move(unwrapped.orders);
+  return true;
+}
 }
 
 bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement,
@@ -32,6 +100,10 @@ bool PhaseReconstructionStage::doCompute(digitqt::core::Measurement &measurement
 
   const auto phaseAlgorithm = measurement.phaseReconstructionAlgorithm();
   const auto &customPluginPath = measurement.customPhaseReconstructorPluginPath();
+
+  if (customPluginPath.empty() &&
+      phaseAlgorithm == digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting)
+    return computePhaseShifting(measurement, errorMessage);
 
   // Ни у одного из 3 методов сшивки фазы больше нет встроенной
   // реализации в core -- все вынесены в самодостаточные

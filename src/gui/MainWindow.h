@@ -35,6 +35,7 @@ public:
 
 private slots:
   void openImage();
+  void openPhaseShiftingSeries();
   void importFile();
   void updateStatusBar();
   void onStageSelected(digitqt::core::pipeline::StageId id);
@@ -57,6 +58,9 @@ private:
   /// Re-points every controller/view at m_measurement after its image or
   /// imported data was replaced wholesale.
   void resetViewsToMeasurement();
+  /// After a successful PSI phase computation: estimated shifts in the
+  /// status bar, plus a warning box for anything the user must not miss.
+  void showPhaseShiftingReport();
   /// The two things an imported file can turn into (see importFile()):
   /// a ready phase map that drops straight into S2, or aperture shapes +
   /// numbered fringes, which fill Setup -- over the image the file names

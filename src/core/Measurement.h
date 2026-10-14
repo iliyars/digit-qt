@@ -8,6 +8,7 @@
 #include "core/ModalFitMethod.h"
 #include "core/PhaseMap.h"
 #include "core/PhaseReconstructionAlgorithm.h"
+#include "core/PhaseShiftingData.h"
 #include "core/PolynomialBasis.h"
 
 #include <aperture/include/visibility/ShapeCollection.h>
@@ -44,6 +45,14 @@ public:
   /// проверять imageIsPlaceholder() и отказываться.
   void setPlaceholderImage(int width, int height);
   bool imageIsPlaceholder() const { return m_imageIsPlaceholder; }
+  /// Серия кадров фазового сдвига (PSI) вместо одного изображения:
+  /// image() становится первым кадром, всё остальное сбрасывается так же,
+  /// как в setImage(). Кадры должны быть одного размера (проверяет
+  /// вызывающий код). setImage() и прочие способы сменить изображение
+  /// серию сбрасывают.
+  void setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> frames, std::string path);
+  PhaseShiftingData &phaseShifting() { return m_phaseShifting; }
+  const PhaseShiftingData &phaseShifting() const { return m_phaseShifting; }
   const digitqt::core::Bitmap &image() const { return m_image; }
   const std::string &imagePath() const { return m_imagePath; }
 
@@ -149,6 +158,7 @@ private:
   digitqt::core::Bitmap m_image;
   std::string m_imagePath;
   bool m_imageIsPlaceholder = false;
+  PhaseShiftingData m_phaseShifting;
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;

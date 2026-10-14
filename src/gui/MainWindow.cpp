@@ -14,6 +14,7 @@
 #include "io/MtrExporter.h"
 
 #include <QActionGroup>
+#include <QCollator>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -128,6 +129,11 @@ void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
   auto *openAction = fileMenu->addAction(tr("&Open Image..."), this, &MainWindow::openImage);
+  auto *openSeriesAction = fileMenu->addAction(tr("Open Phase-&Shifting Series..."), this,
+                                               &MainWindow::openPhaseShiftingSeries);
+  openSeriesAction->setToolTip(
+      tr("Load 3 or more frames of the same interferogram taken with different phase "
+         "shifts, for the Phase Shifting (PSI) method"));
   auto *importAction = fileMenu->addAction(tr("&Import..."), this, &MainWindow::importFile);
   importAction->setToolTip(
       tr("Load a WinFringe .mtr wavefront matrix (straight into Phase/Wavefront/Modal "
@@ -652,6 +658,10 @@ void MainWindow::computePhase() {
                                tr("Phase reconstruction failed:\n%1")
                                    .arg(QString::fromStdString(
                                        m_pipeline->stage(StageId::S2).errorMessage())));
+        } else if (m_measurement->customPhaseReconstructorPluginPath().empty() &&
+                   m_measurement->phaseReconstructionAlgorithm() ==
+                       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting) {
+          showPhaseShiftingReport();
         }
         m_phaseMapView->refresh();
         updateStatusBar();
@@ -734,6 +744,59 @@ void MainWindow::openImage() {
   m_measurement->setImage(digitqt::core::padImageBackground(result.image), path.toStdString());
   resetViewsToMeasurement();
   updateStatusBar();
+}
+
+void MainWindow::openPhaseShiftingSeries() {
+  QStringList paths = QFileDialog::getOpenFileNames(
+      this, tr("Open Phase-Shifting Series (select all frames)"), QString(),
+      tr("Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)"));
+  if (paths.isEmpty())
+    return;
+  if (paths.size() < 3) {
+    QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
+                         tr("Select at least 3 frames -- phase shifting has 3 unknowns per "
+                            "point (background, fringe amplitude, phase)."));
+    return;
+  }
+  // Порядок кадров -- это порядок сдвигов. Диалог отдаёт файлы в порядке
+  // выделения, поэтому сортируем по имени, "frame2" раньше "frame10".
+  QCollator collator;
+  collator.setNumericMode(true);
+  std::sort(paths.begin(), paths.end(),
+            [&collator](const QString &a, const QString &b) { return collator.compare(a, b) < 0; });
+
+  std::vector<digitqt::core::Bitmap> frames;
+  for (const QString &path : paths) {
+    const auto result = digitqt::io::loadImage(path);
+    if (!result.ok()) {
+      QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
+                           tr("Failed to load %1:\n%2").arg(path, result.errorMessage));
+      return;
+    }
+    if (!frames.empty() && (result.image.width() != frames.front().width() ||
+                            result.image.height() != frames.front().height())) {
+      QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
+                           tr("All frames must have the same size: %1 differs from the first one.")
+                               .arg(QFileInfo(path).fileName()));
+      return;
+    }
+    frames.push_back(result.image);
+  }
+  // Поле вокруг изображения -- как у openImage(), у всех кадров одинаковое
+  // (зависит только от размера), так что апертура подходит ко всем.
+  for (auto &frame : frames)
+    frame = digitqt::core::padImageBackground(frame);
+
+  m_measurement->setPhaseShiftingFrames(std::move(frames), paths.front().toStdString());
+  m_measurement->setCustomPhaseReconstructorPluginPath({});
+  m_measurement->setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  resetViewsToMeasurement();
+  updateStatusBar();
+  statusBar()->showMessage(
+      tr("Loaded %1 phase-shifting frames; the first one is shown. Draw the aperture, then "
+         "run Phase Reconstruction.")
+          .arg(paths.size()));
 }
 
 void MainWindow::resetViewsToMeasurement() {
@@ -939,6 +1002,31 @@ void MainWindow::applyImportedFringes(digitqt::formats::ImportedData &data,
     m_pipeline->stage(StageId::Setup).markComputed();
   m_pipelineDock->selectStage(StageId::Setup);
   updateStatusBar();
+}
+
+void MainWindow::showPhaseShiftingReport() {
+  const auto &report = m_measurement->phaseShifting().report();
+  QStringList shifts;
+  for (const double shift : report.shiftsDeg)
+    shifts << QString::number(shift, 'f', 2);
+  statusBar()->showMessage(tr("PSI: estimated shifts %1 deg, %2 iteration(s)")
+                               .arg(shifts.join(QStringLiteral(" / ")))
+                               .arg(report.iterations));
+
+  QStringList warnings;
+  if (!report.converged)
+    warnings << tr("The phase shifts did not settle within the iteration limit; the map may "
+                   "still carry shift errors (step-like ripple across the fringes).");
+  if (report.mirrored)
+    warnings << tr("The estimated shifts ended up closer to the mirror image of the nominal "
+                   "step. The map was flipped to match the nominal direction -- check its sign "
+                   "if the nominal step is not reliable.");
+  if (report.regionCount > 1)
+    warnings << tr("The valid area falls apart into %1 disconnected regions; their relative "
+                   "fringe orders are unknown, so steps between them are not real.")
+                    .arg(report.regionCount);
+  if (!warnings.isEmpty())
+    QMessageBox::warning(this, tr("Phase Shifting"), warnings.join(QStringLiteral("\n\n")));
 }
 
 void MainWindow::updateStatusBar() {

@@ -72,6 +72,7 @@ private:
   /// при каждом переключении на стадию S2, чтобы список не устаревал
   /// между запусками приложения.
   void refreshPhaseAlgorithmList();
+  void refreshPsiStepRow();
 
   /// Нужны ли сейчас выбранному методу сшивки фазы трассированные линии
   /// -- по enum для одного из 3 известных, по сохранённому в
@@ -106,6 +107,9 @@ private:
   QWidget *m_phaseAlgorithmRow;
   QComboBox *m_phaseAlgorithmCombo;
   QPushButton *m_phaseAlgorithmBrowseButton;
+  /// Номинальный шаг фазового сдвига -- виден только на S2 при выбранном PSI.
+  QWidget *m_psiStepRow = nullptr;
+  QDoubleSpinBox *m_psiStepSpin = nullptr;
   /// Плагины, выбранные через "Browse..." за время жизни этого
   /// виджета -- не персистентны между запусками приложения (тот же
   /// принцип, что и у customPhaseReconstructorPluginPath() на

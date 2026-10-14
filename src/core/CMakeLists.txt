@@ -40,6 +40,11 @@ add_library(core STATIC
     PolynomialBasis.h
     SequentialSereginResult.h
     Bitmap.h
+    psi/PhaseShifting.h
+    psi/PhaseShifting.cpp
+    PhaseShiftingData.h
+    PhaseUnwrapping.h
+    PhaseUnwrapping.cpp
 )
 add_library(DigitQt::Core ALIAS core)
 

@@ -1,0 +1,460 @@
+#include "core/Measurement.h"
+#include "core/PhaseUnwrapping.h"
+#include "core/pipeline/Pipeline.h"
+#include "core/pipeline/PipelineStageId.h"
+#include "core/psi/PhaseShifting.h"
+
+#include <aperture/include/geometry/Ellipse.h>
+
+#include <QtTest/QtTest>
+
+#include <cmath>
+
+namespace {
+
+using digitqt::core::Bitmap;
+using digitqt::core::psi::CosineFit;
+using digitqt::core::psi::PsiResult;
+
+const double kPi = std::acos(-1.0);
+const int kSize = 128;
+
+double radians(double degrees) { return degrees * kPi / 180.0; }
+double degrees(double radians) { return radians * 180.0 / kPi; }
+
+/// Разность углов, свёрнутая в (-pi, pi].
+double angleDiff(double a, double b) {
+  return std::remainder(a - b, 2.0 * kPi);
+}
+
+bool insideAperture(int x, int y) {
+  const double dx = x - (kSize - 1) / 2.0, dy = y - (kSize - 1) / 2.0;
+  return dx * dx + dy * dy <= 60.0 * 60.0;
+}
+
+/// "Настоящая" фаза тестового волнового фронта: наклон (около 6 полос
+/// поперёк поля) плюс немного дефокусировки.
+double truePhase(int x, int y) {
+  const double u = (x - (kSize - 1) / 2.0) / 60.0, v = (y - (kSize - 1) / 2.0) / 60.0;
+  return 2.0 * kPi * (3.0 * u + 1.0 * v + 0.7 * (u * u + v * v));
+}
+
+/// Серия кадров I = a + b*cos(phi + delta_n), квантованная в 8 бит -- как
+/// в статье (256 уровней). a = 120, b = 100, т.е. модуляция 0.833.
+std::vector<Bitmap> makeFrames(const std::vector<double> &shiftsDeg) {
+  std::vector<Bitmap> frames;
+  for (const double shiftDeg : shiftsDeg) {
+    Bitmap frame(kSize, kSize);
+    for (int y = 0; y < kSize; ++y)
+      for (int x = 0; x < kSize; ++x)
+        frame.setPixel(x, y, static_cast<uint8_t>(std::lround(
+                                 120.0 + 100.0 * std::cos(truePhase(x, y) + radians(shiftDeg)))));
+    frames.push_back(std::move(frame));
+  }
+  return frames;
+}
+
+std::vector<double> toRadians(const std::vector<double> &shiftsDeg) {
+  std::vector<double> result;
+  for (const double shiftDeg : shiftsDeg)
+    result.push_back(radians(shiftDeg));
+  return result;
+}
+
+double phaseErrorRms(const PsiResult &result, double sign);
+
+/// Лучшая достижимая ошибка фазы на этих кадрах: расчёт с НАСТОЯЩИМИ
+/// сдвигами. Остаётся только квантование в 8 бит, и оно тем сильнее
+/// усиливается, чем хуже сдвиги разнесены по кругу (у 0/350/250/330 --
+/// втрое сильнее, чем у пяти сдвигов рис. 4).
+double bestPossibleRms(const std::vector<double> &trueShiftsDeg) {
+  PsiResult reference;
+  std::string error;
+  digitqt::core::psi::computePhase(makeFrames(trueShiftsDeg), toRadians(trueShiftsDeg),
+                                   insideAperture, reference, error);
+  return phaseErrorRms(reference, 1.0);
+}
+
+/// СКО ошибки фазы по апертуре, в радианах. Постоянная составляющая
+/// ошибки вычитается: общий сдвиг всей карты на константу -- не ошибка
+/// формы.
+/// sign = -1 -- сравнение с зеркальной фазой -phi.
+double phaseErrorRms(const PsiResult &result, double sign) {
+  std::vector<double> errors;
+  for (int y = 0; y < kSize; ++y)
+    for (int x = 0; x < kSize; ++x)
+      if (insideAperture(x, y))
+        errors.push_back(angleDiff(result.wrappedPhase.value(x, y), sign * truePhase(x, y)));
+  double mean = 0.0;
+  for (const double e : errors)
+    mean += e / errors.size();
+  double sumSq = 0.0;
+  for (const double e : errors)
+    sumSq += (e - mean) * (e - mean);
+  return std::sqrt(sumSq / errors.size());
+}
+
+// Сдвиги первого примера из статьи (рис. 4).
+const std::vector<double> kArticleShiftsDeg = {0.0, 72.0, 198.0, 266.4, 36.0};
+
+class PhaseShiftingTest : public QObject {
+  Q_OBJECT
+
+private slots:
+  void cosineFitRecoversKnownCosine();
+  void cosineFitRejectsDegenerateInput();
+  void computePhaseWithTrueShifts();
+  void computePhaseWithWrongShiftsIsVisiblyWorse();
+  void computePhaseRejectsBadInput();
+  void estimateShiftsFromTruePhase();
+  void solveRecoversArticleExample_data();
+  void solveRecoversArticleExample();
+  void solveReportsNonConvergence();
+  void mirrorAmbiguityOfOutOfOrderExample();
+  void unwrapRecoversSmoothPhase();
+  void unwrapRoutesAroundLowQualityNoise();
+  void unwrapCountsDisconnectedRegions();
+  void pipelineStageComputesPhaseFromSeries();
+  void pipelineStageRequiresSeries();
+};
+
+void PhaseShiftingTest::cosineFitRecoversKnownCosine() {
+  // I = 50 + 20*cos(theta + 1.1): a = 50, c = 20*cos(1.1), s = 20*sin(1.1).
+  CosineFit fit;
+  for (const double theta : {0.0, 0.9, 2.0, 3.3, 4.1, 5.5})
+    fit.add(theta, 50.0 + 20.0 * std::cos(theta + 1.1));
+
+  double a = 0.0, c = 0.0, s = 0.0;
+  QVERIFY(fit.solve(a, c, s));
+  QVERIFY(std::fabs(a - 50.0) < 1e-9);
+  QVERIFY(std::fabs(std::atan2(s, c) - 1.1) < 1e-9);
+  QVERIFY(std::fabs(std::sqrt(c * c + s * s) - 20.0) < 1e-9);
+}
+
+void PhaseShiftingTest::cosineFitRejectsDegenerateInput() {
+  double a = 0.0, c = 0.0, s = 0.0;
+  CosineFit tooFew;
+  tooFew.add(0.0, 1.0);
+  tooFew.add(1.0, 2.0);
+  QVERIFY(!tooFew.solve(a, c, s));
+
+  CosineFit sameAngle;  // три уравнения, но все с одним и тем же theta
+  for (int i = 0; i < 3; ++i)
+    sameAngle.add(0.5, 10.0 + i);
+  QVERIFY(!sameAngle.solve(a, c, s));
+}
+
+void PhaseShiftingTest::computePhaseWithTrueShifts() {
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::computePhase(makeFrames(kArticleShiftsDeg),
+                                            toRadians(kArticleShiftsDeg), insideAperture, result,
+                                            error),
+           error.c_str());
+
+  QCOMPARE(result.wrappedPhase.width(), kSize);
+  QVERIFY(!result.wrappedPhase.hasValue(0, 0));  // вне апертуры
+  QVERIFY(result.wrappedPhase.hasValue(kSize / 2, kSize / 2));
+
+  // Единственный источник ошибки -- квантование в 8 бит.
+  const double rms = phaseErrorRms(result, 1.0);
+  qInfo("phase error RMS with true shifts: %.5f rad = %.5f waves", rms, rms / (2.0 * kPi));
+  QVERIFY(rms < 0.005);
+
+  const double m = result.modulation.value(kSize / 2, kSize / 2);
+  QVERIFY(std::fabs(m - 100.0 / 120.0) < 0.01);
+}
+
+void PhaseShiftingTest::computePhaseWithWrongShiftsIsVisiblyWorse() {
+  // Те же кадры, но расчёт с "паспортными" сдвигами по 90 градусов --
+  // ситуация рис. 5 статьи. Это и есть проблема, которую решает шаг 2.
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::computePhase(makeFrames(kArticleShiftsDeg),
+                                            toRadians({0.0, 90.0, 180.0, 270.0, 360.0}),
+                                            insideAperture, result, error),
+           error.c_str());
+  const double rms = phaseErrorRms(result, 1.0);
+  qInfo("phase error RMS with nominal 90-degree shifts: %.5f rad = %.5f waves", rms,
+        rms / (2.0 * kPi));
+  QVERIFY(rms > 0.05);
+}
+
+void PhaseShiftingTest::computePhaseRejectsBadInput() {
+  PsiResult result;
+  std::string error;
+  const auto frames = makeFrames(kArticleShiftsDeg);
+
+  QVERIFY(!digitqt::core::psi::computePhase({frames[0], frames[1]}, toRadians({0.0, 90.0}),
+                                            insideAperture, result, error));
+  QVERIFY(!digitqt::core::psi::computePhase(frames, toRadians({0.0, 90.0, 180.0}), insideAperture,
+                                            result, error));
+  // Все сдвиги одинаковы -- три уравнения, но одно и то же.
+  QVERIFY(!digitqt::core::psi::computePhase(frames, toRadians({10.0, 10.0, 10.0, 10.0, 10.0}),
+                                            insideAperture, result, error));
+  std::vector<Bitmap> mixed = {frames[0], frames[1], Bitmap(16, 16)};
+  QVERIFY(!digitqt::core::psi::computePhase(mixed, toRadians({0.0, 90.0, 180.0}), insideAperture,
+                                            result, error));
+}
+
+void PhaseShiftingTest::estimateShiftsFromTruePhase() {
+  // Фаза посчитана с настоящими сдвигами -> шаг 2 обязан вернуть эти же
+  // сдвиги (с точностью квантования).
+  const auto frames = makeFrames(kArticleShiftsDeg);
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::computePhase(frames, toRadians(kArticleShiftsDeg), insideAperture,
+                                            result, error),
+           error.c_str());
+
+  std::vector<double> shifts;
+  QVERIFY2(digitqt::core::psi::estimateShifts(frames, result, 0.3, shifts, error), error.c_str());
+  QCOMPARE(shifts.size(), kArticleShiftsDeg.size());
+  QCOMPARE(shifts[0], 0.0);
+  for (size_t n = 0; n < shifts.size(); ++n) {
+    qInfo("frame %d: estimated %.3f deg, true %.1f deg", static_cast<int>(n + 1),
+          degrees(shifts[n]), kArticleShiftsDeg[n]);
+    QVERIFY(shifts[n] >= 0.0 && shifts[n] < 2.0 * kPi);
+    QVERIFY(std::fabs(degrees(angleDiff(shifts[n], radians(kArticleShiftsDeg[n])))) < 0.1);
+  }
+
+  // Порог модуляции, который не проходит ни одна точка -- ошибка, а не
+  // сдвиги из ничего.
+  QVERIFY(!digitqt::core::psi::estimateShifts(frames, result, 0.99, shifts, error));
+}
+
+void PhaseShiftingTest::solveRecoversArticleExample_data() {
+  QTest::addColumn<std::vector<double>>("trueShiftsDeg");
+  // Оба примера статьи; ожидаемые сдвиги в обоих -- по 90 градусов.
+  QTest::newRow("5 frames, uneven steps (fig. 4)") << kArticleShiftsDeg;
+  // Пример рис. 8 со знаком сдвигов, при котором настоящее решение ближе
+  // к ожидаемым 90-градусным шагам, чем зеркальное (см.
+  // mirrorAmbiguityOfOutOfOrderExample() про исходные знаки статьи).
+  QTest::newRow("4 frames, out of order (fig. 8, mirrored)")
+      << std::vector<double>{0.0, 350.0, 250.0, 330.0};
+}
+
+void PhaseShiftingTest::solveRecoversArticleExample() {
+  QFETCH(std::vector<double>, trueShiftsDeg);
+  std::vector<double> expectedDeg;
+  for (size_t n = 0; n < trueShiftsDeg.size(); ++n)
+    expectedDeg.push_back(90.0 * n);
+
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               makeFrames(trueShiftsDeg), toRadians(expectedDeg), insideAperture,
+               digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+
+  QVERIFY(result.converged);
+  const double rms = phaseErrorRms(result, 1.0);
+  qInfo("%d iterations%s, phase error RMS %.5f waves", result.iterations,
+        result.mirrored ? " (mirror solution replaced)" : "", rms / (2.0 * kPi));
+  for (size_t n = 0; n < trueShiftsDeg.size(); ++n) {
+    qInfo("frame %d: %.3f deg (true %.1f)", static_cast<int>(n + 1), degrees(result.shifts[n]),
+          trueShiftsDeg[n]);
+    QVERIFY(std::fabs(degrees(angleDiff(result.shifts[n], radians(trueShiftsDeg[n])))) < 0.2);
+  }
+  // Не хуже, чем с настоящими сдвигами: найденные сдвиги не добавляют
+  // ошибки сверх квантования.
+  const double best = bestPossibleRms(trueShiftsDeg);
+  qInfo("best possible (true shifts): %.5f waves", best / (2.0 * kPi));
+  QVERIFY(rms < best * 1.05 + 1e-4);
+}
+
+void PhaseShiftingTest::solveReportsNonConvergence() {
+  digitqt::core::psi::PsiOptions options;
+  options.maxIterations = 1;
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               makeFrames(kArticleShiftsDeg), toRadians({0.0, 90.0, 180.0, 270.0, 360.0}),
+               insideAperture, options, result, error),
+           error.c_str());
+  QVERIFY(!result.converged);
+  QCOMPARE(result.iterations, 1);
+  QVERIFY(!result.wrappedPhase.isEmpty());
+}
+
+void PhaseShiftingTest::mirrorAmbiguityOfOutOfOrderExample() {
+  // Рис. 8 статьи буквально: настоящие 0/10/110/30, ожидаемые 0/90/180/270.
+  // Зеркальное решение (0/350/250/330, фаза -phi) описывает кадры ровно так
+  // же хорошо и при этом ближе к ожидаемым (суммарно 230 градусов против
+  // 270) -- по самим кадрам их не различить, и алгоритм выбирает его.
+  // Статья сообщает сходимость к 0/10.1/110/30; скорее всего, у
+  // генератора кадров (WinFringe) знак сдвига противоположен нашему
+  // I = a + b*cos(phi + delta) -- тогда это ровно наш результат.
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               makeFrames({0.0, 10.0, 110.0, 30.0}), toRadians({0.0, 90.0, 180.0, 270.0}),
+               insideAperture, digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  QVERIFY(result.converged);
+  const std::vector<double> mirroredDeg = {0.0, 350.0, 250.0, 330.0};
+  for (size_t n = 0; n < mirroredDeg.size(); ++n) {
+    qInfo("frame %d: %.3f deg", static_cast<int>(n + 1), degrees(result.shifts[n]));
+    QVERIFY(std::fabs(degrees(angleDiff(result.shifts[n], radians(mirroredDeg[n])))) < 0.2);
+  }
+  // Форма восстановлена так же точно, как в прямой постановке, -- но с
+  // обратным знаком.
+  QVERIFY(phaseErrorRms(result, -1.0) < bestPossibleRms({0.0, 10.0, 110.0, 30.0}) * 1.05 + 1e-4);
+}
+
+
+/// Свёрнутая в (-pi, pi] настоящая фаза внутри апертуры, NaN снаружи.
+digitqt::core::PhaseMap wrappedTruePhase(double scale) {
+  digitqt::core::PhaseMap wrapped(kSize, kSize);
+  for (int y = 0; y < kSize; ++y)
+    for (int x = 0; x < kSize; ++x)
+      if (insideAperture(x, y))
+        wrapped.setValue(x, y, std::remainder(scale * truePhase(x, y), 2.0 * kPi));
+  return wrapped;
+}
+
+/// Наибольшее отклонение развёрнутой карты (в порядках) от настоящей фазы
+/// по точкам, где pick(x, y) -- после вычитания общей константы, взятой в
+/// точке (kSize/2, kSize/4): внутри апертуры, но вне полосы шума из
+/// unwrapRoutesAroundLowQualityNoise() (в самом центре брать нельзя).
+double maxUnwrapError(const digitqt::core::PhaseMap &orders, double scale,
+                      const std::function<bool(int, int)> &pick) {
+  const int rx = kSize / 2, ry = kSize / 4;
+  const double offset = orders.value(rx, ry) - scale * truePhase(rx, ry) / (2.0 * kPi);
+  double worst = 0.0;
+  for (int y = 0; y < kSize; ++y)
+    for (int x = 0; x < kSize; ++x)
+      if (pick(x, y))
+        worst = std::max(worst, std::fabs(orders.value(x, y) -
+                                          scale * truePhase(x, y) / (2.0 * kPi) - offset));
+  return worst;
+}
+
+void PhaseShiftingTest::unwrapRecoversSmoothPhase() {
+  // Втрое круче, чем в кадрах: около 20 полос поперёк апертуры.
+  digitqt::core::UnwrapResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::unwrapPhase(wrappedTruePhase(3.0), digitqt::core::PhaseMap(), result,
+                                      error),
+           error.c_str());
+  QCOMPARE(result.regionCount, 1);
+  QVERIFY(!result.orders.hasValue(0, 0));
+  QVERIFY(maxUnwrapError(result.orders, 3.0, insideAperture) < 1e-9);
+}
+
+void PhaseShiftingTest::unwrapRoutesAroundLowQualityNoise() {
+  // Полоса шума поперёк середины, но не до краёв апертуры: обход по
+  // качеству должен развернуть всё хорошее вокруг неё и только потом зайти
+  // в шум -- так, что хорошие точки не испорчены.
+  auto wrapped = wrappedTruePhase(3.0);
+  digitqt::core::PhaseMap quality(kSize, kSize);
+  auto inNoise = [](int x, int y) { return y >= 60 && y < 68 && x >= 20 && x < 100; };
+  uint32_t state = 12345;
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      if (!insideAperture(x, y))
+        continue;
+      quality.setValue(x, y, inNoise(x, y) ? 0.0 : 1.0);
+      if (inNoise(x, y)) {
+        state = state * 1664525u + 1013904223u;
+        wrapped.setValue(x, y, (state / 4294967296.0) * 2.0 * kPi - kPi);
+      }
+    }
+  }
+  auto good = [&](int x, int y) { return insideAperture(x, y) && !inNoise(x, y); };
+
+  digitqt::core::UnwrapResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::unwrapPhase(wrapped, quality, result, error), error.c_str());
+  QVERIFY(maxUnwrapError(result.orders, 3.0, good) < 1e-9);
+
+  // Без карты качества тот же шум ломает развёртку и за своими пределами
+  // -- в этом и смысл обхода по качеству.
+  QVERIFY2(digitqt::core::unwrapPhase(wrapped, digitqt::core::PhaseMap(), result, error),
+           error.c_str());
+  QVERIFY(maxUnwrapError(result.orders, 3.0, good) > 0.5);
+}
+
+void PhaseShiftingTest::unwrapCountsDisconnectedRegions() {
+  auto wrapped = wrappedTruePhase(1.0);
+  for (int y = 0; y < kSize; ++y)
+    wrapped.setValue(kSize / 2, y, std::numeric_limits<double>::quiet_NaN());  // разрез
+  digitqt::core::UnwrapResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::unwrapPhase(wrapped, digitqt::core::PhaseMap(), result, error),
+           error.c_str());
+  QCOMPARE(result.regionCount, 2);
+  QVERIFY(!result.orders.hasValue(kSize / 2, kSize / 2));
+
+  QVERIFY(!digitqt::core::unwrapPhase(digitqt::core::PhaseMap(kSize, kSize),
+                                      digitqt::core::PhaseMap(), result, error));
+}
+
+void PhaseShiftingTest::pipelineStageComputesPhaseFromSeries() {
+  // Весь путь, как в программе: серия в Measurement, апертура, S2 с
+  // методом PSI и номинальным шагом 90 -- при настоящих сдвигах рис. 4.
+  using digitqt::core::pipeline::StageId;
+  digitqt::core::Measurement measurement;
+  measurement.setPhaseShiftingFrames(makeFrames(kArticleShiftsDeg), "frame1.bmp");
+  measurement.boundaries().addExternal(
+      std::make_unique<aperture::Ellipse>(60.0, 60.0, (kSize - 1) / 2.0, (kSize - 1) / 2.0));
+  measurement.setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+
+  digitqt::core::pipeline::Pipeline pipeline;
+  // Setup для PSI ничего не трассирует, но и не мешает.
+  QVERIFY2(pipeline.stage(StageId::Setup).compute(measurement),
+           pipeline.stage(StageId::Setup).errorMessage().c_str());
+  QVERIFY2(pipeline.stage(StageId::S2).compute(measurement),
+           pipeline.stage(StageId::S2).errorMessage().c_str());
+
+  const auto &report = measurement.phaseShifting().report();
+  QVERIFY(report.converged);
+  QCOMPARE(report.regionCount, 1);
+  QCOMPARE(report.shiftsDeg.size(), kArticleShiftsDeg.size());
+  for (size_t n = 0; n < kArticleShiftsDeg.size(); ++n)
+    QVERIFY(std::fabs(report.shiftsDeg[n] - kArticleShiftsDeg[n]) < 0.2);
+
+  // Карта -- развёрнутая фаза в порядках полосы: настоящая фаза / 2*pi с
+  // точностью до константы.
+  const auto &orders = measurement.phaseMap();
+  const int c = kSize / 2;
+  const double offset = orders.value(c, c) - truePhase(c, c) / (2.0 * kPi);
+  double sumSq = 0.0;
+  int count = 0;
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      if (!insideAperture(x, y) || !orders.hasValue(x, y))
+        continue;
+      const double e = orders.value(x, y) - truePhase(x, y) / (2.0 * kPi) - offset;
+      sumSq += e * e;
+      ++count;
+    }
+  }
+  const double rms = std::sqrt(sumSq / count);
+  qInfo("S2 via PSI: %d points, error RMS %.5f waves", count, rms);
+  QVERIFY(count > 10000);
+  QVERIFY(rms < 0.001);
+}
+
+void PhaseShiftingTest::pipelineStageRequiresSeries() {
+  using digitqt::core::pipeline::StageId;
+  digitqt::core::Measurement measurement;
+  measurement.setImage(makeFrames({0.0})[0], "single.bmp");
+  measurement.setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  digitqt::core::pipeline::Pipeline pipeline;
+  QVERIFY(!pipeline.stage(StageId::S2).compute(measurement));
+  QVERIFY(pipeline.stage(StageId::S2).errorMessage().find("series") != std::string::npos);
+
+  // Открытие одиночного изображения сбрасывает ранее загруженную серию.
+  measurement.setPhaseShiftingFrames(makeFrames(kArticleShiftsDeg), "frame1.bmp");
+  QVERIFY(measurement.phaseShifting().hasSeries());
+  measurement.setImage(makeFrames({0.0})[0], "single.bmp");
+  QVERIFY(!measurement.phaseShifting().hasSeries());
+}
+
+}  // namespace
+
+QTEST_APPLESS_MAIN(PhaseShiftingTest)
+#include "PhaseShiftingTest.moc"

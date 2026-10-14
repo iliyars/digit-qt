@@ -36,6 +36,7 @@ const char *algorithmName(PhaseReconstructionAlgorithm algorithm) {
     case PhaseReconstructionAlgorithm::HorizontalSpline: return "HorizontalSpline";
     case PhaseReconstructionAlgorithm::FourierTransform: return "FourierTransform";
     case PhaseReconstructionAlgorithm::WaveletTransform: return "WaveletTransform";
+    case PhaseReconstructionAlgorithm::PhaseShifting: return "PhaseShifting";
   }
   return "?";
 }
