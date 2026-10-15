@@ -53,6 +53,9 @@ object_script.*.Release
 .idea/
 .claude/
 
+# Материалы от Серегина (серии кадров, статьи, ~1.7 ГБ) -- только локально
+/notes/IDF/
+
 # OS junk
 Thumbs.db
 desktop.ini

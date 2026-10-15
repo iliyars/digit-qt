@@ -8,6 +8,7 @@
 #include "core/FiducialTransformFit.h"
 #include "core/ImagePadding.h"
 #include "formats/FormatRegistry.h"
+#include "formats/IdfFile.h"
 #include "io/FrnExporter.h"
 #include "io/ImageLoader.h"
 #include "io/ModalReportExporter.h"
@@ -746,24 +747,87 @@ void MainWindow::openImage() {
   updateStatusBar();
 }
 
+namespace {
+
+/// Пути кадров из файла-описания серии (.idf) -- в порядке, записанном в
+/// файле, относительно его папки. declaredSize -- размер кадра из файла.
+bool readIdfFramePaths(const QString &idfPath, QStringList &framePaths, QSize &declaredSize,
+                       QString &error) {
+  QFile file(idfPath);
+  if (!file.open(QIODevice::ReadOnly)) {
+    error = file.errorString();
+    return false;
+  }
+  const QByteArray bytes = file.readAll();
+  digitqt::formats::IdfDescription idf;
+  std::string parseError;
+  if (!digitqt::formats::parseIdf(std::string_view(bytes.constData(), bytes.size()), idf,
+                                  parseError)) {
+    error = QString::fromStdString(parseError);
+    return false;
+  }
+
+  const QDir dir = QFileInfo(idfPath).absoluteDir();
+  framePaths.clear();
+  for (const std::string &name : idf.frameFiles) {
+    // Программы, писавшие .idf, -- виндовые, имена в локальной кодировке.
+    const QString fileName = QString::fromLocal8Bit(name.c_str());
+    QString path = dir.filePath(fileName);
+    if (!QFileInfo::exists(path)) {
+      // Регистр в .idf бывает другой ("tilt-B_0.bmp" при Tilt-B_0.bmp):
+      // на Windows это неважно, а фильтр имён QDir регистр не учитывает и
+      // на других ОС.
+      const QStringList matches = dir.entryList({fileName}, QDir::Files);
+      if (matches.isEmpty()) {
+        error = MainWindow::tr("Frame \"%1\" listed in the series file is not found in %2")
+                    .arg(fileName, QDir::toNativeSeparators(dir.path()));
+        return false;
+      }
+      path = dir.filePath(matches.front());
+    }
+    framePaths << path;
+  }
+  declaredSize = QSize(idf.width, idf.height);
+  return true;
+}
+
+}  // namespace
+
 void MainWindow::openPhaseShiftingSeries() {
   QStringList paths = QFileDialog::getOpenFileNames(
-      this, tr("Open Phase-Shifting Series (select all frames)"), QString(),
-      tr("Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)"));
+      this, tr("Open Phase-Shifting Series (a series file or all frames)"), QString(),
+      tr("Series or frames (*.idf *.png *.jpg *.jpeg *.bmp *.tif *.tiff);;"
+         "Interferogram series description (*.idf);;"
+         "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)"));
   if (paths.isEmpty())
     return;
+
+  QSize declaredSize;
+  if (paths.size() == 1 && QFileInfo(paths.front()).suffix().compare(
+                               QStringLiteral("idf"), Qt::CaseInsensitive) == 0) {
+    // Порядок кадров задан самим файлом -- не сортируем.
+    QString error;
+    const QString idfPath = paths.front();
+    if (!readIdfFramePaths(idfPath, paths, declaredSize, error)) {
+      QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
+                           tr("Cannot read %1:\n%2").arg(QFileInfo(idfPath).fileName(), error));
+      return;
+    }
+  } else {
+    // Порядок кадров -- это порядок сдвигов. Диалог отдаёт файлы в порядке
+    // выделения, поэтому сортируем по имени, "frame2" раньше "frame10".
+    QCollator collator;
+    collator.setNumericMode(true);
+    std::sort(paths.begin(), paths.end(), [&collator](const QString &a, const QString &b) {
+      return collator.compare(a, b) < 0;
+    });
+  }
   if (paths.size() < 3) {
     QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
                          tr("Select at least 3 frames -- phase shifting has 3 unknowns per "
                             "point (background, fringe amplitude, phase)."));
     return;
   }
-  // Порядок кадров -- это порядок сдвигов. Диалог отдаёт файлы в порядке
-  // выделения, поэтому сортируем по имени, "frame2" раньше "frame10".
-  QCollator collator;
-  collator.setNumericMode(true);
-  std::sort(paths.begin(), paths.end(),
-            [&collator](const QString &a, const QString &b) { return collator.compare(a, b) < 0; });
 
   std::vector<digitqt::core::Bitmap> frames;
   for (const QString &path : paths) {
@@ -781,6 +845,16 @@ void MainWindow::openPhaseShiftingSeries() {
       return;
     }
     frames.push_back(result.image);
+  }
+  if (declaredSize.isValid() && (frames.front().width() != declaredSize.width() ||
+                                 frames.front().height() != declaredSize.height())) {
+    QMessageBox::warning(this, tr("Open Phase-Shifting Series"),
+                         tr("The frames are %1x%2, but the series file declares %3x%4.")
+                             .arg(frames.front().width())
+                             .arg(frames.front().height())
+                             .arg(declaredSize.width())
+                             .arg(declaredSize.height()));
+    return;
   }
   // Поле вокруг изображения -- как у openImage(), у всех кадров одинаковое
   // (зависит только от размера), так что апертура подходит ко всем.

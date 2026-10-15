@@ -14,6 +14,8 @@ add_library(formats STATIC
     MtrAdapter.cpp
     FrnAdapter.h
     FrnAdapter.cpp
+    IdfFile.h
+    IdfFile.cpp
     FormatRegistry.h
     FormatRegistry.cpp
 )

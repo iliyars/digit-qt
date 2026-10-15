@@ -133,6 +133,20 @@ set_target_properties(digitqt_frn_adapter_tests PROPERTIES
 
 add_test(NAME FrnAdapterTest COMMAND digitqt_frn_adapter_tests)
 
+# Описание серии кадров для фазового сдвига (.idf).
+add_executable(digitqt_idf_file_tests
+    IdfFileTest.cpp
+)
+
+target_link_libraries(digitqt_idf_file_tests PRIVATE Qt5::Test DigitQt::Formats)
+
+set_target_properties(digitqt_idf_file_tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+add_test(NAME IdfFileTest COMMAND digitqt_idf_file_tests)
+
 # Импортированные из .frn полосы без изображения: реальные S1/S2 на
 # холсте-заглушке (см. Measurement::setPlaceholderImage()).
 add_executable(digitqt_imported_fringes_tests
