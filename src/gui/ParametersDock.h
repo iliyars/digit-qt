@@ -110,6 +110,7 @@ private:
   /// Номинальный шаг фазового сдвига -- виден только на S2 при выбранном PSI.
   QWidget *m_psiStepRow = nullptr;
   QDoubleSpinBox *m_psiStepSpin = nullptr;
+  QCheckBox *m_psiTiltCheck = nullptr;
   /// Плагины, выбранные через "Browse..." за время жизни этого
   /// виджета -- не персистентны между запусками приложения (тот же
   /// принцип, что и у customPhaseReconstructorPluginPath() на

@@ -54,6 +54,27 @@ std::vector<Bitmap> makeFrames(const std::vector<double> &shiftsDeg) {
   return frames;
 }
 
+/// Как makeFrames(), но сдвиг кадра n -- плоскость: shiftsDeg[n] +
+/// tiltX[n]*u + tiltY[n]*v (рад на пиксель, u, v -- от центра кадра).
+std::vector<Bitmap> makeTiltedFrames(const std::vector<double> &shiftsDeg,
+                                     const std::vector<double> &tiltX,
+                                     const std::vector<double> &tiltY) {
+  std::vector<Bitmap> frames;
+  for (size_t n = 0; n < shiftsDeg.size(); ++n) {
+    Bitmap frame(kSize, kSize);
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        const double shift = radians(shiftsDeg[n]) + tiltX[n] * (x - (kSize - 1) / 2.0) +
+                             tiltY[n] * (y - (kSize - 1) / 2.0);
+        frame.setPixel(x, y, static_cast<uint8_t>(std::lround(
+                                 120.0 + 100.0 * std::cos(truePhase(x, y) + shift))));
+      }
+    }
+    frames.push_back(std::move(frame));
+  }
+  return frames;
+}
+
 std::vector<double> toRadians(const std::vector<double> &shiftsDeg) {
   std::vector<double> result;
   for (const double shiftDeg : shiftsDeg)
@@ -96,6 +117,9 @@ double phaseErrorRms(const PsiResult &result, double sign) {
 
 // Сдвиги первого примера из статьи (рис. 4).
 const std::vector<double> kArticleShiftsDeg = {0.0, 72.0, 198.0, 266.4, 36.0};
+// Наклоны сдвига по x для тех же пяти кадров, рад на пиксель: до 4/120 --
+// 2 рад (треть полосы) поперёк апертуры.
+const std::vector<double> kTiltX = {0.0, 1.0 / 120, 2.0 / 120, 3.0 / 120, 4.0 / 120};
 
 class PhaseShiftingTest : public QObject {
   Q_OBJECT
@@ -107,6 +131,11 @@ private slots:
   void computePhaseWithWrongShiftsIsVisiblyWorse();
   void computePhaseRejectsBadInput();
   void estimateShiftsFromTruePhase();
+  void shiftPointsSkipDarkNoise();
+  void diagnosticsOfCleanFrames();
+  void diagnosticsFlagTiltBetweenFrames();
+  void tiltSolverRecoversTiltedSeries();
+  void tiltSolverOnUntiltedFrames();
   void solveRecoversArticleExample_data();
   void solveRecoversArticleExample();
   void solveReportsNonConvergence();
@@ -207,8 +236,11 @@ void PhaseShiftingTest::estimateShiftsFromTruePhase() {
                                             result, error),
            error.c_str());
 
+  const auto points =
+      digitqt::core::psi::selectShiftEstimationPoints(frames, insideAperture, 0.3);
   std::vector<double> shifts;
-  QVERIFY2(digitqt::core::psi::estimateShifts(frames, result, 0.3, shifts, error), error.c_str());
+  QVERIFY2(digitqt::core::psi::estimateShifts(frames, result, points, shifts, error),
+           error.c_str());
   QCOMPARE(shifts.size(), kArticleShiftsDeg.size());
   QCOMPARE(shifts[0], 0.0);
   for (size_t n = 0; n < shifts.size(); ++n) {
@@ -218,9 +250,123 @@ void PhaseShiftingTest::estimateShiftsFromTruePhase() {
     QVERIFY(std::fabs(degrees(angleDiff(shifts[n], radians(kArticleShiftsDeg[n])))) < 0.1);
   }
 
-  // Порог модуляции, который не проходит ни одна точка -- ошибка, а не
-  // сдвиги из ничего.
-  QVERIFY(!digitqt::core::psi::estimateShifts(frames, result, 0.99, shifts, error));
+  // Ни одной точки -- ошибка, а не сдвиги из ничего.
+  const digitqt::core::psi::PointMask none(points.size(), 0);
+  QVERIFY(!digitqt::core::psi::estimateShifts(frames, result, none, shifts, error));
+}
+
+void PhaseShiftingTest::shiftPointsSkipDarkNoise() {
+  // Правая треть кадра -- тёмная (фон 3 уровня) и без полос, только шум
+  // +-2 уровня: b/a там легко больше 0.3, и прежний отбор по модуляции
+  // брал эти точки в оценку сдвигов. Отбор по размаху яркости -- нет.
+  auto frames = makeFrames(kArticleShiftsDeg);
+  unsigned state = 12345;
+  for (auto &frame : frames) {
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 2 * kSize / 3; x < kSize; ++x) {
+        state = state * 1103515245u + 12345u;
+        frame.setPixel(x, y, static_cast<uint8_t>(1 + (state >> 16) % 5));
+      }
+    }
+  }
+  const auto points = digitqt::core::psi::selectShiftEstimationPoints(frames, insideAperture, 0.3);
+  int inDark = 0, inFringes = 0;
+  for (int y = 0; y < kSize; ++y)
+    for (int x = 0; x < kSize; ++x)
+      if (points[static_cast<size_t>(y) * kSize + x])
+        ++(x >= 2 * kSize / 3 ? inDark : inFringes);
+  QCOMPARE(inDark, 0);
+  QVERIFY(inFringes > 1000);
+
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               frames, toRadians({0.0, 90.0, 180.0, 270.0, 360.0}), insideAperture,
+               digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  QVERIFY(result.converged);
+  for (size_t n = 0; n < kArticleShiftsDeg.size(); ++n)
+    QVERIFY(std::fabs(degrees(angleDiff(result.shifts[n], radians(kArticleShiftsDeg[n])))) < 0.2);
+}
+
+void PhaseShiftingTest::diagnosticsOfCleanFrames() {
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               makeFrames(kArticleShiftsDeg), toRadians({0.0, 90.0, 180.0, 270.0, 360.0}),
+               insideAperture, digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  const auto &d = result.diagnostics;
+  qInfo("points %d, halves disagree %.3f deg, residual %.3f of amplitude %.2f", d.shiftPoints,
+        d.halvesDisagreementDeg, d.residual, d.amplitude);
+  QVERIFY(d.shiftPoints > 1000);
+  QVERIFY(d.halvesDisagreementDeg < 0.5);
+  QVERIFY(d.residual < 1.0);                   // только квантование
+  QVERIFY(std::fabs(d.amplitude - 100.0) < 2.0);  // b из makeFrames()
+}
+
+void PhaseShiftingTest::diagnosticsFlagTiltBetweenFrames() {
+  // Сдвиг кадра n меняется поперёк поля: наклон n/120 рад на пиксель (до
+  // 2 рад на ширину апертуры). Один сдвиг на кадр это не описывает --
+  // половины поля должны разойтись, а модель -- заметно не сойтись с кадрами.
+  const auto frames =
+      makeTiltedFrames(kArticleShiftsDeg, kTiltX, std::vector<double>(kTiltX.size(), 0.0));
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(
+               frames, toRadians({0.0, 90.0, 180.0, 270.0, 360.0}), insideAperture,
+               digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  const auto &d = result.diagnostics;
+  qInfo("halves disagree %.2f deg, residual %.2f of amplitude %.2f", d.halvesDisagreementDeg,
+        d.residual, d.amplitude);
+  QVERIFY(d.halvesDisagreementDeg > 10.0);
+  QVERIFY(d.residual > 0.1 * d.amplitude);
+}
+
+void PhaseShiftingTest::tiltSolverRecoversTiltedSeries() {
+  // Наклоны по x и по y сразу, сдвиги рис. 4; ожидаются 90-градусные шаги.
+  const std::vector<double> tiltY = {0.0, -1.5 / 120, 1.0 / 120, -0.5 / 120, 2.0 / 120};
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithTiltShifts(
+               makeTiltedFrames(kArticleShiftsDeg, kTiltX, tiltY),
+               toRadians({0.0, 90.0, 180.0, 270.0, 360.0}), insideAperture,
+               digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  QVERIFY(result.converged);
+  QCOMPARE(result.tiltX.size(), kTiltX.size());
+  // Ошибка наклона, переведённая в радианы на краю апертуры (радиус 60).
+  for (size_t n = 0; n < kTiltX.size(); ++n) {
+    qInfo("frame %d: shift %.3f deg (true %.1f), tilt x %.5f (%.5f), y %.5f (%.5f) rad/px",
+          static_cast<int>(n + 1), degrees(result.shifts[n]), kArticleShiftsDeg[n],
+          result.tiltX[n], kTiltX[n], result.tiltY[n], tiltY[n]);
+    QVERIFY(std::fabs(degrees(angleDiff(result.shifts[n], radians(kArticleShiftsDeg[n])))) < 0.5);
+    QVERIFY(std::fabs(result.tiltX[n] - kTiltX[n]) * 60.0 < 0.01);
+    QVERIFY(std::fabs(result.tiltY[n] - tiltY[n]) * 60.0 < 0.01);
+  }
+  const double rms = phaseErrorRms(result, 1.0);
+  qInfo("phase error RMS %.5f rad, residual %.3f, halves %.3f deg", rms,
+        result.diagnostics.residual, result.diagnostics.halvesDisagreementDeg);
+  QVERIFY(rms < 0.01);
+  QVERIFY(result.diagnostics.residual < 1.0);
+  QVERIFY(result.diagnostics.halvesDisagreementDeg < 0.5);
+}
+
+void PhaseShiftingTest::tiltSolverOnUntiltedFrames() {
+  // Наклона нет -- решатель с наклоном не должен его выдумать.
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithTiltShifts(
+               makeFrames(kArticleShiftsDeg), toRadians({0.0, 90.0, 180.0, 270.0, 360.0}),
+               insideAperture, digitqt::core::psi::PsiOptions{}, result, error),
+           error.c_str());
+  for (size_t n = 0; n < kArticleShiftsDeg.size(); ++n) {
+    QVERIFY(std::fabs(degrees(angleDiff(result.shifts[n], radians(kArticleShiftsDeg[n])))) < 0.2);
+    QVERIFY(std::fabs(result.tiltX[n]) * 60.0 < 0.01);
+    QVERIFY(std::fabs(result.tiltY[n]) * 60.0 < 0.01);
+  }
+  QVERIFY(phaseErrorRms(result, 1.0) < bestPossibleRms(kArticleShiftsDeg) * 1.05 + 1e-4);
 }
 
 void PhaseShiftingTest::solveRecoversArticleExample_data() {

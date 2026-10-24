@@ -1079,18 +1079,62 @@ void MainWindow::applyImportedFringes(digitqt::formats::ImportedData &data,
 }
 
 void MainWindow::showPhaseShiftingReport() {
+  // Пороги предупреждений подобраны на сериях из notes/IDF и синтетике:
+  // у синтетики расхождение половин 0.0 градуса и невязка до 2% амплитуды
+  // (с шумом), у серий с одной-двумя полосами или наклоном -- 30-90
+  // градусов и 15-50%.
+  constexpr double kMaxHalvesDisagreementDeg = 10.0;
+  constexpr double kMaxRelativeResidual = 0.1;
+
   const auto &report = m_measurement->phaseShifting().report();
   QStringList shifts;
   for (const double shift : report.shiftsDeg)
     shifts << QString::number(shift, 'f', 2);
-  statusBar()->showMessage(tr("PSI: estimated shifts %1 deg, %2 iteration(s)")
-                               .arg(shifts.join(QStringLiteral(" / ")))
-                               .arg(report.iterations));
+  const QString halves = std::isnan(report.halvesDisagreementDeg)
+                             ? tr("n/a")
+                             : QString::number(report.halvesDisagreementDeg, 'f', 1);
+  QString tilts;
+  if (!report.tiltXWaves.empty()) {
+    QStringList perFrame;
+    for (size_t n = 0; n < report.tiltXWaves.size(); ++n)
+      perFrame << QStringLiteral("%1/%2")
+                      .arg(report.tiltXWaves[n], 0, 'f', 2)
+                      .arg(report.tiltYWaves[n], 0, 'f', 2);
+    tilts = tr("; tilt x/y %1 waves across the frame").arg(perFrame.join(QStringLiteral("  ")));
+  }
+  statusBar()->showMessage(
+      tr("PSI: estimated shifts %1 deg, %2 iteration(s); halves of the field disagree by %3 deg; "
+         "fit residual %4 of fringe amplitude %5 grey levels (%6 points)%7")
+          .arg(shifts.join(QStringLiteral(" / ")))
+          .arg(report.iterations)
+          .arg(halves)
+          .arg(report.residual, 0, 'f', 2)
+          .arg(report.amplitude, 0, 'f', 1)
+          .arg(report.shiftPoints)
+          .arg(tilts));
 
   QStringList warnings;
   if (!report.converged)
     warnings << tr("The phase shifts did not settle within the iteration limit; the map may "
                    "still carry shift errors (step-like ripple across the fringes).");
+  if (std::isnan(report.halvesDisagreementDeg) ||
+      report.halvesDisagreementDeg > kMaxHalvesDisagreementDeg)
+    warnings << tr("The shifts found from two halves of the field disagree by %1 deg, so they are "
+                   "not reliable. Either there are too few fringes to determine the shifts (fewer "
+                   "than one or two across the area -- add tilt), or the shift differs across the "
+                   "field (tilt between frames).")
+                        .arg(halves) +
+                    (report.tiltXWaves.empty()
+                         ? tr(" If the fringes are plentiful, try \"Compensate tilt between "
+                              "frames\" on this stage.")
+                         : QString());
+  if (report.amplitude > 0.0 && report.residual > kMaxRelativeResidual * report.amplitude)
+    warnings << tr("The frames deviate from the ideal fringe model by %1 grey levels, %2% of the "
+                   "fringe amplitude. Typical causes: camera noise, overexposure (fringes clipped "
+                   "near white are no longer sinusoidal), laser flicker between frames, tilt or "
+                   "vibration.")
+                    .arg(report.residual, 0, 'f', 1)
+                    .arg(100.0 * report.residual / report.amplitude, 0, 'f', 0);
   if (report.mirrored)
     warnings << tr("The estimated shifts ended up closer to the mirror image of the nominal "
                    "step. The map was flipped to match the nominal direction -- check its sign "

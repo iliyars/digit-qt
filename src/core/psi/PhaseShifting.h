@@ -39,6 +39,8 @@ namespace digitqt::core::psi {
 class CosineFit {
 public:
   void add(double theta, double intensity);
+  /// То же с готовыми cos(theta), sin(theta) -- когда они уже посчитаны.
+  void addCosSin(double cosTheta, double sinTheta, double intensity);
   int count() const { return m_count; }
 
   /// @return false, если система вырождена (меньше трёх различных theta).
@@ -57,8 +59,15 @@ struct PsiResult {
   PhaseMap wrappedPhase;
   /// Модуляция b/a, формула (8): 1 -- полосы во весь размах, 0 -- полос нет.
   PhaseMap modulation;
-  /// Сдвиг каждого кадра в радианах, с которым посчитана wrappedPhase.
+  /// Сдвиг каждого кадра в радианах, с которым посчитана wrappedPhase. При
+  /// учёте наклона -- сдвиг в центре кадра.
   std::vector<double> shifts;
+  /// Только у solveWithTiltShifts(): наклон сдвига каждого кадра, радианы
+  /// на пиксель по x и по y (у первого кадра -- нули, наклоны отсчитаны
+  /// от него). Сдвиг кадра n в точке (x, y) -- shifts[n] + tiltX[n]*u +
+  /// tiltY[n]*v, где u, v -- координаты от центра кадра. Пусто -- сдвиг
+  /// один на весь кадр.
+  std::vector<double> tiltX, tiltY;
   /// Только у solveWithUnknownShifts(): сколько раз уточнялись сдвиги и
   /// сошёлся ли процесс до PsiOptions::tolerance.
   int iterations = 0;
@@ -68,11 +77,37 @@ struct PsiResult {
   /// (см. solveWithUnknownShifts()). Повод перепроверить знак карты, если
   /// ожидаемые сдвиги заданы неточно.
   bool mirrored = false;
+
+  /// Диагностика solveWithUnknownShifts() -- насколько найденным сдвигам
+  /// можно верить. "Сошлось" само по себе этого не говорит: на кадрах,
+  /// где сдвиги не определены, итерации тоже где-нибудь останавливаются.
+  struct Diagnostics {
+    /// Сколько точек участвовало в оценке сдвигов.
+    int shiftPoints = 0;
+    /// Сдвиги, найденные по двум половинам этих точек (левой и правой,
+    /// верхней и нижней) при одной и той же фазе, -- СКО их расхождения
+    /// по кадрам, градусы; из двух разбиений берётся худшее. Около нуля --
+    /// сдвиг один на весь кадр и надёжно определён. Большое -- либо полос
+    /// слишком мало, чтобы определить сдвиг (меньше одной на точки), либо
+    /// сдвиг по полю разный (наклон между кадрами). NaN -- точек не
+    /// хватило на половины.
+    double halvesDisagreementDeg = 0.0;
+    /// СКО отличия кадров от модели a + b*cos(phi + delta) в тех же точках,
+    /// в уровнях яркости. Сравнивать с amplitude: у идеальных кадров --
+    /// доли уровня (квантование), у реальных растёт от шума, пересвета
+    /// (несинусоидальные полосы), мерцания лазера, наклона.
+    double residual = 0.0;
+    /// Медианная амплитуда полос b в тех же точках, уровни яркости.
+    double amplitude = 0.0;
+  };
+  Diagnostics diagnostics;
 };
 
 struct PsiOptions {
-  /// Точки с модуляцией ниже порога не участвуют в оценке сдвигов.
-  double minModulation = 0.3;
+  /// Какие точки участвуют в оценке сдвигов -- см.
+  /// selectShiftEstimationPoints(): размах яркости по кадрам не меньше
+  /// этой доли от 99-го процентиля размаха в апертуре.
+  double minFringeSpan = 0.3;
   /// Порог из (16): итерации прекращаются, когда сдвиги за шаг меняются
   /// меньше чем на эту величину (СКО по кадрам, радианы). По умолчанию
   /// 0.001 градуса -- в статье 0.0005 градуса потребовали 39 итераций.
@@ -95,6 +130,37 @@ bool computePhase(const std::vector<Bitmap> &frames, const std::vector<double> &
                   std::string &error);
 
 /**
+ * @brief То же, что computePhase(), но сдвиг кадра -- плоскость: в точке
+ * (x, y) он равен shifts[n] + tiltX[n]*u + tiltY[n]*v (u, v -- от центра
+ * кадра). tiltX/tiltY -- радианы на пиксель; пустые -- без наклона.
+ */
+bool computePhaseTilted(const std::vector<Bitmap> &frames, const std::vector<double> &shifts,
+                        const std::vector<double> &tiltX, const std::vector<double> &tiltY,
+                        const std::function<bool(int, int)> &isVisible, PsiResult &out,
+                        std::string &error);
+
+/// Маска точек кадра, по строкам (width*height), 1 -- точка участвует.
+using PointMask = std::vector<unsigned char>;
+
+/**
+ * @brief Точки, по которым оцениваются сдвиги (шаг 2): в апертуре и с
+ * размахом яркости по кадрам (max - min) не меньше minFringeSpan от 99-го
+ * процентиля размаха в апертуре. Правило 1 из раздела "Практические
+ * результаты" статьи: точки без полос только зашумляют оценку.
+ *
+ * Почему размах, а не модуляция b/a из шага 1:
+ * - размах не зависит от текущей оценки сдвигов, поэтому маска
+ *   считается один раз; маска по b/a менялась от итерации к итерации, и
+ *   на реальных кадрах итерации ходили по кругу, не сходясь;
+ * - b/a велико и там, где полос нет, но темно: при фоне в несколько
+ *   уровней шум камеры даёт "модуляцию" 0.3 и выше, и в оценку сдвигов
+ *   попадали тёмные углы кадра.
+ */
+PointMask selectShiftEstimationPoints(const std::vector<Bitmap> &frames,
+                                      const std::function<bool(int, int)> &isVisible,
+                                      double minFringeSpan);
+
+/**
  * @brief Шаг 2: фаза известна -> реальный сдвиг каждого кадра.
  * Формулы (12)-(15).
  *
@@ -102,17 +168,15 @@ bool computePhase(const std::vector<Bitmap> &frames, const std::vector<double> &
  * кадрам (theta = сдвиг кадра), здесь для каждого КАДРА -- по пикселям
  * (theta = фаза в пикселе).
  *
- * В расчёте участвуют только точки, где фаза определена (не NaN) и
- * модуляция не ниже minModulation -- правило 1 из раздела "Практические
- * результаты": точки без полос только зашумляют оценку.
- *
  * @param current Результат computePhase() -- текущая оценка фазы.
- * @param minModulation Порог модуляции, 0..1.
+ * @param points Точки, по которым оценивать (см.
+ *        selectShiftEstimationPoints()); из них берутся те, где фаза
+ *        определена.
  * @param shifts Найденные сдвиги в радианах, приведённые так, что
  *        shifts[0] == 0, остальные в [0, 2*pi).
  */
 bool estimateShifts(const std::vector<Bitmap> &frames, const PsiResult &current,
-                    double minModulation, std::vector<double> &shifts, std::string &error);
+                    const PointMask &points, std::vector<double> &shifts, std::string &error);
 
 /**
  * @brief Весь алгоритм статьи (рис. 3): шаг 1 и шаг 2 по очереди, пока
@@ -131,11 +195,39 @@ bool estimateShifts(const std::vector<Bitmap> &frames, const PsiResult &current,
  *        неверным -- по самим кадрам этого не узнать.
  * @param out При успехе -- фаза и модуляция с последними сдвигами;
  *        out.converged == false, если за maxIterations порог не достигнут
- *        (результат всё равно возвращается: обычно он уже пригоден).
+ *        (результат всё равно возвращается: обычно он уже пригоден);
+ *        out.diagnostics -- насколько сдвигам можно верить.
  */
 bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
                             const std::vector<double> &expectedShifts,
                             const std::function<bool(int, int)> &isVisible,
                             const PsiOptions &options, PsiResult &out, std::string &error);
+
+/**
+ * @brief Как solveWithUnknownShifts(), но сдвиг каждого кадра -- плоскость
+ * (наклон между кадрами от вибраций или перекоса фазосдвигателя).
+ *
+ * Метод: Q. Liu, Y. Wang, F. Ji, J. He, "A three-step least-squares
+ * iterative method for tilt phase-shift interferometry", Opt. Express 21,
+ * 29505 (2013). Идея: x- и y-части наклона независимы, а в пределах одного
+ * столбца x-часть сдвига постоянна (в строке -- y-часть). Поэтому каждая
+ * итерация -- три линейные подгонки той же формы, что CosineFit:
+ *   1) фаза в каждой точке при известных плоскостях сдвига;
+ *   2) сдвиг каждого столбца каждого кадра -> развёртка вдоль x и прямая ->
+ *      наклон по x и сдвиг;
+ *   3) то же по строкам -> наклон по y.
+ * В каждом столбце и строке нужна хотя бы одна полоса.
+ *
+ * Отступление от статьи: итерации запускаются с трёх стартов -- без
+ * наклона и с наклоном, оценённым по сдвигу пика спектра кадра
+ * относительно первого (двумя знаками: по спектру его не определить), --
+ * и берётся решение с наименьшей невязкой. С нулевого наклона, как в
+ * статье, итерации не находят большой наклон (несколько полос), а старт
+ * по спектру портит кадры без преобладающей частоты полос (кольца).
+ */
+bool solveWithTiltShifts(const std::vector<Bitmap> &frames,
+                         const std::vector<double> &expectedShifts,
+                         const std::function<bool(int, int)> &isVisible,
+                         const PsiOptions &options, PsiResult &out, std::string &error);
 
 }  // namespace digitqt::core::psi

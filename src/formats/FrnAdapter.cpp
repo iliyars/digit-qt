@@ -5,7 +5,6 @@
 #include <aperture/include/geometry/Ellipse.h>
 #include <aperture/include/geometry/Polygon.h>
 #include <aperture/include/geometry/Rectangle.h>
-
 #include <cmath>
 #include <memory>
 
@@ -272,8 +271,9 @@ bool FrnAdapter::importData(std::string_view data, ImportedData &out, std::strin
     dialect = Dialect::WinFringe;
   }
   if (!image) {
-    error = "Neither [IMAGE] nor [IMAGE_FILE] section found: cannot tell the Digit and WinFringe "
-            "dialects apart";
+    error =
+        "Neither [IMAGE] nor [IMAGE_FILE] section found: cannot tell the Digit and WinFringe "
+        "dialects apart";
     return false;
   }
 
@@ -336,8 +336,9 @@ bool FrnAdapter::importData(std::string_view data, ImportedData &out, std::strin
       shape = std::make_unique<aperture::Ellipse>(box.halfA, box.halfB, box.xc, box.yc,
                                                   box.rotationDeg, limitsOf(box.external));
     else
-      shape = std::make_unique<aperture::Rectangle>(box.halfA * 2.0, box.halfB * 2.0, box.xc, box.yc,
-                                                    box.rotationDeg, limitsOf(box.external));
+      shape =
+          std::make_unique<aperture::Rectangle>(box.halfA * 2.0, box.halfB * 2.0, box.xc, box.yc,
+                                                box.rotationDeg, limitsOf(box.external));
     if (box.normalized) {
       shape->denormalize(circle->xc, circle->yc, circle->radius);
       ++denormalized;
@@ -381,8 +382,9 @@ bool FrnAdapter::importData(std::string_view data, ImportedData &out, std::strin
 
   // Отчёт.
   if (flipY)
-    out.report.push_back({Fidelity::Converted, "WinFringe dialect: Y axis flipped back using image height " +
-                                                   std::to_string(static_cast<int>(imageHeight))});
+    out.report.push_back(
+        {Fidelity::Converted, "WinFringe dialect: Y axis flipped back using image height " +
+                                  std::to_string(static_cast<int>(imageHeight))});
   else
     out.report.push_back({Fidelity::Lossless, "Digit dialect: pixel coordinates taken unchanged"});
   if (denormalized > 0)
@@ -392,10 +394,10 @@ bool FrnAdapter::importData(std::string_view data, ImportedData &out, std::strin
                                   "circle was derived from [BOUNDS] (radius " +
                                   std::to_string(circle->radius) + ")"});
   if (droppedNormalized > 0)
-    out.report.push_back(
-        {Fidelity::Dropped, std::to_string(droppedNormalized) +
-                                " normalized shape(s): no unrotated shape in [BOUNDS] to derive the "
-                                "normalization circle from"});
+    out.report.push_back({Fidelity::Dropped,
+                          std::to_string(droppedNormalized) +
+                              " normalized shape(s): no unrotated shape in [BOUNDS] to derive the "
+                              "normalization circle from"});
   if (!out.fringeLines.empty())
     out.report.push_back({Fidelity::Missing, "Fringe width and intensity are not stored in .frn"});
   if (!hasSize)
@@ -407,9 +409,11 @@ bool FrnAdapter::importData(std::string_view data, ImportedData &out, std::strin
     const auto scaleValue = lineValue(*general, "ScaleFactor=");
     const auto fiScanValue = lineValue(*general, "FiScan=");
     if (scaleValue && parseDouble(*scaleValue, scaleFactor) && scaleFactor != 1.0)
-      out.report.push_back({Fidelity::Dropped, "ScaleFactor=" + std::string(*scaleValue) + " is ignored"});
+      out.report.push_back(
+          {Fidelity::Dropped, "ScaleFactor=" + std::string(*scaleValue) + " is ignored"});
     if (fiScanValue && parseDouble(*fiScanValue, fiScan) && fiScan != 0.0)
-      out.report.push_back({Fidelity::Dropped, "FiScan=" + std::string(*fiScanValue) + " is ignored"});
+      out.report.push_back(
+          {Fidelity::Dropped, "FiScan=" + std::string(*fiScanValue) + " is ignored"});
   }
 
   if (!shapes.isEmpty())

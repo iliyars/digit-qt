@@ -28,9 +28,9 @@ constexpr int kMaxGridDimension = 5000;
 
 // Точки с модуляцией ниже этого порога в итоговую карту PSI не попадают:
 // полос там практически нет (тень, блик, край апертуры), и фаза в них --
-// шум, который развёртка разнесла бы по соседям. Ниже порога
-// PsiOptions::minModulation: тот отбирает точки для оценки сдвигов, где
-// нужна полная уверенность, а здесь достаточно, чтобы полосы вообще были.
+// шум, который развёртка разнесла бы по соседям. Точки для оценки
+// сдвигов отбираются отдельно и строже (psi::selectShiftEstimationPoints()),
+// а здесь достаточно, чтобы полосы вообще были.
 constexpr double kPsiMinModulationForMap = 0.1;
 
 // Связные куски карты меньше этого -- шумовые островки (обычно одиночные
@@ -63,9 +63,10 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
     expectedShifts.push_back(static_cast<double>(n) * psiData.nominalStepDeg() * pi / 180.0);
 
   digitqt::core::psi::PsiResult psi;
-  if (!digitqt::core::psi::solveWithUnknownShifts(frames, expectedShifts, isVisible,
-                                                  digitqt::core::psi::PsiOptions{}, psi,
-                                                  errorMessage))
+  const auto solve = psiData.compensateTilt() ? digitqt::core::psi::solveWithTiltShifts
+                                              : digitqt::core::psi::solveWithUnknownShifts;
+  if (!solve(frames, expectedShifts, isVisible, digitqt::core::psi::PsiOptions{}, psi,
+             errorMessage))
     return false;
 
   int masked = 0;
@@ -92,6 +93,15 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   report.regionCount = unwrapped.regionCount;
   report.maskedLowModulation = masked;
   report.droppedIslandPoints = unwrapped.droppedPoints;
+  report.shiftPoints = psi.diagnostics.shiftPoints;
+  report.halvesDisagreementDeg = psi.diagnostics.halvesDisagreementDeg;
+  report.residual = psi.diagnostics.residual;
+  report.amplitude = psi.diagnostics.amplitude;
+  // Радианы на пиксель -> полосы на ширину (высоту) кадра.
+  for (size_t n = 0; n < psi.tiltX.size(); ++n) {
+    report.tiltXWaves.push_back(psi.tiltX[n] * (frames[0].width() - 1) / (2.0 * pi));
+    report.tiltYWaves.push_back(psi.tiltY[n] * (frames[0].height() - 1) / (2.0 * pi));
+  }
   psiData.setReport(std::move(report));
 
   measurement.phaseMap() = std::move(unwrapped.orders);

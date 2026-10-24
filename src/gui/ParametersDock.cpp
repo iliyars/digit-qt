@@ -282,6 +282,18 @@ ParametersDock::ParametersDock(QWidget *parent)
               m_measurement->phaseShifting().setNominalStepDeg(value);
           });
   psiStepLayout->addWidget(m_psiStepSpin);
+  m_psiTiltCheck = new QCheckBox(tr("Compensate tilt between frames"), m_psiStepRow);
+  m_psiTiltCheck->setContentsMargins(8, 4, 8, 0);
+  m_psiTiltCheck->setToolTip(
+      tr("Treat the phase shift of every frame as a plane instead of a constant -- for frames "
+         "where vibration or the phase shifter also tilted the reference (the shift found from "
+         "two halves of the field disagrees). Slower, and needs at least one fringe across "
+         "every row and column."));
+  connect(m_psiTiltCheck, &QCheckBox::toggled, this, [this](bool checked) {
+    if (m_measurement)
+      m_measurement->phaseShifting().setCompensateTilt(checked);
+  });
+  psiStepLayout->addWidget(m_psiTiltCheck);
   layout->addWidget(m_psiStepRow);
   m_psiStepRow->setVisible(false);
 
@@ -459,6 +471,8 @@ void ParametersDock::refreshPsiStepRow() {
   if (show) {
     const QSignalBlocker blocker(m_psiStepSpin);
     m_psiStepSpin->setValue(m_measurement->phaseShifting().nominalStepDeg());
+    const QSignalBlocker tiltBlocker(m_psiTiltCheck);
+    m_psiTiltCheck->setChecked(m_measurement->phaseShifting().compensateTilt());
   }
 }
 

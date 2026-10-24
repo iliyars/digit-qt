@@ -26,6 +26,12 @@ public:
   double nominalStepDeg() const { return m_nominalStepDeg; }
   void setNominalStepDeg(double step) { m_nominalStepDeg = step; }
 
+  /// Учитывать наклон между кадрами (сдвиг кадра -- плоскость, см.
+  /// psi::solveWithTiltShifts()). Медленнее и требует полос в каждом
+  /// столбце и строке, поэтому по умолчанию выключено.
+  bool compensateTilt() const { return m_compensateTilt; }
+  void setCompensateTilt(bool on) { m_compensateTilt = on; }
+
   /// Итог последнего расчёта S2 методом PSI -- для показа пользователю.
   struct Report {
     std::vector<double> shiftsDeg;  ///< найденный сдвиг каждого кадра, первый = 0
@@ -35,6 +41,14 @@ public:
     int regionCount = 0;    ///< см. UnwrapResult::regionCount
     int maskedLowModulation = 0;  ///< точек апертуры, выброшенных из-за слабых полос
     int droppedIslandPoints = 0;  ///< точек в мелких оторванных островках, тоже выброшенных
+    // Надёжность сдвигов -- см. psi::PsiResult::Diagnostics.
+    int shiftPoints = 0;
+    double halvesDisagreementDeg = 0.0;  ///< NaN -- не посчитано
+    double residual = 0.0;               ///< уровни яркости
+    double amplitude = 0.0;              ///< уровни яркости
+    /// Наклон сдвига каждого кадра относительно первого, в полосах
+    /// (волнах) на ширину и высоту кадра. Пусто -- наклон не учитывался.
+    std::vector<double> tiltXWaves, tiltYWaves;
   };
   const Report &report() const { return m_report; }
   void setReport(Report report) { m_report = std::move(report); }
@@ -43,6 +57,7 @@ private:
   friend class Measurement;
   std::vector<Bitmap> m_frames;
   double m_nominalStepDeg = 90.0;
+  bool m_compensateTilt = false;
   Report m_report;
 };
 
