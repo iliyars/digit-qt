@@ -204,6 +204,21 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
                             const PsiOptions &options, PsiResult &out, std::string &error);
 
 /**
+ * @brief Сдвиги считаются точными: только шаг 1 (computePhase()) плюс та
+ * же диагностика, что у solveWithUnknownShifts().
+ *
+ * Для откалиброванного фазосдвигателя и для сравнения: насколько хуже
+ * карта, если сдвиги не уточнять (рябь на удвоенной частоте полос при
+ * ошибке сдвигов), видно по невязке и по остатку S5.
+ *
+ * @param shifts Сдвиги в радианах; приводятся к виду shifts[0] == 0.
+ * @param out iterations == 0, converged == true, mirrored == false.
+ */
+bool solveWithKnownShifts(const std::vector<Bitmap> &frames, const std::vector<double> &shifts,
+                          const std::function<bool(int, int)> &isVisible,
+                          const PsiOptions &options, PsiResult &out, std::string &error);
+
+/**
  * @brief Как solveWithUnknownShifts(), но сдвиг каждого кадра -- плоскость
  * (наклон между кадрами от вибраций или перекоса фазосдвигателя).
  *

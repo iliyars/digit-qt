@@ -139,12 +139,14 @@ private slots:
   void solveRecoversArticleExample_data();
   void solveRecoversArticleExample();
   void solveReportsNonConvergence();
+  void knownShiftsSolverSkipsRefinement();
   void mirrorAmbiguityOfOutOfOrderExample();
   void unwrapRecoversSmoothPhase();
   void unwrapRoutesAroundLowQualityNoise();
   void unwrapCountsDisconnectedRegions();
   void pipelineStageComputesPhaseFromSeries();
   void pipelineStageRequiresSeries();
+  void pipelineStageWithoutRefinementUsesNominalShifts();
 };
 
 void PhaseShiftingTest::cosineFitRecoversKnownCosine() {
@@ -423,6 +425,39 @@ void PhaseShiftingTest::solveReportsNonConvergence() {
   QVERIFY(!result.wrappedPhase.isEmpty());
 }
 
+void PhaseShiftingTest::knownShiftsSolverSkipsRefinement() {
+  // Те же кадры рис. 4, сдвиги не уточняются. С настоящими сдвигами --
+  // точный результат, с номинальными 90 градусов -- рябь (как в
+  // computePhaseWithWrongShiftsIsVisiblyWorse()), и она видна по невязке.
+  const auto frames = makeFrames(kArticleShiftsDeg);
+  const digitqt::core::psi::PsiOptions options;
+  std::string error;
+
+  PsiResult exact;
+  QVERIFY2(digitqt::core::psi::solveWithKnownShifts(frames, toRadians(kArticleShiftsDeg),
+                                                    insideAperture, options, exact, error),
+           error.c_str());
+  QCOMPARE(exact.iterations, 0);
+  QVERIFY(exact.converged);
+  QVERIFY(!exact.mirrored);
+  QVERIFY(phaseErrorRms(exact, 1.0) < 0.005);
+
+  PsiResult nominal;
+  QVERIFY2(digitqt::core::psi::solveWithKnownShifts(
+               frames, toRadians({90.0, 180.0, 270.0, 360.0, 450.0}), insideAperture, options,
+               nominal, error),
+           error.c_str());
+  // Сдвиги приведены к shifts[0] == 0: 90..450 -> 0, 90, 180, 270, 0.
+  QCOMPARE(nominal.shifts.size(), kArticleShiftsDeg.size());
+  QVERIFY(std::fabs(nominal.shifts[0]) < 1e-12);
+  QVERIFY(std::fabs(degrees(nominal.shifts[3]) - 270.0) < 1e-9);
+  QVERIFY(phaseErrorRms(nominal, 1.0) > 0.05);
+  qInfo("residual with true shifts %.3f, with nominal %.3f grey levels",
+        exact.diagnostics.residual, nominal.diagnostics.residual);
+  QVERIFY(exact.diagnostics.residual < 1.0);
+  QVERIFY(nominal.diagnostics.residual > 10.0 * exact.diagnostics.residual);
+}
+
 void PhaseShiftingTest::mirrorAmbiguityOfOutOfOrderExample() {
   // Рис. 8 статьи буквально: настоящие 0/10/110/30, ожидаемые 0/90/180/270.
   // Зеркальное решение (0/350/250/330, фаза -phi) описывает кадры ровно так
@@ -610,6 +645,32 @@ void PhaseShiftingTest::pipelineStageRequiresSeries() {
   QVERIFY(measurement.phaseShifting().hasSeries());
   measurement.setImage(makeFrames({0.0})[0], "single.bmp");
   QVERIFY(!measurement.phaseShifting().hasSeries());
+}
+
+void PhaseShiftingTest::pipelineStageWithoutRefinementUsesNominalShifts() {
+  using digitqt::core::pipeline::StageId;
+  digitqt::core::Measurement measurement;
+  measurement.setPhaseShiftingFrames(makeFrames(kArticleShiftsDeg), "frame1.bmp");
+  measurement.setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  measurement.phaseShifting().setRefineShifts(false);
+  // Наклон без уточнения не действует.
+  measurement.phaseShifting().setCompensateTilt(true);
+
+  digitqt::core::pipeline::Pipeline pipeline;
+  QVERIFY2(pipeline.stage(StageId::Setup).compute(measurement),
+           pipeline.stage(StageId::Setup).errorMessage().c_str());
+  QVERIFY2(pipeline.stage(StageId::S2).compute(measurement),
+           pipeline.stage(StageId::S2).errorMessage().c_str());
+
+  const auto &report = measurement.phaseShifting().report();
+  QVERIFY(!report.refined);
+  QCOMPARE(report.iterations, 0);
+  QVERIFY(report.tiltXWaves.empty());
+  const std::vector<double> nominalDeg = {0.0, 90.0, 180.0, 270.0, 0.0};
+  QCOMPARE(report.shiftsDeg.size(), nominalDeg.size());
+  for (size_t n = 0; n < nominalDeg.size(); ++n)
+    QVERIFY(std::fabs(report.shiftsDeg[n] - nominalDeg[n]) < 1e-9);
 }
 
 }  // namespace

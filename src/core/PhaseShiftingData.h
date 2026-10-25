@@ -32,9 +32,17 @@ public:
   bool compensateTilt() const { return m_compensateTilt; }
   void setCompensateTilt(bool on) { m_compensateTilt = on; }
 
+  /// Уточнять сдвиги по кадрам. Выключено -- сдвиги считаются точно
+  /// равными n * nominalStepDeg() (psi::solveWithKnownShifts()):
+  /// для откалиброванного фазосдвигателя и для сравнения с уточнением.
+  /// compensateTilt() тогда не действует.
+  bool refineShifts() const { return m_refineShifts; }
+  void setRefineShifts(bool on) { m_refineShifts = on; }
+
   /// Итог последнего расчёта S2 методом PSI -- для показа пользователю.
   struct Report {
     std::vector<double> shiftsDeg;  ///< найденный сдвиг каждого кадра, первый = 0
+    bool refined = true;            ///< false -- shiftsDeg номинальные, см. refineShifts()
     int iterations = 0;
     bool converged = false;
     bool mirrored = false;  ///< см. psi::PsiResult::mirrored
@@ -58,6 +66,7 @@ private:
   std::vector<Bitmap> m_frames;
   double m_nominalStepDeg = 90.0;
   bool m_compensateTilt = false;
+  bool m_refineShifts = true;
   Report m_report;
 };
 

@@ -570,6 +570,19 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
   return true;
 }
 
+bool solveWithKnownShifts(const std::vector<Bitmap> &frames, const std::vector<double> &shifts,
+                          const std::function<bool(int, int)> &isVisible,
+                          const PsiOptions &options, PsiResult &out, std::string &error) {
+  PsiResult result;
+  if (!computePhase(frames, normalizedShifts(shifts), isVisible, result, error))
+    return false;
+  result.converged = true;
+  const PointMask points = selectShiftEstimationPoints(frames, isVisible, options.minFringeSpan);
+  result.diagnostics = diagnose(frames, result, points);
+  out = std::move(result);
+  return true;
+}
+
 namespace {
 
 /// Состояние итераций метода Liu: плоскость сдвига каждого кадра,

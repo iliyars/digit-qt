@@ -293,6 +293,19 @@ ParametersDock::ParametersDock(QWidget *parent)
     if (m_measurement)
       m_measurement->phaseShifting().setCompensateTilt(checked);
   });
+  m_psiRefineCheck = new QCheckBox(tr("Refine phase shifts from the frames"), m_psiStepRow);
+  m_psiRefineCheck->setContentsMargins(8, 4, 8, 0);
+  m_psiRefineCheck->setToolTip(
+      tr("Estimate the real shift of every frame from the frames themselves (iterations). "
+         "Turn off to trust the nominal step exactly -- for a calibrated phase shifter, or to "
+         "see how much worse the map is without refinement (ripple at twice the fringe "
+         "frequency, larger fit residual)."));
+  connect(m_psiRefineCheck, &QCheckBox::toggled, this, [this](bool checked) {
+    if (m_measurement)
+      m_measurement->phaseShifting().setRefineShifts(checked);
+    m_psiTiltCheck->setEnabled(checked);
+  });
+  psiStepLayout->addWidget(m_psiRefineCheck);
   psiStepLayout->addWidget(m_psiTiltCheck);
   layout->addWidget(m_psiStepRow);
   m_psiStepRow->setVisible(false);
@@ -473,6 +486,9 @@ void ParametersDock::refreshPsiStepRow() {
     m_psiStepSpin->setValue(m_measurement->phaseShifting().nominalStepDeg());
     const QSignalBlocker tiltBlocker(m_psiTiltCheck);
     m_psiTiltCheck->setChecked(m_measurement->phaseShifting().compensateTilt());
+    const QSignalBlocker refineBlocker(m_psiRefineCheck);
+    m_psiRefineCheck->setChecked(m_measurement->phaseShifting().refineShifts());
+    m_psiTiltCheck->setEnabled(m_measurement->phaseShifting().refineShifts());
   }
 }
 

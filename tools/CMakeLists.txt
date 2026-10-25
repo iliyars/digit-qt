@@ -1,2 +1,3 @@
 add_subdirectory(mtr_diff)
 add_subdirectory(terminal_pipeline)
+add_subdirectory(psi_check)

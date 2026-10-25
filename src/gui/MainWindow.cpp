@@ -1102,11 +1102,16 @@ void MainWindow::showPhaseShiftingReport() {
                       .arg(report.tiltYWaves[n], 0, 'f', 2);
     tilts = tr("; tilt x/y %1 waves across the frame").arg(perFrame.join(QStringLiteral("  ")));
   }
+  const QString shiftSource = report.refined
+                                  ? tr("estimated shifts %1 deg, %2 iteration(s)")
+                                        .arg(shifts.join(QStringLiteral(" / ")))
+                                        .arg(report.iterations)
+                                  : tr("nominal shifts %1 deg (not refined)")
+                                        .arg(shifts.join(QStringLiteral(" / ")));
   statusBar()->showMessage(
-      tr("PSI: estimated shifts %1 deg, %2 iteration(s); halves of the field disagree by %3 deg; "
-         "fit residual %4 of fringe amplitude %5 grey levels (%6 points)%7")
-          .arg(shifts.join(QStringLiteral(" / ")))
-          .arg(report.iterations)
+      tr("PSI: %1; halves of the field disagree by %2 deg; "
+         "fit residual %3 of fringe amplitude %4 grey levels (%5 points)%6")
+          .arg(shiftSource)
           .arg(halves)
           .arg(report.residual, 0, 'f', 2)
           .arg(report.amplitude, 0, 'f', 1)
@@ -1133,8 +1138,13 @@ void MainWindow::showPhaseShiftingReport() {
                    "fringe amplitude. Typical causes: camera noise, overexposure (fringes clipped "
                    "near white are no longer sinusoidal), laser flicker between frames, tilt or "
                    "vibration.")
-                    .arg(report.residual, 0, 'f', 1)
-                    .arg(100.0 * report.residual / report.amplitude, 0, 'f', 0);
+                        .arg(report.residual, 0, 'f', 1)
+                        .arg(100.0 * report.residual / report.amplitude, 0, 'f', 0) +
+                    (report.refined ? QString()
+                                    : tr(" The shifts were not refined: if the real shifts "
+                                         "differ from the nominal step, this alone explains "
+                                         "the deviation -- turn on \"Refine phase shifts from "
+                                         "the frames\"."));
   if (report.mirrored)
     warnings << tr("The estimated shifts ended up closer to the mirror image of the nominal "
                    "step. The map was flipped to match the nominal direction -- check its sign "

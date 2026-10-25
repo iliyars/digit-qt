@@ -63,8 +63,9 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
     expectedShifts.push_back(static_cast<double>(n) * psiData.nominalStepDeg() * pi / 180.0);
 
   digitqt::core::psi::PsiResult psi;
-  const auto solve = psiData.compensateTilt() ? digitqt::core::psi::solveWithTiltShifts
-                                              : digitqt::core::psi::solveWithUnknownShifts;
+  const auto solve = !psiData.refineShifts()   ? digitqt::core::psi::solveWithKnownShifts
+                     : psiData.compensateTilt() ? digitqt::core::psi::solveWithTiltShifts
+                                                : digitqt::core::psi::solveWithUnknownShifts;
   if (!solve(frames, expectedShifts, isVisible, digitqt::core::psi::PsiOptions{}, psi,
              errorMessage))
     return false;
@@ -87,6 +88,7 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   digitqt::core::PhaseShiftingData::Report report;
   for (const double shift : psi.shifts)
     report.shiftsDeg.push_back(shift * 180.0 / pi);
+  report.refined = psiData.refineShifts();
   report.iterations = psi.iterations;
   report.converged = psi.converged;
   report.mirrored = psi.mirrored;
