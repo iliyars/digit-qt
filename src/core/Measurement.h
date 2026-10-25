@@ -49,8 +49,11 @@ public:
   /// image() становится первым кадром, всё остальное сбрасывается так же,
   /// как в setImage(). Кадры должны быть одного размера (проверяет
   /// вызывающий код). setImage() и прочие способы сменить изображение
-  /// серию сбрасывают.
-  void setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> frames, std::string path);
+  /// серию сбрасывают. sourceWidth/sourceHeight -- размер кадров до
+  /// padImageBackground() (см. PhaseShiftingData::sourceWidth()); 0 --
+  /// кадры не дополнялись полем.
+  void setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> frames, std::string path,
+                              int sourceWidth = 0, int sourceHeight = 0);
   PhaseShiftingData &phaseShifting() { return m_phaseShifting; }
   const PhaseShiftingData &phaseShifting() const { return m_phaseShifting; }
   const digitqt::core::Bitmap &image() const { return m_image; }

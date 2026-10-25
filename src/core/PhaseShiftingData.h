@@ -20,6 +20,16 @@ public:
   const std::vector<Bitmap> &frames() const { return m_frames; }
   bool hasSeries() const { return m_frames.size() >= 3; }
 
+  /// Размер кадров, как их сняла камера, -- до поля padImageBackground().
+  /// В нём отчёт выражает наклон между кадрами (Report::tiltXWaves), чтобы
+  /// число не зависело от технического поля. Без поля -- размер кадров.
+  int sourceWidth() const {
+    return m_sourceWidth > 0 ? m_sourceWidth : m_frames.empty() ? 0 : m_frames[0].width();
+  }
+  int sourceHeight() const {
+    return m_sourceHeight > 0 ? m_sourceHeight : m_frames.empty() ? 0 : m_frames[0].height();
+  }
+
   /// Ожидаемый ("паспортный") шаг сдвига между соседними кадрами, в
   /// градусах -- только начальное приближение: реальные сдвиги
   /// уточняются по самим кадрам (см. psi::solveWithUnknownShifts()).
@@ -55,7 +65,8 @@ public:
     double residual = 0.0;               ///< уровни яркости
     double amplitude = 0.0;              ///< уровни яркости
     /// Наклон сдвига каждого кадра относительно первого, в полосах
-    /// (волнах) на ширину и высоту кадра. Пусто -- наклон не учитывался.
+    /// (волнах) на ширину и высоту исходного кадра (sourceWidth(),
+    /// sourceHeight() -- без поля). Пусто -- наклон не учитывался.
     std::vector<double> tiltXWaves, tiltYWaves;
   };
   const Report &report() const { return m_report; }
@@ -64,6 +75,7 @@ public:
 private:
   friend class Measurement;
   std::vector<Bitmap> m_frames;
+  int m_sourceWidth = 0, m_sourceHeight = 0;  ///< 0 -- кадры без поля
   double m_nominalStepDeg = 90.0;
   bool m_compensateTilt = false;
   bool m_refineShifts = true;

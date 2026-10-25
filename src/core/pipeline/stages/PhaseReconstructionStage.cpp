@@ -99,10 +99,12 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   report.halvesDisagreementDeg = psi.diagnostics.halvesDisagreementDeg;
   report.residual = psi.diagnostics.residual;
   report.amplitude = psi.diagnostics.amplitude;
-  // Радианы на пиксель -> полосы на ширину (высоту) кадра.
+  // Радианы на пиксель -> полосы на ширину (высоту) исходного кадра, без
+  // поля: иначе число зависело бы от ширины поля (у кадра 256 px с полем
+  // по 15% -- в 1.3 раза больше).
   for (size_t n = 0; n < psi.tiltX.size(); ++n) {
-    report.tiltXWaves.push_back(psi.tiltX[n] * (frames[0].width() - 1) / (2.0 * pi));
-    report.tiltYWaves.push_back(psi.tiltY[n] * (frames[0].height() - 1) / (2.0 * pi));
+    report.tiltXWaves.push_back(psi.tiltX[n] * (psiData.sourceWidth() - 1) / (2.0 * pi));
+    report.tiltYWaves.push_back(psi.tiltY[n] * (psiData.sourceHeight() - 1) / (2.0 * pi));
   }
   psiData.setReport(std::move(report));
 

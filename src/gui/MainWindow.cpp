@@ -858,10 +858,12 @@ void MainWindow::openPhaseShiftingSeries() {
   }
   // Поле вокруг изображения -- как у openImage(), у всех кадров одинаковое
   // (зависит только от размера), так что апертура подходит ко всем.
+  const int sourceWidth = frames.front().width(), sourceHeight = frames.front().height();
   for (auto &frame : frames)
     frame = digitqt::core::padImageBackground(frame);
 
-  m_measurement->setPhaseShiftingFrames(std::move(frames), paths.front().toStdString());
+  m_measurement->setPhaseShiftingFrames(std::move(frames), paths.front().toStdString(),
+                                        sourceWidth, sourceHeight);
   m_measurement->setCustomPhaseReconstructorPluginPath({});
   m_measurement->setPhaseReconstructionAlgorithm(
       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);

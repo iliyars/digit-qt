@@ -28,10 +28,12 @@ void Measurement::setPlaceholderImage(int width, int height) {
 }
 
 void Measurement::setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> frames,
-                                         std::string path) {
+                                         std::string path, int sourceWidth, int sourceHeight) {
   digitqt::core::Bitmap first = frames.empty() ? digitqt::core::Bitmap() : frames.front();
   setImage(std::move(first), std::move(path));
   m_phaseShifting.m_frames = std::move(frames);
+  m_phaseShifting.m_sourceWidth = sourceWidth;
+  m_phaseShifting.m_sourceHeight = sourceHeight;
 }
 
 void Measurement::setImportedPhaseMap(PhaseMap phase) {

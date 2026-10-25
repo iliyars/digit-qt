@@ -1,3 +1,4 @@
+#include "core/ImagePadding.h"
 #include "core/Measurement.h"
 #include "core/PhaseUnwrapping.h"
 #include "core/pipeline/Pipeline.h"
@@ -147,6 +148,7 @@ private slots:
   void pipelineStageComputesPhaseFromSeries();
   void pipelineStageRequiresSeries();
   void pipelineStageWithoutRefinementUsesNominalShifts();
+  void pipelineStageReportsTiltOfSourceFrames();
 };
 
 void PhaseShiftingTest::cosineFitRecoversKnownCosine() {
@@ -671,6 +673,46 @@ void PhaseShiftingTest::pipelineStageWithoutRefinementUsesNominalShifts() {
   QCOMPARE(report.shiftsDeg.size(), nominalDeg.size());
   for (size_t n = 0; n < nominalDeg.size(); ++n)
     QVERIFY(std::fabs(report.shiftsDeg[n] - nominalDeg[n]) < 1e-9);
+}
+
+void PhaseShiftingTest::pipelineStageReportsTiltOfSourceFrames() {
+  // Как при открытии серии в GUI: кадры дополнены полем. Наклон в отчёте --
+  // в волнах на ширину кадра, каким его сняла камера (kSize), а не на
+  // ширину кадра с полем -- иначе число зависело бы от поля.
+  using digitqt::core::pipeline::StageId;
+  auto frames = makeTiltedFrames(kArticleShiftsDeg, kTiltX, std::vector<double>(5, 0.0));
+  for (auto &frame : frames)
+    frame = digitqt::core::padImageBackground(frame);
+  QVERIFY(frames[0].width() > kSize);
+  // Полосы в этих кадрах доходят до края, поэтому цвет поля у кадров разный
+  // -- апертура обязательна (как нарисовал бы пользователь), иначе поле
+  // попадает в оценку сдвигов как "полосы".
+  const double center = (frames[0].width() - 1) / 2.0;
+
+  digitqt::core::Measurement measurement;
+  measurement.setPhaseShiftingFrames(std::move(frames), "frame1.bmp", kSize, kSize);
+  measurement.boundaries().addExternal(
+      std::make_unique<aperture::Ellipse>(60.0, 60.0, center, center));
+  measurement.setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  measurement.phaseShifting().setCompensateTilt(true);
+  QCOMPARE(measurement.phaseShifting().sourceWidth(), kSize);
+
+  digitqt::core::pipeline::Pipeline pipeline;
+  QVERIFY2(pipeline.stage(StageId::Setup).compute(measurement),
+           pipeline.stage(StageId::Setup).errorMessage().c_str());
+  QVERIFY2(pipeline.stage(StageId::S2).compute(measurement),
+           pipeline.stage(StageId::S2).errorMessage().c_str());
+
+  const auto &report = measurement.phaseShifting().report();
+  QVERIFY(report.converged);
+  QCOMPARE(report.tiltXWaves.size(), kTiltX.size());
+  for (size_t n = 0; n < kTiltX.size(); ++n) {
+    const double expected = kTiltX[n] * (kSize - 1) / (2.0 * kPi);
+    qInfo("frame %d: tilt x %.4f waves across the source frame (true %.4f)",
+          static_cast<int>(n + 1), report.tiltXWaves[n], expected);
+    QVERIFY(std::fabs(report.tiltXWaves[n] - expected) < 0.005);
+  }
 }
 
 }  // namespace
