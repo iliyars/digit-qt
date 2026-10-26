@@ -8,6 +8,8 @@
 #include "core/PolynomialBasis.h"
 #include "core/pipeline/stages/phase_reconstruction/PhasePluginLoading.h"
 
+#include "StageNames.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -18,6 +20,7 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace digitqt::gui {
@@ -737,11 +740,52 @@ void ParametersDock::refreshOrderEditor() {
   m_orderSpin->setValue(lines[*editingIndex].order);
 }
 
+QString ParametersDock::phaseShiftingReportHtml() const {
+  const auto &report = m_measurement->phaseShifting().report();
+  if (report.shiftsDeg.empty())
+    return {};
+
+  // Таблица по кадрам: в строке состояния столько чисел не помещалось.
+  const bool hasTilt = !report.tiltXWaves.empty();
+  QString rows = hasTilt ? tr("<tr><th>Frame</th><th>Shift, deg</th>"
+                              "<th>Tilt x</th><th>Tilt y</th></tr>")
+                         : tr("<tr><th>Frame</th><th>Shift, deg</th></tr>");
+  for (size_t n = 0; n < report.shiftsDeg.size(); ++n) {
+    rows += QStringLiteral("<tr><td>%1</td><td align=\"right\">%2</td>")
+                .arg(n + 1)
+                .arg(report.shiftsDeg[n], 0, 'f', 2);
+    if (hasTilt && n < report.tiltXWaves.size())
+      rows += QStringLiteral("<td align=\"right\">%1</td><td align=\"right\">%2</td>")
+                  .arg(report.tiltXWaves[n], 0, 'f', 3)
+                  .arg(report.tiltYWaves[n], 0, 'f', 3);
+    rows += QStringLiteral("</tr>");
+  }
+
+  QString text = tr("<br><br><b>Phase shifting result</b><br>");
+  text += report.refined ? tr("Shifts estimated from the frames, %1 iteration(s)%2<br>")
+                               .arg(report.iterations)
+                               .arg(report.converged ? QString() : tr(" (did not settle)"))
+                         : tr("Nominal shifts (not refined)<br>");
+  text += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"2\">%1</table>").arg(rows);
+  if (hasTilt)
+    text += tr("Tilt -- waves across the frame width (height), relative to frame 1.<br>");
+  const QString halves = std::isnan(report.halvesDisagreementDeg)
+                             ? tr("n/a")
+                             : QString::number(report.halvesDisagreementDeg, 'f', 1);
+  text += tr("<br>Halves of the field disagree by: %1 deg<br>"
+             "Fit residual: %2 of fringe amplitude %3 grey levels<br>"
+             "Points used for the shifts: %4")
+              .arg(halves)
+              .arg(report.residual, 0, 'f', 2)
+              .arg(report.amplitude, 0, 'f', 1)
+              .arg(report.shiftPoints);
+  return text;
+}
+
 void ParametersDock::refresh() {
-  using digitqt::core::pipeline::displayName;
   using digitqt::core::pipeline::shortName;
 
-  QString text = tr("<b>%1</b> (%2)<br><br>").arg(QString::fromStdString(displayName(m_currentStage)),
+  QString text = tr("<b>%1</b> (%2)<br><br>").arg(stageDisplayName(m_currentStage),
           QString::fromStdString(shortName(m_currentStage)));
 
   if (m_currentStage == StageId::Setup && m_measurement) {
@@ -783,6 +827,11 @@ void ParametersDock::refresh() {
                  "length) -- see S4 (Wavefront Reconstruction) for that.")
                   .arg(phase.width())
                   .arg(phase.height());
+      const bool isPsi = m_measurement->customPhaseReconstructorPluginPath().empty() &&
+                         m_measurement->phaseReconstructionAlgorithm() ==
+                             digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+      if (isPsi)
+        text += phaseShiftingReportHtml();
     }
   } else if (m_currentStage == StageId::S4 && m_measurement) {
     const auto &wavefront = m_measurement->wavefrontMap();

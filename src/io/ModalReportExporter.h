@@ -27,4 +27,14 @@ namespace digitqt::core::io {
 bool writeModalReport(const QString &path, const digitqt::core::Measurement &measurement,
                       QString &errorMessage);
 
+/**
+ * @brief Полный отчёт об измерении: исходные данные и апертура, S2 (метод,
+ * для PSI -- сдвиги и наклоны по кадрам и диагностика), S4, S5 (секция
+ * writeModalReport() плюс коэффициенты в волнах и порядках полос).
+ * Секции, которые ещё не посчитаны, помечаются "Not computed" -- в
+ * отличие от writeModalReport(), S5 не обязателен.
+ */
+bool writeFullReport(const QString &path, const digitqt::core::Measurement &measurement,
+                     QString &errorMessage);
+
 }  // namespace digitqt::core::io

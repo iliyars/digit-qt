@@ -193,13 +193,11 @@ void MainWindow::buildMenusAndToolbars() {
   });
   auto *exportReportAction = fileMenu->addAction(tr("Export &Report (.txt)..."));
   exportReportAction->setToolTip(
-      tr("Save the S5 (Polynomial / Modal Analysis) aberrations, residual and RMS/PV/Strehl "
-         "as a plain text report"));
+      tr("Save everything computed so far as a plain text report: input and aperture, S2 "
+         "(for PSI -- shifts and tilts per frame, diagnostics), S4 and the S5 aberrations"));
   connect(exportReportAction, &QAction::triggered, this, [this] {
-    if (m_measurement->modalAnalysis().isEmpty()) {
-      QMessageBox::warning(this, tr("Export"),
-                           tr("No S5 (Polynomial / Modal Analysis) result yet -- fit aberrations "
-                              "first."));
+    if (!m_measurement->hasImage() && m_measurement->phaseMap().isEmpty()) {
+      QMessageBox::warning(this, tr("Export"), tr("Nothing to report yet -- open an image first."));
       return;
     }
     const QString path = QFileDialog::getSaveFileName(this, tr("Export Report"), QString(),
@@ -208,7 +206,7 @@ void MainWindow::buildMenusAndToolbars() {
       return;
 
     QString err;
-    if (!digitqt::core::io::writeModalReport(path, *m_measurement, err))
+    if (!digitqt::core::io::writeFullReport(path, *m_measurement, err))
       QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
   });
   openAction->setShortcut(QKeySequence::Open);
@@ -1089,36 +1087,16 @@ void MainWindow::showPhaseShiftingReport() {
   constexpr double kMaxRelativeResidual = 0.1;
 
   const auto &report = m_measurement->phaseShifting().report();
-  QStringList shifts;
-  for (const double shift : report.shiftsDeg)
-    shifts << QString::number(shift, 'f', 2);
   const QString halves = std::isnan(report.halvesDisagreementDeg)
                              ? tr("n/a")
                              : QString::number(report.halvesDisagreementDeg, 'f', 1);
-  QString tilts;
-  if (!report.tiltXWaves.empty()) {
-    QStringList perFrame;
-    for (size_t n = 0; n < report.tiltXWaves.size(); ++n)
-      perFrame << QStringLiteral("%1/%2")
-                      .arg(report.tiltXWaves[n], 0, 'f', 2)
-                      .arg(report.tiltYWaves[n], 0, 'f', 2);
-    tilts = tr("; tilt x/y %1 waves across the frame").arg(perFrame.join(QStringLiteral("  ")));
-  }
-  const QString shiftSource = report.refined
-                                  ? tr("estimated shifts %1 deg, %2 iteration(s)")
-                                        .arg(shifts.join(QStringLiteral(" / ")))
-                                        .arg(report.iterations)
-                                  : tr("nominal shifts %1 deg (not refined)")
-                                        .arg(shifts.join(QStringLiteral(" / ")));
-  statusBar()->showMessage(
-      tr("PSI: %1; halves of the field disagree by %2 deg; "
-         "fit residual %3 of fringe amplitude %4 grey levels (%5 points)%6")
-          .arg(shiftSource)
-          .arg(halves)
-          .arg(report.residual, 0, 'f', 2)
-          .arg(report.amplitude, 0, 'f', 1)
-          .arg(report.shiftPoints)
-          .arg(tilts));
+  // Подробности (сдвиги и наклоны по кадрам, диагностика) -- в блоке S2
+  // боковой панели: в строку состояния они не помещались.
+  QStringList shifts;
+  for (const double shift : report.shiftsDeg)
+    shifts << QString::number(shift, 'f', 1);
+  statusBar()->showMessage(tr("PSI: shifts %1 deg -- details in the Parameters panel")
+                               .arg(shifts.join(QStringLiteral(" / "))));
 
   QStringList warnings;
   if (!report.converged)

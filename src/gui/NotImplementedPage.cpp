@@ -1,5 +1,7 @@
 #include "NotImplementedPage.h"
 
+#include "StageNames.h"
+
 #include <QLabel>
 #include <QVBoxLayout>
 
@@ -19,7 +21,7 @@ NotImplementedPage::NotImplementedPage(QWidget *parent)
 
 void NotImplementedPage::setStage(digitqt::core::pipeline::StageId id) {
   m_label->setText(tr("%1 (%2)\nnot implemented yet")
-                       .arg(QString::fromStdString(digitqt::core::pipeline::displayName(id)),
+                       .arg(stageDisplayName(id),
                             QString::fromStdString(digitqt::core::pipeline::shortName(id))));
 }
 

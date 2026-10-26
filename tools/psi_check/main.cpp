@@ -10,10 +10,15 @@
 // Usage:
 //   psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt]
 //       [--center-x=X] [--center-y=Y] [--radius=R]
-//       [--wavelength=NM] [--double-pass] [--out-map=FILE]
+//       [--wavelength=NM] [--double-pass] [--zernike] [--out-map=FILE] [--out-report=FILE]
+//       [--qm=FILE]
+//
+// --qm загружает перевод (например, build/src/translations/DigitQt_ru.qm) --
+// тогда --out-report пишется на этом языке.
 //
 // --out-map пишет карту S2 попиксельно (текст) -- для сверки с заложенной
-// фазой в test_data/psi_synthetic/psi_demo.py.
+// фазой в test_data/psi_synthetic/psi_demo.py. --out-report -- тот же
+// полный отчёт, что File -> Export Report в программе (io::writeFullReport).
 //
 // В отличие от GUI кадры не дополняются полем (padImageBackground) --
 // координаты апертуры здесь в пикселях исходных кадров. По умолчанию
@@ -27,6 +32,7 @@
 #include "core/pipeline/PipelineStageId.h"
 #include "formats/IdfFile.h"
 #include "io/ImageLoader.h"
+#include "io/ModalReportExporter.h"
 
 #include <aperture/include/geometry/Ellipse.h>
 
@@ -35,6 +41,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QTranslator>
 
 #include <algorithm>
 #include <cmath>
@@ -56,9 +63,9 @@ int main(int argc, char **argv) {
   const QStringList args = QCoreApplication::arguments();
 
   QStringList positional;
-  QString mapPath;
+  QString mapPath, reportPath, qmPath;
   double stepDeg = 90.0;
-  bool refine = true, tilt = false, doublePass = false;
+  bool refine = true, tilt = false, doublePass = false, zernike = false;
   double wavelengthNm = 632.8;
   double centerX = -1, centerY = -1, radius = -1;
   for (int i = 1; i < args.size(); ++i) {
@@ -71,6 +78,8 @@ int main(int argc, char **argv) {
       tilt = true;
     else if (a == QStringLiteral("--double-pass"))
       doublePass = true;
+    else if (a == QStringLiteral("--zernike"))
+      zernike = true;
     else if (a.startsWith(QStringLiteral("--wavelength=")))
       wavelengthNm = a.mid(QStringLiteral("--wavelength=").size()).toDouble();
     else if (a.startsWith(QStringLiteral("--center-x=")))
@@ -81,6 +90,10 @@ int main(int argc, char **argv) {
       radius = a.mid(QStringLiteral("--radius=").size()).toDouble();
     else if (a.startsWith(QStringLiteral("--out-map=")))
       mapPath = a.mid(QStringLiteral("--out-map=").size());
+    else if (a.startsWith(QStringLiteral("--out-report=")))
+      reportPath = a.mid(QStringLiteral("--out-report=").size());
+    else if (a.startsWith(QStringLiteral("--qm=")))
+      qmPath = a.mid(QStringLiteral("--qm=").size());
     else
       positional << a;
   }
@@ -88,10 +101,20 @@ int main(int argc, char **argv) {
   QTextStream out(stdout);
   QTextStream err(stderr);
 
+  // Перевод -- только для --out-report (консольный вывод остаётся английским).
+  QTranslator translator;
+  if (!qmPath.isEmpty()) {
+    if (!translator.load(qmPath)) {
+      err << "Cannot load translation " << qmPath << "\n";
+      return 1;
+    }
+    QCoreApplication::installTranslator(&translator);
+  }
+
   if (positional.size() != 1) {
     err << "Usage: psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt] "
            "[--center-x=X] [--center-y=Y] [--radius=R] [--wavelength=NM] [--double-pass] "
-           "[--out-map=FILE]\n";
+           "[--zernike] [--out-map=FILE] [--out-report=FILE] [--qm=FILE]\n";
     return 1;
   }
 
@@ -129,6 +152,8 @@ int main(int argc, char **argv) {
       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
   measurement.setWavelengthNm(wavelengthNm);
   measurement.setDoublePass(doublePass);
+  if (zernike)
+    measurement.polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
   auto &psi = measurement.phaseShifting();
   psi.setNominalStepDeg(stepDeg);
   psi.setRefineShifts(refine);
@@ -215,6 +240,14 @@ int main(int argc, char **argv) {
           map << "nan";
       }
       map << "\n";
+    }
+  }
+
+  if (!reportPath.isEmpty()) {
+    QString reportError;
+    if (!digitqt::core::io::writeFullReport(reportPath, measurement, reportError)) {
+      err << "Cannot write report: " << reportError << "\n";
+      return 1;
     }
   }
   return 0;

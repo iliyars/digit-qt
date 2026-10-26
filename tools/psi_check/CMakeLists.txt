@@ -6,6 +6,7 @@
 add_executable(psi_check
     main.cpp
     ${CMAKE_SOURCE_DIR}/src/io/ImageLoader.cpp
+    ${CMAKE_SOURCE_DIR}/src/io/ModalReportExporter.cpp
 )
 
 target_include_directories(psi_check PRIVATE ${CMAKE_SOURCE_DIR}/src)
