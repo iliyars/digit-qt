@@ -64,6 +64,37 @@ def floats(text):
     return [float(v) for v in text.split(",")] if text else []
 
 
+def find_psi_check():
+    """psi_check.exe: из DIGITQT_PSI_CHECK, иначе самый свежий в ROOT/build*/.
+
+    Папка сборки у всех своя (build, build-tests, build-release...), поэтому
+    перебираются все. Не нашлось -- путь в build/, чтобы сообщение об ошибке
+    подсказало, где его ждут.
+    """
+    env = os.environ.get("DIGITQT_PSI_CHECK")
+    if env:
+        return env
+    found = []
+    for name in os.listdir(ROOT):
+        exe = os.path.join(ROOT, name, "tools", "psi_check", "psi_check.exe")
+        if name.startswith("build") and os.path.isfile(exe):
+            found.append(exe)
+    if found:
+        return max(found, key=os.path.getmtime)
+    return os.path.join(ROOT, "build", "tools", "psi_check", "psi_check.exe")
+
+
+def find_mingw_bin():
+    """Папка с DLL MinGW (libstdc++, Qt не нужен): psi_check без них не стартует."""
+    prefix = os.environ.get("MINGW_PREFIX")  # задан в оболочке MSYS2 MINGW64
+    candidates = [os.path.join(prefix, "bin")] if prefix else []
+    gxx = shutil.which("g++")
+    if gxx:
+        candidates.append(os.path.dirname(gxx))
+    candidates.append(r"C:\msys64\mingw64\bin")  # установка MSYS2 по умолчанию
+    return next((c for c in candidates if os.path.isdir(c)), None)
+
+
 DEFAULTS = {
     "shifts": [0.0, 72.0, 198.0, 266.4, 36.0],  # настоящие сдвиги, град (рис. 4 статьи)
     "tilt_x": None,      # наклон сдвига по x, волн на кадр, по кадрам; None -- нули
@@ -88,7 +119,7 @@ DEFAULTS = {
     "size": 256,         # размер кадра, px
     "modes": ["nominal", "refine", "tilt"],
     "out": os.path.join(HERE, "demo"),
-    "exe": os.path.join(ROOT, "build-tests", "tools", "psi_check", "psi_check.exe"),
+    "exe": find_psi_check(),
     "seed": 1,
 }
 
@@ -233,8 +264,8 @@ def run_digitqt(args, idf, mode):
     cmd = [args.exe, idf, "--radius=%g" % radius, "--step=%g" % args.step,
            "--out-map=" + map_path] + flags
     env = dict(os.environ)
-    mingw = r"C:\msys64\mingw64\bin"
-    if os.path.isdir(mingw):
+    mingw = find_mingw_bin()
+    if mingw:
         env["PATH"] = mingw + os.pathsep + env.get("PATH", "")
     proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if proc.returncode != 0:
@@ -303,8 +334,8 @@ def run_demo(args, log=print):
     @return (w, rows): заложенный фронт и список (mode, report, cmp, orders).
     """
     if not os.path.isfile(args.exe):
-        raise FileNotFoundError("Нет %s -- соберите с -DDIGITQT_BUILD_TOOLS=ON или укажите exe"
-                                % args.exe)
+        raise FileNotFoundError("Нет %s -- соберите с -DDIGITQT_BUILD_TOOLS=ON или укажите exe "
+                                "(--exe или переменная DIGITQT_PSI_CHECK)" % args.exe)
     w = true_wavefront(args)
     idf = write_series(args, make_frames(args, w))
     log("Серия: %d кадров %dx%d -> %s" % (len(args.shifts), args.size, args.size, idf))
