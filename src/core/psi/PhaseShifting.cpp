@@ -471,6 +471,27 @@ bool estimateShifts(const std::vector<Bitmap> &frames, const PsiResult &current,
 
 namespace {
 
+/// Не больше maxPoints точек маски -- равномерной сеткой с шагом s по x и
+/// по y (см. PsiOptions::maxShiftPoints). Сетка, а не случайная выборка:
+/// у solveWithTiltShifts() в каждом оставшемся столбце и строке остаются
+/// точки по всей их длине.
+PointMask thinPoints(const PointMask &points, int width, int maxPoints) {
+  long long count = 0;
+  for (const unsigned char point : points)
+    count += point;
+  if (maxPoints <= 0 || count <= maxPoints)
+    return points;
+  const int stride = static_cast<int>(
+      std::ceil(std::sqrt(static_cast<double>(count) / static_cast<double>(maxPoints))));
+  PointMask thinned(points.size(), 0);
+  for (size_t i = 0; i < points.size(); ++i) {
+    const int x = static_cast<int>(i % static_cast<size_t>(width));
+    const int y = static_cast<int>(i / static_cast<size_t>(width));
+    thinned[i] = points[i] && x % stride == 0 && y % stride == 0;
+  }
+  return thinned;
+}
+
 /// Сдвиги, приведённые к виду, который возвращает estimateShifts(): первый
 /// -- ноль, остальные в [0, 2*pi).
 std::vector<double> normalizedShifts(std::vector<double> shifts) {
@@ -534,15 +555,24 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
   const std::vector<double> expected = normalizedShifts(expectedShifts);
   std::vector<double> shifts = expected;
 
-  PsiResult result;
-  if (!computePhase(frames, shifts, isVisible, result, error))
+  if (!checkFrames(frames, error))
     return false;
+  const int width = frames[0].width();
   // Один раз на весь расчёт -- см. selectShiftEstimationPoints().
   const PointMask points = selectShiftEstimationPoints(frames, isVisible, options.minFringeSpan);
+  // Итерациям фаза нужна только там, где по ней оцениваются сдвиги.
+  const PointMask shiftPoints = thinPoints(points, width, options.maxShiftPoints);
+  const auto isShiftPoint = [&shiftPoints, width](int x, int y) {
+    return shiftPoints[static_cast<size_t>(y) * width + x] != 0;
+  };
+
+  PsiResult result;
+  if (!computePhase(frames, shifts, isShiftPoint, result, error))
+    return false;
 
   for (int iteration = 1; iteration <= options.maxIterations; ++iteration) {
     std::vector<double> next;
-    if (!estimateShifts(frames, result, points, next, error))
+    if (!estimateShifts(frames, result, shiftPoints, next, error))
       return false;
 
     // (16): насколько сдвинулись оценки за этот шаг, СКО по кадрам.
@@ -554,7 +584,7 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
     const double change = std::sqrt(sumSq / next.size());
 
     shifts = std::move(next);
-    if (!computePhase(frames, shifts, isVisible, result, error))
+    if (!computePhase(frames, shifts, isShiftPoint, result, error))
       return false;
     result.iterations = iteration;
     if (change < options.tolerance) {
@@ -563,6 +593,9 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
     }
   }
 
+  // Итоговая фаза -- во всей апертуре (iterations и converged не трогает).
+  if (!computePhase(frames, shifts, isVisible, result, error))
+    return false;
   if (!preferExpectedDirection(frames, expected, isVisible, result, error))
     return false;
   result.diagnostics = diagnose(frames, result, points);
@@ -858,10 +891,15 @@ bool solveWithTiltShifts(const std::vector<Bitmap> &frames,
     bool converged = false;
     double residual = std::numeric_limits<double>::infinity();
   };
-  TiltIterations iterations(frames, points);
+  // Итерации -- на прореженных точках (PsiOptions::maxShiftPoints), выбор
+  // старта -- на ещё более редких; спектр выше и диагностика ниже -- по всем.
+  const PointMask shiftPoints = thinPoints(points, width, options.maxShiftPoints);
+  const PointMask screeningPoints = thinPoints(points, width, options.maxScreeningPoints);
+  TiltIterations iterations(frames, shiftPoints);
+  TiltIterations screening(frames, screeningPoints);
   const double halfWidth = (width - 1) / 2.0, halfHeight = (height - 1) / 2.0;
   // Цикл шагов 1-3 до сходимости или до limit итераций всего.
-  auto iterate = [&](Run &run, int limit) {
+  auto iterate = [&](TiltIterations &iterations, Run &run, int limit) {
     iterations.updatePhase(run.planes);
     while (run.iterations < limit && !run.converged) {
       ++run.iterations;
@@ -894,7 +932,7 @@ bool solveWithTiltShifts(const std::vector<Bitmap> &frames,
   for (const TiltPlanes &start : starts) {
     Run run{start};
     run.planes.shiftX = expected;
-    iterate(run, std::min(kScreeningIterations, options.maxIterations));
+    iterate(screening, run, std::min(kScreeningIterations, options.maxIterations));
     if (run.residual < best.residual)
       best = run;
   }
@@ -902,7 +940,9 @@ bool solveWithTiltShifts(const std::vector<Bitmap> &frames,
     error = "Cannot estimate tilted phase shifts: too few points with fringes";
     return false;
   }
-  iterate(best, options.maxIterations);
+  // На редкой сетке сходимость могла наступить раньше -- проверяется заново.
+  best.converged = false;
+  iterate(iterations, best, options.maxIterations);
 
   PsiResult result;
   if (!computePhaseTilted(frames, best.planes.centerShifts(), best.planes.tiltX,
