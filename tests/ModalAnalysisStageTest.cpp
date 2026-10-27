@@ -1,7 +1,9 @@
 #include "core/Measurement.h"
+#include "core/ModalAnalysisReportData.h"
 #include "core/ModalAnalysisResult.h"
 #include "core/ModalFitMethod.h"
 #include "core/PolynomialBasis.h"
+#include "core/ZernikeNormalization.h"
 #include "core/pipeline/stages/ModalAnalysisStage.h"
 
 #include <QtTest/QtTest>
@@ -49,10 +51,11 @@ double sereginSurface(const SyntheticCoefficients &c, double x, double y) {
 }
 
 /// Точная транскрипция buildZernikeHierarchy() -- классические
-/// (учебниковые, не Gram-Schmidt) полиномы Цернике, без Seregin-flip оси
-/// Y (см. комментарий там же). Продублировано намеренно, по той же
-/// причине, что и sereginSurface() выше.
-double zernikeSurface(const SyntheticCoefficients &c, double x, double y) {
+/// (учебниковые, не Gram-Schmidt) полиномы Цернике в единичной нормировке,
+/// с оптической осью Y вверх (Y = -y, как у Seregin). Продублировано
+/// намеренно, по той же причине, что и sereginSurface() выше.
+double zernikeSurface(const SyntheticCoefficients &c, double x, double rowY) {
+  const double y = -rowY;
   const double r2 = x * x + y * y;
   return c.piston                                   //
          + c.tiltX * x + c.tiltY * y                 //
@@ -117,6 +120,16 @@ private slots:
   void bothFitMethodsAgreeOnResidual();
 
   void sequentialSereginDoesNotCrash();
+
+  // Нормировки Цернике -- только масштаб коэффициентов: коэффициент,
+  // переведённый в нормировку, умноженный на полином этой нормировки,
+  // должен давать ту же волну, что и в единичной; плюс известные
+  // множители FastInterf/ISO (B2 = 2·Z20, C = 3·Z31, B4 = 6·Z40).
+  void zernikeNormalizationsDescribeSameWavefront();
+
+  // Нормировка влияет только на отображение (ModalAnalysisReportData), не
+  // на результат подгонки и не на углы.
+  void zernikeNormalizationIsDisplayOnly();
 };
 
 void ModalAnalysisStageTest::exactRecoveryMatchesSereginBasis() {
@@ -218,6 +231,92 @@ void ModalAnalysisStageTest::sequentialSereginDoesNotCrash() {
   // отброшенного интерсепта одной из стадий 2-7 (см. комментарий в
   // fitSequentialSeregin и SequentialSereginResult::discardedIntercepts).
   QVERIFY(measurement.modalAnalysis().rmsAfter < 1e-6);
+}
+
+void ModalAnalysisStageTest::zernikeNormalizationsDescribeSameWavefront() {
+  using digitqt::core::ZernikeNormalization;
+  digitqt::core::ModalCoefficients unit;
+  unit.piston = 0.5;
+  unit.tiltX = 2.0;
+  unit.tiltY = -1.5;
+  unit.defocus = 3.0;
+  unit.astigX = 0.7;
+  unit.astigY = -0.4;
+  unit.comaX = 1.1;
+  unit.comaY = -0.9;
+  unit.trefoilX = 0.6;
+  unit.trefoilY = -0.3;
+  unit.spherical = 0.25;
+
+  const auto iso = digitqt::core::toZernikeNormalization(unit, ZernikeNormalization::Iso14999);
+  QVERIFY(std::abs(iso.defocus - 2.0 * unit.defocus) < 1e-12);
+  QVERIFY(std::abs(iso.comaX - 3.0 * unit.comaX) < 1e-12);
+  QVERIFY(std::abs(iso.spherical - 6.0 * unit.spherical) < 1e-12);
+  QVERIFY(std::abs(iso.astigX - unit.astigX) < 1e-12);
+  QVERIFY(std::abs(iso.tiltY - unit.tiltY) < 1e-12);
+
+  const auto rms = digitqt::core::toZernikeNormalization(unit, ZernikeNormalization::Rms);
+
+  // Полиномы нормировок как функции от (ρ, θ), выписанные независимо от
+  // toZernikeNormalization() (формулы -- руководство FastInterf); пистон
+  // во всех нормировках один и тот же, поэтому сравниваем без него.
+  auto wave = [](const digitqt::core::ModalCoefficients &c, ZernikeNormalization n, double r,
+                 double t) {
+    const double r2 = r * r;
+    double tilt = 1.0, def = 1.0, ast = 1.0, com = 1.0, tre = 1.0, sph = 1.0;
+    double defR = 2.0 * r2 - 1.0, comR = 3.0 * r2 * r - 2.0 * r, sphR = 6.0 * r2 * r2 - 6.0 * r2 + 1.0;
+    if (n == ZernikeNormalization::Iso14999) {
+      defR = r2 - 0.5;
+      comR = r2 * r - 2.0 * r / 3.0;
+      sphR = r2 * r2 - r2 + 1.0 / 6.0;
+    } else if (n == ZernikeNormalization::Rms) {
+      tilt = 2.0;
+      def = std::sqrt(3.0);
+      ast = std::sqrt(6.0);
+      com = std::sqrt(8.0);
+      tre = std::sqrt(8.0);
+      sph = std::sqrt(5.0);
+    }
+    return tilt * r * (c.tiltX * std::cos(t) + c.tiltY * std::sin(t)) + def * c.defocus * defR +
+           ast * r2 * (c.astigX * std::cos(2 * t) + c.astigY * std::sin(2 * t)) +
+           com * comR * (c.comaX * std::cos(t) + c.comaY * std::sin(t)) +
+           tre * r2 * r * (c.trefoilX * std::cos(3 * t) + c.trefoilY * std::sin(3 * t)) +
+           sph * c.spherical * sphR;
+  };
+  for (const auto &[normalization, coeffs] :
+       {std::pair{ZernikeNormalization::Iso14999, iso}, std::pair{ZernikeNormalization::Rms, rms}}) {
+    for (double r : {0.3, 0.7, 1.0}) {
+      for (double t : {0.0, 1.0, 2.5, 4.0}) {
+        const double expected = wave(unit, ZernikeNormalization::Unit, r, t) -
+                                wave(unit, ZernikeNormalization::Unit, 0.0, 0.0);
+        const double actual =
+            wave(coeffs, normalization, r, t) - wave(coeffs, normalization, 0.0, 0.0);
+        QVERIFY2(std::abs(expected - actual) < 1e-12, qPrintable(QString::number(r)));
+      }
+    }
+  }
+}
+
+void ModalAnalysisStageTest::zernikeNormalizationIsDisplayOnly() {
+  const SyntheticCoefficients coeffs;
+  digitqt::core::Measurement measurement;
+  measurement.wavefrontMap() = makeSyntheticWavefront(65, coeffs, /*rippleAmplitude=*/0.0,
+                                                      digitqt::core::PolynomialBasis::Zernike);
+  measurement.polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
+  digitqt::core::pipeline::ModalAnalysisStage stage;
+  QVERIFY(stage.compute(measurement));
+
+  const auto unitData = digitqt::core::buildModalAnalysisReportData(measurement);
+  measurement.zernikeNormalization() = digitqt::core::ZernikeNormalization::Rms;
+  const auto rmsData = digitqt::core::buildModalAnalysisReportData(measurement);
+
+  QVERIFY(std::abs(measurement.modalAnalysis().coefficients.defocus - coeffs.defocus) < 1e-8);
+  QVERIFY(rmsData.zernikeNormalization == digitqt::core::ZernikeNormalization::Rms);
+  QVERIFY(std::abs(rmsData.coefficients.defocus - coeffs.defocus / std::sqrt(3.0)) < 1e-8);
+  QVERIFY(std::abs(rmsData.astigAngleDeg - unitData.astigAngleDeg) < 1e-9);
+  QVERIFY(std::abs(rmsData.comaAngleDeg - unitData.comaAngleDeg) < 1e-9);
+  QVERIFY(std::abs(rmsData.trefoilAngleDeg - unitData.trefoilAngleDeg) < 1e-9);
+  QVERIFY(std::abs(rmsData.rmsAfterNm - unitData.rmsAfterNm) < 1e-12);
 }
 
 QTEST_MAIN(ModalAnalysisStageTest)

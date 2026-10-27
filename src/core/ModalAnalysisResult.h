@@ -34,8 +34,10 @@ struct ModalTermSelection {
  * от Measurement::polynomialBasis(), которая может успеть измениться до
  * следующего пересчёта). Ниже -- базис Seregin (значение по умолчанию);
  * для PolynomialBasis::Zernike те же поля хранят коэффициенты
- * классических полиномов Цернике (см. buildTermHierarchy() в
- * ModalAnalysisStage.cpp) -- НЕ переводятся друг в друга автоматически.
+ * классических полиномов Цернике в единичной нормировке, Y вверх (см.
+ * buildTermHierarchy() в ModalAnalysisStage.cpp) -- НЕ переводятся друг в
+ * друга автоматически. Другие нормировки Цернике получаются из этих
+ * коэффициентов только при отображении (toZernikeNormalization()).
  *
  * Базис Seregin -- прямая транскрипция полиномов референсного
  * инструмента (DAPPSIM, Includes/Fitting.cpp, метод Seregin), не

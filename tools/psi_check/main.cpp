@@ -10,8 +10,12 @@
 // Usage:
 //   psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt]
 //       [--center-x=X] [--center-y=Y] [--radius=R]
-//       [--wavelength=NM] [--double-pass] [--zernike] [--out-map=FILE] [--out-report=FILE]
-//       [--qm=FILE]
+//       [--wavelength=NM] [--double-pass] [--zernike[=unit|iso|rms]] [--out-map=FILE]
+//       [--out-report=FILE] [--qm=FILE]
+//
+// --zernike -- базис Цернике (по умолчанию Seregin); после "=" -- нормировка
+// коэффициентов в отчёте (unit по умолчанию, iso -- ISO 14999, rms -- ANSI).
+// Строка "S5 coefficients" всегда в единичной нормировке.
 //
 // --qm загружает перевод (например, build/src/translations/DigitQt_ru.qm) --
 // тогда --out-report пишется на этом языке.
@@ -66,6 +70,7 @@ int main(int argc, char **argv) {
   QString mapPath, reportPath, qmPath;
   double stepDeg = 90.0;
   bool refine = true, tilt = false, doublePass = false, zernike = false;
+  auto normalization = digitqt::core::ZernikeNormalization::Unit;
   double wavelengthNm = 632.8;
   double centerX = -1, centerY = -1, radius = -1;
   for (int i = 1; i < args.size(); ++i) {
@@ -80,6 +85,16 @@ int main(int argc, char **argv) {
       doublePass = true;
     else if (a == QStringLiteral("--zernike"))
       zernike = true;
+    else if (a.startsWith(QStringLiteral("--zernike="))) {
+      zernike = true;
+      const QString name = a.mid(QStringLiteral("--zernike=").size());
+      if (name == QStringLiteral("iso"))
+        normalization = digitqt::core::ZernikeNormalization::Iso14999;
+      else if (name == QStringLiteral("rms"))
+        normalization = digitqt::core::ZernikeNormalization::Rms;
+      else if (name != QStringLiteral("unit"))
+        positional << a;  // неизвестная нормировка -- покажем usage
+    }
     else if (a.startsWith(QStringLiteral("--wavelength=")))
       wavelengthNm = a.mid(QStringLiteral("--wavelength=").size()).toDouble();
     else if (a.startsWith(QStringLiteral("--center-x=")))
@@ -114,7 +129,7 @@ int main(int argc, char **argv) {
   if (positional.size() != 1) {
     err << "Usage: psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt] "
            "[--center-x=X] [--center-y=Y] [--radius=R] [--wavelength=NM] [--double-pass] "
-           "[--zernike] [--out-map=FILE] [--out-report=FILE] [--qm=FILE]\n";
+           "[--zernike[=unit|iso|rms]] [--out-map=FILE] [--out-report=FILE] [--qm=FILE]\n";
     return 1;
   }
 
@@ -154,6 +169,7 @@ int main(int argc, char **argv) {
   measurement.setDoublePass(doublePass);
   if (zernike)
     measurement.polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
+  measurement.zernikeNormalization() = normalization;
   auto &psi = measurement.phaseShifting();
   psi.setNominalStepDeg(stepDeg);
   psi.setRefineShifts(refine);

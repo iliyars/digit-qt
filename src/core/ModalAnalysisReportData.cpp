@@ -1,6 +1,7 @@
 #include "ModalAnalysisReportData.h"
 
 #include "core/Measurement.h"
+#include "core/ZernikeNormalization.h"
 
 #include <cmath>
 #include <limits>
@@ -64,6 +65,10 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
     data.coefficients.trefoilX *= 2.0;
     data.coefficients.trefoilY *= 2.0;
     data.coefficients.spherical *= 2.0;
+  } else {
+    // Нормировка Цернике -- только отображение (подгонка шла в единичной).
+    data.zernikeNormalization = measurement.zernikeNormalization();
+    data.coefficients = toZernikeNormalization(data.coefficients, data.zernikeNormalization);
   }
   const auto &c = data.coefficients;
 
@@ -71,10 +76,14 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
   data.comaMagnitude = std::sqrt(c.comaX * c.comaX + c.comaY * c.comaY);
 
   // Знак внутри atan2 (не сама величина!) для астигматизма/комы зависит
-  // от базиса. На Zernike-базисе (astigX=x²-y², astigY=2xy; comaX/comaY
-  // без Seregin-переворота Y) обычный atan2(Y,X) уже даёт правильный
+  // от базиса. На Zernike-базисе, пока Y в нём шла вниз по строкам
+  // (astigY=2xy, comaY=(3ρ²-2)y), обычный atan2(Y,X) давал правильный
   // угол -- проверено на test_data/report.txt (FIA=45.000 совпало без
-  // всякой коррекции). На Seregin-базисе тот же обычный atan2 даёт УГОЛ
+  // всякой коррекции). Теперь Y в Zernike вверх (Y-составляющие сменили
+  // знак), поэтому они берутся с минусом -- углы численно те же, что и
+  // были. Угол комы Zernike против report.txt не проверялся и отличается
+  // от угла комы Seregin на 180° (так было и до перехода на Y вверх).
+  // На Seregin-базисе обычный atan2 даёт УГОЛ
   // С ОШИБКОЙ (величина при этом верна): на том же report.txt наш
   // astigmatism выходил -45.0° вместо FIA=45.000, а coma -45.0° вместо
   // FIC=-135.000. Побайтово проверенная поправка (даёт РОВНО 45.000 и
@@ -88,12 +97,15 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
     data.astigAngleDeg = 0.5 * std::atan2(-c.astigY, c.astigX) * 180.0 / kPi;
     data.comaAngleDeg = std::atan2(c.comaY, -c.comaX) * 180.0 / kPi;
   } else {
-    data.astigAngleDeg = 0.5 * std::atan2(c.astigY, c.astigX) * 180.0 / kPi;
-    data.comaAngleDeg = std::atan2(c.comaY, c.comaX) * 180.0 / kPi;
+    data.astigAngleDeg = 0.5 * std::atan2(-c.astigY, c.astigX) * 180.0 / kPi;
+    data.comaAngleDeg = std::atan2(-c.comaY, c.comaX) * 180.0 / kPi;
   }
 
+  // Трилистник Zernike -- тоже с минусом у Y-составляющей, чтобы угол
+  // остался прежним (см. выше); у Seregin формула не менялась.
+  const double trefoilYForAngle = modal.basis == PolynomialBasis::Seregin ? c.trefoilY : -c.trefoilY;
   data.trefoilMagnitude = std::sqrt(c.trefoilX * c.trefoilX + c.trefoilY * c.trefoilY);
-  data.trefoilAngleDeg = std::atan2(c.trefoilY, c.trefoilX) * 180.0 / kPi / 3.0;
+  data.trefoilAngleDeg = std::atan2(trefoilYForAngle, c.trefoilX) * 180.0 / kPi / 3.0;
 
   double minB = 0.0, maxB = 0.0, minA = 0.0, maxA = 0.0;
   if (computeRange(measurement.wavefrontMap(), minB, maxB))

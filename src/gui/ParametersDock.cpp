@@ -367,18 +367,34 @@ ParametersDock::ParametersDock(QWidget *parent)
   auto *polynomialBasisLabel = new QLabel(tr("<b>Polynomial basis</b>"), m_polynomialBasisRow);
   polynomialBasisLabel->setContentsMargins(8, 8, 8, 0);
   polynomialBasisLayout->addWidget(polynomialBasisLabel);
-  m_polynomialBasisCombo->addItem(tr("Seregin (совместимо с DAPSSIM)"),
-                                  static_cast<int>(digitqt::core::PolynomialBasis::Seregin));
+  // Один список на базис и нормировку Цернике: данные пункта -- -1 для
+  // Seregin, иначе значение ZernikeNormalization.
+  m_polynomialBasisCombo->addItem(tr("Seregin (совместимо с DAPSSIM)"), -1);
   m_polynomialBasisCombo->addItem(
-      tr("Zernike"),
-      static_cast<int>(digitqt::core::PolynomialBasis::Zernike));
+      tr("Zernike: unit (Born-Wolf)"),
+      static_cast<int>(digitqt::core::ZernikeNormalization::Unit));
+  m_polynomialBasisCombo->addItem(
+      tr("Zernike: ISO 14999 / OST 3-5476-83"),
+      static_cast<int>(digitqt::core::ZernikeNormalization::Iso14999));
+  m_polynomialBasisCombo->addItem(
+      tr("Zernike: RMS (ANSI Z80.28 / Zemax)"),
+      static_cast<int>(digitqt::core::ZernikeNormalization::Rms));
   m_polynomialBasisCombo->setToolTip(
-      tr(""));
+      tr("Zernike normalizations differ only in the scale of each coefficient: switching "
+         "between them does not change the fit or the residual and needs no re-fit. "
+         "Switching between Seregin and Zernike needs ▶ Fit aberrations again."));
   connect(m_polynomialBasisCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, [this](int) {
-    if (m_measurement)
-      m_measurement->polynomialBasis() =
-          static_cast<digitqt::core::PolynomialBasis>(m_polynomialBasisCombo->currentData().toInt());
+    if (!m_measurement)
+      return;
+    const int key = m_polynomialBasisCombo->currentData().toInt();
+    if (key < 0) {
+      m_measurement->polynomialBasis() = digitqt::core::PolynomialBasis::Seregin;
+    } else {
+      m_measurement->polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
+      m_measurement->zernikeNormalization() = static_cast<digitqt::core::ZernikeNormalization>(key);
+    }
+    refresh();  // нормировка -- только отображение, показать сразу
   });
   polynomialBasisLayout->addWidget(m_polynomialBasisCombo);
   layout->addWidget(m_polynomialBasisRow);
@@ -639,8 +655,10 @@ void ParametersDock::setStage(StageId id) {
     if (fitMethodIndex >= 0)
       m_fitMethodCombo->setCurrentIndex(fitMethodIndex);
     const QSignalBlocker polynomialBasisBlocker(m_polynomialBasisCombo);
-    const int polynomialBasisIndex =
-        m_polynomialBasisCombo->findData(static_cast<int>(m_measurement->polynomialBasis()));
+    const int polynomialBasisIndex = m_polynomialBasisCombo->findData(
+        m_measurement->polynomialBasis() == digitqt::core::PolynomialBasis::Seregin
+            ? -1
+            : static_cast<int>(m_measurement->zernikeNormalization()));
     if (polynomialBasisIndex >= 0)
       m_polynomialBasisCombo->setCurrentIndex(polynomialBasisIndex);
     const QSignalBlocker edgeErosionBlocker(m_edgeErosionSpin);
@@ -890,6 +908,22 @@ void ParametersDock::refresh() {
                       : notSubtracted;
       const QString sphericalStr =
           sel.spherical ? QString::number(c.spherical, 'f', 1) : notSubtracted;
+
+      if (data.basis == digitqt::core::PolynomialBasis::Zernike) {
+        switch (data.zernikeNormalization) {
+          case digitqt::core::ZernikeNormalization::Iso14999:
+            text += tr("Zernike, ISO 14999 normalization (leading coefficient = 1)<br><br>");
+            break;
+          case digitqt::core::ZernikeNormalization::Rms:
+            text += tr("Zernike, RMS normalization (each term RMS = 1)<br><br>");
+            break;
+          case digitqt::core::ZernikeNormalization::Unit:
+            text += tr("Zernike, unit normalization (1 at the pupil edge)<br><br>");
+            break;
+        }
+      } else {
+        text += tr("Seregin basis (DAPPSIM)<br><br>");
+      }
 
       text += tr("Setup geometry (not a surface property):<br>"
                  "Piston: %1<br>"

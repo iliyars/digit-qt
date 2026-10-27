@@ -28,6 +28,8 @@ struct ModalAnalysisReportData {
   ModalCoefficients coefficients;
   ModalTermSelection selection;
   PolynomialBasis basis = PolynomialBasis::Seregin;
+  /// В какой нормировке `coefficients` (только при basis == Zernike).
+  ZernikeNormalization zernikeNormalization = ZernikeNormalization::Unit;
   ModalFitMethod fitMethod = ModalFitMethod::JointLeastSquares;
 
   /// Заполнено только если fitMethod == SequentialSeregin -- полный
