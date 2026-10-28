@@ -38,6 +38,9 @@ struct ModalAnalysisReportData {
   /// против report.txt, а что нет).
   SequentialSereginResult sequential;
 
+  // Углы -- от оси +Y против часовой стрелки, Y вверх (как в DAPPSIM),
+  // одинаково для обоих базисов: астигматизм в (-90, 90], кома в
+  // (-180, 180], трилистник в (-60, 60].
   double astigMagnitude = 0.0;
   double astigAngleDeg = 0.0;
   double comaMagnitude = 0.0;

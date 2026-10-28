@@ -103,7 +103,8 @@ add_executable(digitqt_mtr_adapter_tests
     ${CMAKE_SOURCE_DIR}/src/io/MtrImporter.cpp
 )
 
-target_link_libraries(digitqt_mtr_adapter_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Formats)
+target_link_libraries(digitqt_mtr_adapter_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Formats
+    DigitQt::Core)
 
 target_compile_definitions(digitqt_mtr_adapter_tests PRIVATE
     DIGITQT_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test_data"

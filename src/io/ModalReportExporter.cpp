@@ -467,9 +467,10 @@ void writeDappsimSection(QTextStream &out, const digitqt::core::Measurement &mea
     deg = std::fmod(deg, period);
     return deg < 0.0 ? deg + period : deg;
   };
-  // Углы -- как в DAPPSIM, от оси +Y (против часовой стрелки): на
-  // синтетике с FIA = FIC = 0 астигматизм и кома DigitQt вышли на 90° от +X.
-  // Направление отсчёта (по или против часовой) этим примером не проверено.
+  // Углы -- как в DAPPSIM, от оси +Y против часовой стрелки; та же формула,
+  // что в buildModalAnalysisReportData, здесь только приведена к
+  // [0, period). Проверено на синтетике с FIA = FIC = 0 и на
+  // test_data/report.txt (FIA = 45, FIC = -135; по часовой вышло бы 135).
   const double astig = std::hypot(astigCos, astigSin);
   const double astigDeg =
       angle(0.5 * std::atan2(astigSin, astigCos) * degPerRad - 90.0, 180.0);
@@ -497,8 +498,8 @@ void writeDappsimSection(QTextStream &out, const digitqt::core::Measurement &mea
              .arg(fixed(trefoil, 3), fixed(trefoilDeg, 1))
       << "\n";
   out << "  "
-      << Report::tr("Angles from +Y, counterclockwise, as in DAPPSIM (checked on one synthetic\n"
-                    "  series with FIA = FIC = 0; the direction of rotation is not checked yet).")
+      << Report::tr("Angles from +Y, counterclockwise, as in DAPPSIM (checked on test_data/report.txt\n"
+                    "  and a synthetic series with FIA = FIC = 0; trefoil not checked).")
       << "\n";
 }
 

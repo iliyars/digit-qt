@@ -738,10 +738,10 @@
     </message>
     <message>
         <location filename="../src/io/ModalReportExporter.cpp" line="500"/>
-        <source>Angles from +Y, counterclockwise, as in DAPPSIM (checked on one synthetic
-  series with FIA = FIC = 0; the direction of rotation is not checked yet).</source>
-        <translation>Углы -- от +Y против часовой стрелки, как в DAPPSIM (проверено на одной синтетической
-  серии с FIA = FIC = 0; направление вращения ещё не проверено).</translation>
+        <source>Angles from +Y, counterclockwise, as in DAPPSIM (checked on test_data/report.txt
+  and a synthetic series with FIA = FIC = 0; trefoil not checked).</source>
+        <translation>Углы -- от +Y против часовой стрелки, как в DAPPSIM (проверено на test_data/report.txt
+  и синтетической серии с FIA = FIC = 0; трилистник не проверен).</translation>
     </message>
     <message>
         <location filename="../src/io/ModalReportExporter.cpp" line="506"/>

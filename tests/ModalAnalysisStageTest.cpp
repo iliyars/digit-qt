@@ -121,6 +121,10 @@ private slots:
 
   void sequentialSereginDoesNotCrash();
 
+  // RMS -- СКО относительно среднего: прибавка константы к карте (она
+  // произвольна после развёртки) не меняет ни "до", ни "после".
+  void rmsIgnoresMapConstant();
+
   // Нормировки Цернике -- только масштаб коэффициентов: коэффициент,
   // переведённый в нормировку, умноженный на полином этой нормировки,
   // должен давать ту же волну, что и в единичной; плюс известные
@@ -130,6 +134,15 @@ private slots:
   // Нормировка влияет только на отображение (ModalAnalysisReportData), не
   // на результат подгонки и не на углы.
   void zernikeNormalizationIsDisplayOnly();
+
+  // Углы астигматизма/комы/трилистника -- свойство самой волны: подгонка
+  // в базисе Seregin и в базисе Цернике должна давать одни и те же углы.
+  void anglesAgreeBetweenBases();
+
+  // Соглашение об углах -- как в DAPPSIM: от +Y против часовой, Y вверх.
+  // Кома вдоль +Y -- 0°, вдоль +X -- -90°; астигматизм cos 2θ (ось X) --
+  // 90°, sin 2θ (ось 45°) -- -45°.
+  void anglesFollowDappsimConvention();
 };
 
 void ModalAnalysisStageTest::exactRecoveryMatchesSereginBasis() {
@@ -206,6 +219,30 @@ void ModalAnalysisStageTest::bothFitMethodsAgreeOnResidual() {
 
   QVERIFY(std::abs(analytic.modalAnalysis().rmsBefore - gramSchmidt.modalAnalysis().rmsBefore) < 1e-9);
   QVERIFY(std::abs(analytic.modalAnalysis().rmsAfter - gramSchmidt.modalAnalysis().rmsAfter) < 1e-8);
+}
+
+void ModalAnalysisStageTest::rmsIgnoresMapConstant() {
+  const SyntheticCoefficients coeffs;
+  const auto wavefront = makeSyntheticWavefront(65, coeffs, /*rippleAmplitude=*/0.05);
+  auto shifted = wavefront;
+  for (int y = 0; y < shifted.height(); ++y)
+    for (int x = 0; x < shifted.width(); ++x)
+      if (shifted.hasValue(x, y))
+        shifted.setValue(x, y, shifted.value(x, y) + 1000.0);
+
+  digitqt::core::Measurement a;
+  a.wavefrontMap() = wavefront;
+  digitqt::core::pipeline::ModalAnalysisStage stageA;
+  QVERIFY(stageA.compute(a));
+
+  digitqt::core::Measurement b;
+  b.wavefrontMap() = shifted;
+  digitqt::core::pipeline::ModalAnalysisStage stageB;
+  QVERIFY(stageB.compute(b));
+
+  QVERIFY(std::abs(a.modalAnalysis().rmsBefore - b.modalAnalysis().rmsBefore) < 1e-8);
+  QVERIFY(std::abs(a.modalAnalysis().rmsAfter - b.modalAnalysis().rmsAfter) < 1e-8);
+  QVERIFY(a.modalAnalysis().rmsBefore > a.modalAnalysis().rmsAfter);
 }
 
 void ModalAnalysisStageTest::sequentialSereginDoesNotCrash() {
@@ -317,6 +354,63 @@ void ModalAnalysisStageTest::zernikeNormalizationIsDisplayOnly() {
   QVERIFY(std::abs(rmsData.comaAngleDeg - unitData.comaAngleDeg) < 1e-9);
   QVERIFY(std::abs(rmsData.trefoilAngleDeg - unitData.trefoilAngleDeg) < 1e-9);
   QVERIFY(std::abs(rmsData.rmsAfterNm - unitData.rmsAfterNm) < 1e-12);
+}
+
+void ModalAnalysisStageTest::anglesAgreeBetweenBases() {
+  const SyntheticCoefficients coeffs;
+  const auto wavefront = makeSyntheticWavefront(65, coeffs, /*rippleAmplitude=*/0.05);
+
+  digitqt::core::Measurement seregin;
+  seregin.wavefrontMap() = wavefront;
+  digitqt::core::pipeline::ModalAnalysisStage sereginStage;
+  QVERIFY(sereginStage.compute(seregin));
+
+  digitqt::core::Measurement zernike;
+  zernike.wavefrontMap() = wavefront;
+  zernike.polynomialBasis() = digitqt::core::PolynomialBasis::Zernike;
+  digitqt::core::pipeline::ModalAnalysisStage zernikeStage;
+  QVERIFY(zernikeStage.compute(zernike));
+
+  const auto s = digitqt::core::buildModalAnalysisReportData(seregin);
+  const auto z = digitqt::core::buildModalAnalysisReportData(zernike);
+  QVERIFY(std::abs(s.astigAngleDeg - z.astigAngleDeg) < 1e-6);
+  QVERIFY(std::abs(s.comaAngleDeg - z.comaAngleDeg) < 1e-6);
+  QVERIFY(std::abs(s.trefoilAngleDeg - z.trefoilAngleDeg) < 1e-6);
+}
+
+void ModalAnalysisStageTest::anglesFollowDappsimConvention() {
+  struct Case {
+    SyntheticCoefficients coeffs;
+    double astigDeg;
+    double comaDeg;
+  };
+  auto pure = [](double astigX, double astigY, double comaX, double comaY) {
+    SyntheticCoefficients c{};
+    c.piston = c.tiltX = c.tiltY = c.defocus = c.trefoilX = c.trefoilY = c.spherical = 0.0;
+    c.astigX = astigX;
+    c.astigY = astigY;
+    c.comaX = comaX;
+    c.comaY = comaY;
+    return c;
+  };
+  const Case cases[] = {
+      {pure(1.0, 0.0, 0.0, 1.0), 90.0, 0.0},
+      {pure(0.0, 1.0, 1.0, 0.0), -45.0, -90.0},
+      {pure(0.0, -1.0, 1.0, -1.0), 45.0, -135.0},  // как в test_data/report.txt
+  };
+  for (const auto basis : {digitqt::core::PolynomialBasis::Seregin, digitqt::core::PolynomialBasis::Zernike}) {
+    for (const auto &c : cases) {
+      digitqt::core::Measurement measurement;
+      measurement.wavefrontMap() = makeSyntheticWavefront(65, c.coeffs, /*rippleAmplitude=*/0.0,
+                                                          digitqt::core::PolynomialBasis::Zernike);
+      measurement.polynomialBasis() = basis;
+      digitqt::core::pipeline::ModalAnalysisStage stage;
+      QVERIFY(stage.compute(measurement));
+      const auto data = digitqt::core::buildModalAnalysisReportData(measurement);
+      QVERIFY2(std::abs(data.astigAngleDeg - c.astigDeg) < 1e-6, qPrintable(QString::number(data.astigAngleDeg)));
+      QVERIFY2(std::abs(data.comaAngleDeg - c.comaDeg) < 1e-6, qPrintable(QString::number(data.comaAngleDeg)));
+    }
+  }
 }
 
 QTEST_MAIN(ModalAnalysisStageTest)

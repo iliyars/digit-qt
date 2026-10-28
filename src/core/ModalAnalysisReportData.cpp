@@ -74,38 +74,39 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
 
   data.astigMagnitude = std::sqrt(c.astigX * c.astigX + c.astigY * c.astigY);
   data.comaMagnitude = std::sqrt(c.comaX * c.comaX + c.comaY * c.comaY);
-
-  // Знак внутри atan2 (не сама величина!) для астигматизма/комы зависит
-  // от базиса. На Zernike-базисе, пока Y в нём шла вниз по строкам
-  // (astigY=2xy, comaY=(3ρ²-2)y), обычный atan2(Y,X) давал правильный
-  // угол -- проверено на test_data/report.txt (FIA=45.000 совпало без
-  // всякой коррекции). Теперь Y в Zernike вверх (Y-составляющие сменили
-  // знак), поэтому они берутся с минусом -- углы численно те же, что и
-  // были. Угол комы Zernike против report.txt не проверялся и отличается
-  // от угла комы Seregin на 180° (так было и до перехода на Y вверх).
-  // На Seregin-базисе обычный atan2 даёт УГОЛ
-  // С ОШИБКОЙ (величина при этом верна): на том же report.txt наш
-  // astigmatism выходил -45.0° вместо FIA=45.000, а coma -45.0° вместо
-  // FIC=-135.000. Побайтово проверенная поправка (даёт РОВНО 45.000 и
-  // -135.000, не "почти"): для астигматизма брать -astigY вместо astigY,
-  // для комы -- -comaX вместо comaX. Не выведено из первых принципов
-  // (нет доступа к тому, как именно WinFringe считает FIA/FIC) -- чисто
-  // эмпирическая подгонка под этот один референсный файл; для трилистника
-  // аналогичной проверки нет (в report.txt он нулевой), поэтому его знак
-  // НЕ трогаем.
-  if (modal.basis == PolynomialBasis::Seregin) {
-    data.astigAngleDeg = 0.5 * std::atan2(-c.astigY, c.astigX) * 180.0 / kPi;
-    data.comaAngleDeg = std::atan2(c.comaY, -c.comaX) * 180.0 / kPi;
-  } else {
-    data.astigAngleDeg = 0.5 * std::atan2(-c.astigY, c.astigX) * 180.0 / kPi;
-    data.comaAngleDeg = std::atan2(-c.comaY, c.comaX) * 180.0 / kPi;
-  }
-
-  // Трилистник Zernike -- тоже с минусом у Y-составляющей, чтобы угол
-  // остался прежним (см. выше); у Seregin формула не менялась.
-  const double trefoilYForAngle = modal.basis == PolynomialBasis::Seregin ? c.trefoilY : -c.trefoilY;
   data.trefoilMagnitude = std::sqrt(c.trefoilX * c.trefoilX + c.trefoilY * c.trefoilY);
-  data.trefoilAngleDeg = std::atan2(trefoilYForAngle, c.trefoilX) * 180.0 / kPi / 3.0;
+
+  // Углы -- одинаково для обоих базисов, по соглашению DAPPSIM: от оси +Y,
+  // против часовой стрелки, Y вверх. Берутся из сырых коэффициентов
+  // подгонки, приведённых к общему виду (A при X^2-Y^2 и при 2XY,
+  // C при X(...) и Y(...), T при X^3-3XY^2 и 3X^2Y-Y^3) по формулам
+  // buildSereginHierarchy()/buildZernikeHierarchy(); положительные
+  // множители нормировок на угол не влияют. Проверено на двух эталонах:
+  // test_data/report.txt (FIA = 45, FIC = -135 -- заодно фиксирует
+  // направление вращения: по часовой вышло бы 135) и синтетика
+  // test_data/psi_synthetic/test_shift-PHASE (FIA = FIC = 0). Прежние
+  // формулы, подогнанные только под первый эталон, давали на втором 90°
+  // и различались для комы Seregin/Цернике на 180°. Трилистник эталонами
+  // не проверен (в обоих нулевой).
+  const auto &raw = modal.coefficients;
+  const bool zernike = modal.basis == PolynomialBasis::Zernike;
+  const double astigCos = zernike ? raw.astigX : 1.5 * raw.astigX;
+  const double astigSin = zernike ? raw.astigY : 0.5 * raw.astigY;
+  const double trefoilCos = zernike ? raw.trefoilX : -raw.trefoilX;
+  const double trefoilSin = zernike ? raw.trefoilY : -raw.trefoilY;
+  // Угол в (-period/2, period/2] с отсчётом от +Y.
+  auto fromY = [](double degFromX, double period) {
+    double deg = std::fmod(degFromX - 90.0, period);
+    if (deg > period / 2.0)
+      deg -= period;
+    else if (deg <= -period / 2.0)
+      deg += period;
+    return deg;
+  };
+  constexpr double kDegPerRad = 180.0 / kPi;
+  data.astigAngleDeg = fromY(0.5 * std::atan2(astigSin, astigCos) * kDegPerRad, 180.0);
+  data.comaAngleDeg = fromY(std::atan2(raw.comaY, raw.comaX) * kDegPerRad, 360.0);
+  data.trefoilAngleDeg = fromY(std::atan2(trefoilSin, trefoilCos) / 3.0 * kDegPerRad, 120.0);
 
   double minB = 0.0, maxB = 0.0, minA = 0.0, maxA = 0.0;
   if (computeRange(measurement.wavefrontMap(), minB, maxB))

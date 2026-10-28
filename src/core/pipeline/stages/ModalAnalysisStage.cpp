@@ -463,14 +463,19 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
     }
   }
 
+  // "RMS before" -- отклонение от среднего (СКО), а не sqrt(mean(z^2)):
+  // константа карты произвольна (развёртка фазы определена с точностью до
+  // 2*pi*k), и без вычитания среднего он зависел бы от неё. Остатку это не
+  // нужно: пистон подгоняется всегда, среднее остатка и так ноль.
   digitqt::core::PhaseMap residual(w, h);
+  const double meanBefore = z.mean();
   double sumSqBefore = 0.0;
   double sumSqAfter = 0.0;
   for (Eigen::Index i = 0; i < n; ++i) {
     const auto &s = samples[static_cast<size_t>(i)];
     const double r = z(i) - fit(i);
     residual.setValue(s.px, s.py, r);
-    sumSqBefore += s.z * s.z;
+    sumSqBefore += (z(i) - meanBefore) * (z(i) - meanBefore);
     sumSqAfter += r * r;
   }
 
