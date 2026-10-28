@@ -28,6 +28,8 @@ struct ModalAnalysisReportData {
   ModalCoefficients coefficients;
   ModalTermSelection selection;
   PolynomialBasis basis = PolynomialBasis::Seregin;
+  /// В какой нормировке `coefficients` (только при basis == Zernike).
+  ZernikeNormalization zernikeNormalization = ZernikeNormalization::Unit;
   ModalFitMethod fitMethod = ModalFitMethod::JointLeastSquares;
 
   /// Заполнено только если fitMethod == SequentialSeregin -- полный
@@ -36,6 +38,9 @@ struct ModalAnalysisReportData {
   /// против report.txt, а что нет).
   SequentialSereginResult sequential;
 
+  // Углы -- от оси +Y против часовой стрелки, Y вверх (как в DAPPSIM),
+  // одинаково для обоих базисов: астигматизм в (-90, 90], кома в
+  // (-180, 180], трилистник в (-60, 60].
   double astigMagnitude = 0.0;
   double astigAngleDeg = 0.0;
   double comaMagnitude = 0.0;

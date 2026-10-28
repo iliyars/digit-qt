@@ -93,17 +93,17 @@ std::vector<TermDef> buildSereginHierarchy() {
   };
 }
 
-/// Classical (textbook) unnormalized Zernike polynomials, in the SAME
-/// pupil coordinates as buildSereginHierarchy() (x,y in [-1,1], edge at
-/// radius 1) -- but WITHOUT Seregin's optical-Y-up sign flip: y here is
-/// the raw sample coordinate (grows down the image), matching the
-/// convention most external tools/generators use. That means a given
-/// physical wavefront's tiltY/astigY/comaY/trefoilY come out with the
-/// OPPOSITE sign here vs. buildSereginHierarchy() for the same data --
-/// expected, not a bug (see notes/uchebnik-interferometriya-i-digitqt.md
-/// §7.2 for the derivation connecting the two bases term-by-term).
+/// Classical (textbook, Born–Wolf) Zernike polynomials in unit
+/// normalization (1 at the pupil edge), in the SAME pupil coordinates as
+/// buildSereginHierarchy() (x,y in [-1,1], edge at radius 1) and with the
+/// same optical Y-up convention: Y = -y, flipped right in the formulas
+/// where Y appears in an odd power (tiltY, astigY, comaY, trefoilY). So
+/// Zernike and Seregin coefficients of one wavefront differ only in scale
+/// and in how lower terms mix into higher ones, not in the sign of Y.
+/// Other normalizations (ISO 14999, RMS) are display-only rescalings of
+/// these coefficients, see ZernikeNormalization.h.
 ///
-/// Trefoil is the plain textbook form (x³-3xy², 3x²y-y³, no extra
+/// Trefoil is the plain textbook form (X³-3XY², 3X²Y-Y³, no extra
 /// scaling) -- verified algebraically to convert to Seregin's
 /// trefoilX/Y with a clean ±1 factor, so no empirical correction is
 /// needed here despite some external tools carrying one to match
@@ -115,20 +115,20 @@ std::vector<TermDef> buildZernikeHierarchy() {
   return {
       {[](double, double) { return 1.0; }, &ModalCoefficients::piston, nullptr},
       {[](double x, double) { return x; }, &ModalCoefficients::tiltX, &ModalTermSelection::tilt},
-      {[](double, double y) { return y; }, &ModalCoefficients::tiltY, &ModalTermSelection::tilt},
+      {[](double, double y) { return -y; }, &ModalCoefficients::tiltY, &ModalTermSelection::tilt},
       {[](double x, double y) { return 2.0 * (x * x + y * y) - 1.0; }, &ModalCoefficients::defocus,
        &ModalTermSelection::defocus},
       {[](double x, double y) { return x * x - y * y; }, &ModalCoefficients::astigX,
        &ModalTermSelection::astigmatism},
-      {[](double x, double y) { return 2.0 * x * y; }, &ModalCoefficients::astigY,
+      {[](double x, double y) { return -2.0 * x * y; }, &ModalCoefficients::astigY,
        &ModalTermSelection::astigmatism},
       {[](double x, double y) { return (3.0 * (x * x + y * y) - 2.0) * x; },
        &ModalCoefficients::comaX, &ModalTermSelection::coma},
-      {[](double x, double y) { return (3.0 * (x * x + y * y) - 2.0) * y; },
+      {[](double x, double y) { return -(3.0 * (x * x + y * y) - 2.0) * y; },
        &ModalCoefficients::comaY, &ModalTermSelection::coma},
       {[](double x, double y) { return x * x * x - 3.0 * x * y * y; },
        &ModalCoefficients::trefoilX, &ModalTermSelection::trefoil},
-      {[](double x, double y) { return 3.0 * x * x * y - y * y * y; },
+      {[](double x, double y) { return y * y * y - 3.0 * x * x * y; },
        &ModalCoefficients::trefoilY, &ModalTermSelection::trefoil},
       {[](double x, double y) {
          const double r2 = x * x + y * y;
@@ -463,14 +463,19 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
     }
   }
 
+  // "RMS before" -- отклонение от среднего (СКО), а не sqrt(mean(z^2)):
+  // константа карты произвольна (развёртка фазы определена с точностью до
+  // 2*pi*k), и без вычитания среднего он зависел бы от неё. Остатку это не
+  // нужно: пистон подгоняется всегда, среднее остатка и так ноль.
   digitqt::core::PhaseMap residual(w, h);
+  const double meanBefore = z.mean();
   double sumSqBefore = 0.0;
   double sumSqAfter = 0.0;
   for (Eigen::Index i = 0; i < n; ++i) {
     const auto &s = samples[static_cast<size_t>(i)];
     const double r = z(i) - fit(i);
     residual.setValue(s.px, s.py, r);
-    sumSqBefore += s.z * s.z;
+    sumSqBefore += (z(i) - meanBefore) * (z(i) - meanBefore);
     sumSqAfter += r * r;
   }
 

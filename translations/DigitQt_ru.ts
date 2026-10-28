@@ -156,191 +156,216 @@
     </message>
     <message>
         <location filename="../src/io/ModalReportExporter.cpp" line="37"/>
+        <source>ISO 14999 / OST 3-5476-83 (leading coefficient = 1)</source>
+        <translation>ISO 14999 / ОСТ 3-5476-83 (коэффициент при старшей степени равен 1)</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="39"/>
+        <source>RMS = 1 per term (ANSI Z80.28 / Zemax Standard)</source>
+        <translation>RMS каждого члена = 1 (ANSI Z80.28 / Zemax Standard)</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="42"/>
+        <source>unit (1 at the pupil edge, Born-Wolf)</source>
+        <translation>единичная (1 на краю зрачка, Борн–Вольф)</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="79"/>
         <source>Gram-Schmidt on aperture</source>
         <translation>Грам–Шмидт по апертуре</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="39"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="81"/>
         <source>Sequential Seregin (exact DAPPSIM Fitting.cpp algorithm)</source>
         <translation>Последовательная схема Серегина (точный алгоритм Fitting.cpp из DAPPSIM)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="42"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="84"/>
         <source>Joint least squares (no orthogonalization)</source>
         <translation>Совместный МНК (без ортогонализации)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="47"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="89"/>
         <source>not subtracted -- still in residual</source>
         <translation>не вычтено -- остаётся в остатке</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="52"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="94"/>
         <source>plugin %1</source>
         <translation>плагин %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="56"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="98"/>
         <source>Horizontal Spline (traced lines)</source>
         <translation>Горизонтальный сплайн (по прослеженным линиям)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="58"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="100"/>
         <source>Fourier Transform Method (Takeda)</source>
         <translation>Метод преобразования Фурье (Такеда)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="60"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="102"/>
         <source>Wavelet Transform Method (Zhong-Weng)</source>
         <translation>Вейвлет-метод (Чжун–Вэн)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="63"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="105"/>
         <source>Phase Shifting (PSI)</source>
         <translation>Фазовый сдвиг (PSI)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="72"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="114"/>
         <source>ellipse</source>
         <translation>эллипс</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="74"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="116"/>
         <source>rectangle</source>
         <translation>прямоугольник</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="76"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="118"/>
         <source>polygon</source>
         <translation>многоугольник</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="80"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="122"/>
         <source>yes</source>
         <translation>да</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="80"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="122"/>
         <source>no</source>
         <translation>нет</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="81"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="123"/>
         <source>on</source>
         <translation>вкл.</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="81"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="123"/>
         <source>off</source>
         <translation>выкл.</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="116"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="158"/>
         <source>Wavelength: %1 nm</source>
         <translation>Длина волны: %1 нм</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="117"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="159"/>
         <source>Polynomial basis: %1</source>
         <translation>Базис полиномов: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="118"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="162"/>
+        <source>Zernike normalization: %1</source>
+        <translation>Нормировка Цернике: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="164"/>
         <source>Fit method: %1</source>
         <translation>Метод аппроксимации: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="123"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="166"/>
+        <source>Terms (Y up, theta from +X counterclockwise):</source>
+        <translation>Члены (Y вверх, theta от +X против часовой стрелки):</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="174"/>
         <source>%1 nm at %2°  (X: %3 nm, Y: %4 nm)</source>
         <translation>%1 нм под углом %2°  (X: %3 нм, Y: %4 нм)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="126"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="177"/>
         <source>%1 nm</source>
         <translation>%1 нм</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="128"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="179"/>
         <source>Setup geometry (not a surface property):</source>
         <translation>Геометрия установки (не свойство поверхности):</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="129"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="180"/>
         <source>Piston: %1</source>
         <translation>Поршень: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="131"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="182"/>
         <source>Tilt X/Y: %1</source>
         <translation>Наклон X/Y: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="132"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="183"/>
         <source>%1 / %2 nm</source>
         <translation>%1 / %2 нм</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="135"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="186"/>
         <source>Defocus: %1</source>
         <translation>Дефокус: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="138"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="189"/>
         <source>Surface aberrations:</source>
         <translation>Аберрации поверхности:</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="140"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="191"/>
         <source>Astigmatism: %1</source>
         <translation>Астигматизм: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="145"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="196"/>
         <source>Coma: %1</source>
         <translation>Кома: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="150"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="201"/>
         <source>Trefoil: %1</source>
         <translation>Трефойл: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="156"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="207"/>
         <source>Spherical (3rd order): %1</source>
         <translation>Сферическая (3-го порядка): %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="162"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="213"/>
         <source>%1 nm (%2 %3)</source>
         <translation>%1 нм (%2 %3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="164"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="215"/>
         <source>RMS before: %1</source>
         <translation>СКО до: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="165"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="216"/>
         <source>RMS after: %1</source>
         <translation>СКО после: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="166"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="217"/>
         <source>PV before: %1</source>
         <translation>PV до: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="167"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="218"/>
         <source>PV after: %1</source>
         <translation>PV после: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="168"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="219"/>
         <source>Strehl (Marechal est.): %1</source>
         <translation>Число Штреля (оценка Марешаля): %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="180"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="231"/>
         <source>--- Raw sequential stages (exact DAPPSIM algorithm; byte-verified only for
     piston/tiltX/tiltY/defocus against test_data/report.txt&apos;s D/Lx/Ly/C via
     test_data/Terminal.pol -- everything below that is a faithful
@@ -355,441 +380,446 @@
     которого нет) ---</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="188"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="239"/>
         <source>Piston (stage 1)</source>
         <translation>Поршень (этап 1)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="189"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="240"/>
         <source>Tilt X (stage 1)</source>
         <translation>Наклон X (этап 1)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="190"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="241"/>
         <source>Tilt Y (stage 1)</source>
         <translation>Наклон Y (этап 1)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="191"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="242"/>
         <source>Defocus / &quot;C&quot; (stage 2, ρ²)</source>
         <translation>Дефокус / «C» (этап 2, ρ²)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="192"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="243"/>
         <source>Astig (3X²-1)/2 (stage 3)</source>
         <translation>Астигм. (3X²-1)/2 (этап 3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="193"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="244"/>
         <source>Astig XY (stage 3)</source>
         <translation>Астигм. XY (этап 3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="194"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="245"/>
         <source>Astig (3Y²-1)/2 (stage 3)</source>
         <translation>Астигм. (3Y²-1)/2 (этап 3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="195"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="246"/>
         <source>Residual tilt X (stage 4)</source>
         <translation>Остаточный наклон X (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="196"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="247"/>
         <source>Residual tilt Y (stage 4)</source>
         <translation>Остаточный наклон Y (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="197"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="248"/>
         <source>Coma X (stage 4)</source>
         <translation>Кома X (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="198"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="249"/>
         <source>Coma Y (stage 4)</source>
         <translation>Кома Y (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="199"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="250"/>
         <source>Trefoil X (stage 4)</source>
         <translation>Трефойл X (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="200"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="251"/>
         <source>Trefoil Y (stage 4)</source>
         <translation>Трефойл Y (этап 4)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="201"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="252"/>
         <source>ρ² (stage 5, S3)</source>
         <translation>ρ² (этап 5, S3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="202"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="253"/>
         <source>ρ⁴ (stage 5, S3)</source>
         <translation>ρ⁴ (этап 5, S3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="203"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="254"/>
         <source>ρ² (stage 6, S5)</source>
         <translation>ρ² (этап 6, S5)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="204"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="255"/>
         <source>ρ⁴ (stage 6, S5)</source>
         <translation>ρ⁴ (этап 6, S5)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="205"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="256"/>
         <source>ρ⁶ (stage 6, S5)</source>
         <translation>ρ⁶ (этап 6, S5)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="206"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="257"/>
         <source>ρ² (stage 7, S7)</source>
         <translation>ρ² (этап 7, S7)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="207"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="258"/>
         <source>ρ⁴ (stage 7, S7)</source>
         <translation>ρ⁴ (этап 7, S7)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="208"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="259"/>
         <source>ρ⁶ (stage 7, S7)</source>
         <translation>ρ⁶ (этап 7, S7)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="209"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="260"/>
         <source>ρ⁸ (stage 7, S7)</source>
         <translation>ρ⁸ (этап 7, S7)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="210"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="261"/>
         <source>Discarded stage intercepts (2-7, kept in residual calc only)</source>
         <translation>Отброшенные свободные члены этапов 2-7 (учтены только в остатке)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="213"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="264"/>
         <source>RMS(W) initial</source>
         <translation>СКО(W) исходное</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="214"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="265"/>
         <source>RMS after tilt+defocus</source>
         <translation>СКО после наклона и дефокуса</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="215"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="266"/>
         <source>RMS after astig</source>
         <translation>СКО после астигматизма</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="216"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="267"/>
         <source>RMS after coma+trefoil</source>
         <translation>СКО после комы и трефойла</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="217"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="268"/>
         <source>RMS after S3</source>
         <translation>СКО после S3</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="218"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="269"/>
         <source>RMS after S5</source>
         <translation>СКО после S5</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="219"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="270"/>
         <source>RMS after S7</source>
         <translation>СКО после S7</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="225"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="276"/>
         <source>Could not open %1 for writing</source>
         <translation>Не удалось открыть %1 для записи</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="247"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="298"/>
         <source>Generated: %1</source>
         <translation>Создан: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="252"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="303"/>
         <source>=== Input ===</source>
         <translation>=== Исходные данные ===</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="253"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="304"/>
         <source>File: %1</source>
         <translation>Файл: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="255"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="306"/>
         <source>Canvas: %1 x %2 px (image with background margin, see padImageBackground)</source>
         <translation>Холст: %1 x %2 px (изображение с полем вокруг, см. padImageBackground)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="260"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="311"/>
         <source>Phase-shifting series: %1 frames, source frame %2 x %3 px</source>
         <translation>Серия фазового сдвига: кадров %1, исходный кадр %2 x %3 px</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="278"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="329"/>
         <source>%1 %2: center (%3, %4), size %5 x %6 px</source>
         <translation>%1, %2: центр (%3, %4), размер %5 x %6 px</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="283"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="334"/>
         <source>; in source frame: center (%1, %2)</source>
         <translation>; в исходном кадре: центр (%1, %2)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="289"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="340"/>
         <source>Aperture: %1 external, %2 internal shape(s)</source>
         <translation>Апертура: внешних фигур %1, внутренних %2</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="293"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="344"/>
         <source>external</source>
         <translation>внешний контур</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="294"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="345"/>
         <source>internal</source>
         <translation>внутренний контур</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="299"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="350"/>
         <source>=== S2: phase ===</source>
         <translation>=== S2: фаза ===</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="300"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="351"/>
         <source>Method: %1</source>
         <translation>Метод: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="303"/>
-        <location filename="../src/io/ModalReportExporter.cpp" line="458"/>
-        <location filename="../src/io/ModalReportExporter.cpp" line="515"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="354"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="509"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="566"/>
         <source>Not computed</source>
         <translation>Не вычислено</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="309"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="360"/>
         <source>Grid: %1 x %2, %3 valid points</source>
         <translation>Сетка: %1 x %2, точек с данными %3</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="314"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="365"/>
         <source>Phase map, fringe orders: RMS %1, PV %2</source>
         <translation>Карта фазы, порядки полос: СКО %1, PV %2</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="324"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="375"/>
         <source>PSI settings: nominal step %1 deg, refine shifts %2, compensate tilt %3</source>
         <translation>Настройки PSI: номинальный шаг %1°, уточнение сдвигов %2, учёт наклона %3</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="329"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="380"/>
         <source>Iterations: %1 (%2)</source>
         <translation>Итераций: %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="331"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="382"/>
         <source>converged</source>
         <translation>сошлось</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="331"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="382"/>
         <source>did NOT converge</source>
         <translation>НЕ сошлось</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="333"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="384"/>
         <source>Mirrored to the nominal direction: %1</source>
         <translation>Зеркально отражено к номинальному направлению: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="342"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="393"/>
         <source>Frame</source>
         <translation>Кадр</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="342"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="393"/>
         <source>Shift,deg</source>
         <translation>Сдвиг,°</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="343"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="394"/>
         <source>Shift,periods</source>
         <translation>Сдвиг,периоды</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="345"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="396"/>
         <source>TiltX,waves/frame</source>
         <translation>НаклонX,волн/кадр</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="345"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="396"/>
         <source>TiltY,waves/frame(down)</source>
         <translation>НаклонY,волн/кадр(вниз)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="346"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="397"/>
         <source>dLx,coef</source>
         <translation>dLx,коэф</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="346"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="397"/>
         <source>dLy,coef(up)</source>
         <translation>dLy,коэф(вверх)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="365"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="416"/>
         <source>Tilts are relative to frame 1.</source>
         <translation>Наклоны -- относительно кадра 1.</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="368"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="419"/>
         <source>n/a</source>
         <translation>н/д</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="372"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="423"/>
         <source>Diagnostics:</source>
         <translation>Диагностика:</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="373"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="424"/>
         <source>Points used for the shifts: %1</source>
         <translation>Точек для оценки сдвигов: %1</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="374"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="425"/>
         <source>Halves of the field disagree by: %1 deg</source>
         <translation>Расхождение половин поля: %1°</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="376"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="427"/>
         <source>Fit residual: %1 grey levels of fringe amplitude %2 (%3%)</source>
         <translation>Невязка модели: %1 уровней яркости при амплитуде полос %2 (%3%)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="380"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="431"/>
         <source>Unwrap regions: %1, masked low modulation %2, dropped islands %3 points</source>
         <translation>Областей развёртки: %1, отброшено точек со слабой модуляцией %2, в островках %3</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="431"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="482"/>
         <source>DAPPSIM notation (fringe orders = waves of wavefront, Y up):</source>
         <translation>В обозначениях DAPPSIM (порядки полос = волны фронта, Y вверх):</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="432"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="483"/>
         <source>Lx = %1   Ly = %2</source>
         <translation>Lx = %1   Ly = %2</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="434"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="485"/>
         <source>B2 = %1   B4 = %2   (B2*(rho^2-1/2) + B4*(rho^4-rho^2+1/6); textbook Zernike Z20 = B2/2, Z40 = B4/6)</source>
         <translation>B2 = %1   B4 = %2   (B2*(rho^2-1/2) + B4*(rho^4-rho^2+1/6); классические Цернике Z20 = B2/2, Z40 = B4/6)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="438"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="489"/>
         <source>A  = %1   FIA = %2 deg</source>
         <translation>A  = %1   FIA = %2°</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="441"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="492"/>
         <source>C  = %1   FIC = %2 deg   (C*(rho^3-2rho/3); textbook Zernike Z31 = C/3)</source>
         <translation>C  = %1   FIC = %2°   (C*(rho^3-2rho/3); классические Цернике Z31 = C/3)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="445"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="496"/>
         <source>T  = %1   FIT = %2 deg   (T*rho^3*cos 3(theta-FIT))</source>
         <translation>T  = %1   FIT = %2°   (T*rho^3*cos 3(theta-FIT))</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="449"/>
-        <source>Angles from +Y, counterclockwise, as in DAPPSIM (checked on one synthetic
-  series with FIA = FIC = 0; the direction of rotation is not checked yet).</source>
-        <translation>Углы -- от +Y против часовой стрелки, как в DAPPSIM (проверено на одной синтетической
-  серии с FIA = FIC = 0; направление вращения ещё не проверено).</translation>
+        <location filename="../src/io/ModalReportExporter.cpp" line="500"/>
+        <source>Angles from +Y, counterclockwise, as in DAPPSIM (checked on test_data/report.txt
+  and a synthetic series with FIA = FIC = 0; trefoil not checked).</source>
+        <translation>Углы -- от +Y против часовой стрелки, как в DAPPSIM (проверено на test_data/report.txt
+  и синтетической серии с FIA = FIC = 0; трилистник не проверен).</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="455"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="506"/>
         <source>=== S4: wavefront ===</source>
         <translation>=== S4: волновой фронт ===</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="465"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="516"/>
         <source>Wavelength: %1 nm, %2</source>
         <translation>Длина волны: %1 нм, %2</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="468"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="519"/>
         <source>double pass (height = order * wavelength / 2)</source>
         <translation>двойной ход (высота = порядок * длина волны / 2)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="469"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="520"/>
         <source>single pass (height = order * wavelength)</source>
         <translation>одинарный ход (высота = порядок * длина волны)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="471"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="522"/>
         <source>RMS: %1 nm (%2 waves)</source>
         <translation>СКО: %1 нм (%2 волн)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="474"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="525"/>
         <source>PV: %1 nm (%2 waves)</source>
         <translation>PV: %1 нм (%2 волн)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="485"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="536"/>
         <source>No S5 (Polynomial / Modal Analysis) result yet</source>
         <translation>Результата S5 (полиномиальный анализ) пока нет</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="493"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="544"/>
         <source>DigitQt -- Polynomial / Modal Analysis (S5) report</source>
         <translation>DigitQt -- отчёт полиномиального анализа (S5)</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="506"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="557"/>
         <source>DigitQt -- measurement report</source>
         <translation>DigitQt -- отчёт об измерении</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="512"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="563"/>
         <source>=== S5: polynomial / modal analysis ===</source>
         <translation>=== S5: полиномиальный анализ ===</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="533"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="584"/>
         <source>Raw fit coefficients (%1; no WinFringe x2 for coma/trefoil/spherical):</source>
         <translation>Сырые коэффициенты аппроксимации (%1; без множителя x2 WinFringe для комы, трефойла и сферической):</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="536"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="586"/>
+        <source>Zernike, unit normalization</source>
+        <translation>Цернике, единичная нормировка</translation>
+    </message>
+    <message>
+        <location filename="../src/io/ModalReportExporter.cpp" line="589"/>
         <source>Term</source>
         <translation>Член</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="536"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="589"/>
         <source>nm</source>
         <translation>нм</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="536"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="589"/>
         <source>waves</source>
         <translation>волны</translation>
     </message>
     <message>
-        <location filename="../src/io/ModalReportExporter.cpp" line="537"/>
+        <location filename="../src/io/ModalReportExporter.cpp" line="590"/>
         <source>fringe orders</source>
         <translation>порядки полос</translation>
     </message>
@@ -1616,7 +1646,7 @@ not implemented yet</source>
     </message>
     <message>
         <location filename="../src/gui/ParametersDock.cpp" line="121"/>
-        <location filename="../src/gui/ParametersDock.cpp" line="627"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="643"/>
         <source> nm</source>
         <translation> нм</translation>
     </message>
@@ -1798,166 +1828,201 @@ Off -- transmission test (single pass): the measured value is already the wavefr
         <translation>&lt;b&gt;Базис полиномов&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="370"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="372"/>
         <source>Seregin (совместимо с DAPSSIM)</source>
         <translation>Серегина (совместимо с DAPPSIM)</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="373"/>
-        <source>Zernike</source>
-        <translation>Цернике</translation>
-    </message>
-    <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="390"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="406"/>
         <source>&lt;b&gt;Edge erosion&lt;/b&gt;</source>
         <translation>&lt;b&gt;Обрезка края&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="430"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="446"/>
         <source>%1 (plugin)</source>
         <translation>%1 (плагин)</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="436"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="452"/>
         <source>Third-party plugin (v%1)
 %2</source>
         <translation>Сторонний плагин (v%1)
 %2</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="503"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="519"/>
         <source>Select a phase reconstructor plugin</source>
         <translation>Выберите плагин восстановления фазы</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="503"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="519"/>
         <source>Plugin DLL (*.dll)</source>
         <translation>DLL плагина (*.dll)</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="512"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="528"/>
         <source>Invalid plugin</source>
         <translation>Неподходящий плагин</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="513"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="529"/>
         <source>%1 does not look like a valid DqtPhaseReconstructor plugin (failed to load, missing dqt_phase_plugin_entry, or refused the host&apos;s ABI version).</source>
         <translation>%1 не похож на плагин DqtPhaseReconstructor (не загружается, нет dqt_phase_plugin_entry или не принял версию ABI программы).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="750"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="768"/>
         <source>&lt;tr&gt;&lt;th&gt;Frame&lt;/th&gt;&lt;th&gt;Shift, deg&lt;/th&gt;&lt;th&gt;Tilt x&lt;/th&gt;&lt;th&gt;Tilt y&lt;/th&gt;&lt;/tr&gt;</source>
         <translation>&lt;tr&gt;&lt;th&gt;Кадр&lt;/th&gt;&lt;th&gt;Сдвиг, °&lt;/th&gt;&lt;th&gt;Наклон x&lt;/th&gt;&lt;th&gt;Наклон y&lt;/th&gt;&lt;/tr&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="752"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="770"/>
         <source>&lt;tr&gt;&lt;th&gt;Frame&lt;/th&gt;&lt;th&gt;Shift, deg&lt;/th&gt;&lt;/tr&gt;</source>
         <translation>&lt;tr&gt;&lt;th&gt;Кадр&lt;/th&gt;&lt;th&gt;Сдвиг, °&lt;/th&gt;&lt;/tr&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="764"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="782"/>
         <source>&lt;br&gt;&lt;br&gt;&lt;b&gt;Phase shifting result&lt;/b&gt;&lt;br&gt;</source>
         <translation>&lt;br&gt;&lt;br&gt;&lt;b&gt;Результат фазового сдвига&lt;/b&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="765"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="783"/>
         <source>Shifts estimated from the frames, %1 iteration(s)%2&lt;br&gt;</source>
         <translation>Сдвиги оценены по кадрам, итераций: %1%2&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="767"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="785"/>
         <source> (did not settle)</source>
         <translation> (не установились)</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="768"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="786"/>
         <source>Nominal shifts (not refined)&lt;br&gt;</source>
         <translation>Номинальные сдвиги (без уточнения)&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="771"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="789"/>
         <source>Tilt -- waves across the frame width (height), relative to frame 1.&lt;br&gt;</source>
         <translation>Наклон -- в волнах на ширину (высоту) кадра, относительно кадра 1.&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="773"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="791"/>
         <source>n/a</source>
         <translation>н/д</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="775"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="793"/>
         <source>&lt;br&gt;Halves of the field disagree by: %1 deg&lt;br&gt;Fit residual: %2 of fringe amplitude %3 grey levels&lt;br&gt;Points used for the shifts: %4</source>
         <translation>&lt;br&gt;Расхождение половин поля: %1°&lt;br&gt;Невязка модели: %2 при амплитуде полос %3 уровней яркости&lt;br&gt;Точек для оценки сдвигов: %4</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="788"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="806"/>
         <source>&lt;b&gt;%1&lt;/b&gt; (%2)&lt;br&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;%1&lt;/b&gt; (%2)&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="796"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="814"/>
         <source>Image: %1 × %2 px&lt;br&gt;File: %3&lt;br&gt;&lt;br&gt;External boundaries: %4&lt;br&gt;Internal boundaries: %5&lt;br&gt;&lt;br&gt;Seed points: %6&lt;br&gt;Traced lines: %7&lt;br&gt;&lt;br&gt;Use the toolbar to add/move/delete boundaries and seed points, and to run the tracer. Double-click a traced line to edit its points or fringe order.</source>
         <translation>Изображение: %1 × %2 px&lt;br&gt;Файл: %3&lt;br&gt;&lt;br&gt;Внешние границы: %4&lt;br&gt;Внутренние границы: %5&lt;br&gt;&lt;br&gt;Начальные точки: %6&lt;br&gt;Прослеженные линии: %7&lt;br&gt;&lt;br&gt;Используйте панель инструментов, чтобы добавлять/перемещать/удалять границы и начальные точки, а также запускать трассировку. Дважды щёлкните по прослеженной линии, чтобы отредактировать её точки или порядок полосы.</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="812"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="830"/>
         <source>No image loaded yet. Use File → Open Image.</source>
         <translation>Изображение ещё не загружено. Используйте Файл → Открыть изображение.</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="819"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="837"/>
         <source>Not computed yet. Press ▶ Compute phase in the toolbar (needs the aperture set up in Setup first -- no fringe tracing needed for this algorithm).</source>
         <translation>Ещё не вычислено. Нажмите ▶ Вычислить фазу на панели инструментов (сначала задайте апертуру в настройке -- трассировка полос этому алгоритму не нужна).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="822"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="840"/>
         <source>Not computed yet. Press ▶ Compute phase in the toolbar (needs numbered fringe lines from Setup first).</source>
         <translation>Ещё не вычислено. Нажмите ▶ Вычислить фазу на панели инструментов (сначала требуются пронумерованные линии полос из этапа «Настройка»).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="825"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="843"/>
         <source>Grid: %1 × %2&lt;br&gt;&lt;br&gt;Values are in fringe-order units (not yet physical length) -- see S4 (Wavefront Reconstruction) for that.</source>
         <translation>Сетка: %1 × %2&lt;br&gt;&lt;br&gt;Значения приведены в единицах порядка полосы (ещё не физическая длина) -- см. S4 (восстановление волнового фронта).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="840"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="858"/>
         <source>Not computed yet. Set the wavelength above, then press ▶ Compute wavefront in the toolbar (needs S2 first).</source>
         <translation>Ещё не вычислено. Задайте длину волны выше, затем нажмите ▶ Вычислить волновой фронт на панели инструментов (сначала требуется S2).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="845"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="863"/>
         <source>Grid: %1 × %2&lt;br&gt;Wavelength: %3 nm&lt;br&gt;PV: %4 nm (%5 λ)&lt;br&gt;&lt;br&gt;height = fringe order × wavelength / 2</source>
         <translation>Сетка: %1 × %2&lt;br&gt;Длина волны: %3 нм&lt;br&gt;PV: %4 нм (%5 λ)&lt;br&gt;&lt;br&gt;высота = порядок полосы × длина волны / 2</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="871"/>
-        <location filename="../src/gui/ParametersDock.cpp" line="878"/>
-        <location filename="../src/gui/ParametersDock.cpp" line="885"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="889"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="896"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="903"/>
         <source>%1 at %2° (X: %3, Y: %4)</source>
         <translation>%1 под углом %2° (X: %3, Y: %4)</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="894"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="915"/>
+        <source>Zernike, ISO 14999 normalization (leading coefficient = 1)&lt;br&gt;&lt;br&gt;</source>
+        <translation>Цернике, нормировка ISO 14999 (коэффициент при старшей степени равен 1)&lt;br&gt;&lt;br&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="918"/>
+        <source>Zernike, RMS normalization (each term RMS = 1)&lt;br&gt;&lt;br&gt;</source>
+        <translation>Цернике, нормировка по RMS (RMS каждого члена = 1)&lt;br&gt;&lt;br&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="921"/>
+        <source>Zernike, unit normalization (1 at the pupil edge)&lt;br&gt;&lt;br&gt;</source>
+        <translation>Цернике, единичная нормировка (1 на краю зрачка)&lt;br&gt;&lt;br&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="925"/>
+        <source>Seregin basis (DAPPSIM)&lt;br&gt;&lt;br&gt;</source>
+        <translation>Базис Серегина (DAPPSIM)&lt;br&gt;&lt;br&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="928"/>
         <source>Setup geometry (not a surface property):&lt;br&gt;Piston: %1&lt;br&gt;Tilt X/Y: %2&lt;br&gt;Defocus: %3&lt;br&gt;&lt;br&gt;Surface aberrations:&lt;br&gt;Astigmatism: %4&lt;br&gt;Coma: %5&lt;br&gt;Trefoil: %6&lt;br&gt;Spherical (3rd order): %7&lt;br&gt;&lt;br&gt;RMS before: %8 nm (%9 λ)&lt;br&gt;RMS after: %10 nm (%11 λ)&lt;br&gt;PV before: %12 nm (%13 λ)&lt;br&gt;PV after: %14 nm (%15 λ)&lt;br&gt;Strehl (Maréchal est.): %16&lt;br&gt;&lt;br&gt;Use the checkboxes above to control what gets subtracted before re-fitting. The 3D view shows the residual -- drag to rotate, scroll to zoom.</source>
         <translation>Геометрия установки (не свойство поверхности):&lt;br&gt;Поршень: %1&lt;br&gt;Наклон X/Y: %2&lt;br&gt;Дефокус: %3&lt;br&gt;&lt;br&gt;Аберрации поверхности:&lt;br&gt;Астигматизм: %4&lt;br&gt;Кома: %5&lt;br&gt;Трефойл: %6&lt;br&gt;Сферическая (3-го порядка): %7&lt;br&gt;&lt;br&gt;СКО до: %8 нм (%9 λ)&lt;br&gt;СКО после: %10 нм (%11 λ)&lt;br&gt;PV до: %12 нм (%13 λ)&lt;br&gt;PV после: %14 нм (%15 λ)&lt;br&gt;Число Штреля (оценка Марешаля): %16&lt;br&gt;&lt;br&gt;Галочками выше выберите, что вычитать перед повторной аппроксимацией. 3D-вид показывает остаток -- перетаскивайте для поворота, колесо -- масштаб.</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="859"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="877"/>
         <source>Not computed yet. Press ▶ Fit aberrations in the toolbar (needs a wavefront map from S4 first).</source>
         <translation>Ещё не вычислено. Нажмите ▶ Аппроксимировать аберрации на панели инструментов (сначала требуется карта волнового фронта из S4).</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="865"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="374"/>
+        <source>Zernike: unit (Born-Wolf)</source>
+        <translation>Цернике: единичная (Борн–Вольф)</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="377"/>
+        <source>Zernike: ISO 14999 / OST 3-5476-83</source>
+        <translation>Цернике: ISO 14999 / ОСТ 3-5476-83</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="380"/>
+        <source>Zernike: RMS (ANSI Z80.28 / Zemax)</source>
+        <translation>Цернике: RMS (ANSI Z80.28 / Zemax)</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="383"/>
+        <source>Zernike normalizations differ only in the scale of each coefficient: switching between them does not change the fit or the residual and needs no re-fit. Switching between Seregin and Zernike needs ▶ Fit aberrations again.</source>
+        <translation>Нормировки Цернике отличаются только масштабом коэффициентов: переключение между ними не меняет ни подгонку, ни остаток и не требует пересчёта. После переключения между Серегиным и Цернике нужно снова нажать ▶ Fit aberrations.</translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ParametersDock.cpp" line="883"/>
         <source>not subtracted -- still in residual</source>
         <translation>не вычтено -- остаётся в остатке</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="867"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="885"/>
         <source>%1 / %2</source>
         <translation>%1 / %2</translation>
     </message>
     <message>
-        <location filename="../src/gui/ParametersDock.cpp" line="931"/>
+        <location filename="../src/gui/ParametersDock.cpp" line="965"/>
         <source>No parameters yet — this stage is not implemented.</source>
         <translation>Параметров пока нет — этот этап не реализован.</translation>
     </message>

@@ -1,3 +1,7 @@
+#include "core/Measurement.h"
+#include "core/ModalAnalysisReportData.h"
+#include "core/pipeline/stages/ModalAnalysisStage.h"
+#include "core/pipeline/stages/WavefrontReconstructionStage.h"
 #include "formats/MtrAdapter.h"
 #include "io/MtrImporter.h"
 
@@ -41,6 +45,11 @@ private slots:
   void rejectsMalformedInput();
   void matchesLegacyReader_data();
   void matchesLegacyReader();
+
+  // Terminal.mtr -> S4 -> S5: углы астигматизма и комы совпадают с отчётом
+  // старой программы (test_data/report.txt) в обоих базисах.
+  void terminalAnglesMatchLegacyReport_data();
+  void terminalAnglesMatchLegacyReport();
 };
 
 void MtrAdapterTest::probeRecognizesMtrByContent() {
@@ -150,6 +159,36 @@ void MtrAdapterTest::matchesLegacyReader() {
 }
 
 }  // namespace
+
+void MtrAdapterTest::terminalAnglesMatchLegacyReport_data() {
+  QTest::addColumn<int>("basis");
+  QTest::newRow("Seregin") << static_cast<int>(digitqt::core::PolynomialBasis::Seregin);
+  QTest::newRow("Zernike") << static_cast<int>(digitqt::core::PolynomialBasis::Zernike);
+}
+
+void MtrAdapterTest::terminalAnglesMatchLegacyReport() {
+  QFETCH(int, basis);
+  QFile file(QStringLiteral(DIGITQT_TEST_DATA_DIR "/Terminal.mtr"));
+  QVERIFY(file.open(QIODevice::ReadOnly));
+  const QByteArray bytes = file.readAll();
+  ImportedData data;
+  std::string error;
+  QVERIFY2(MtrAdapter().importData(std::string_view(bytes.constData(), bytes.size()), data, error),
+           error.c_str());
+
+  digitqt::core::Measurement measurement;
+  measurement.setImportedPhaseMap(std::move(*data.phaseMap));
+  measurement.polynomialBasis() = static_cast<digitqt::core::PolynomialBasis>(basis);
+  digitqt::core::pipeline::WavefrontReconstructionStage s4;
+  QVERIFY(s4.compute(measurement));
+  digitqt::core::pipeline::ModalAnalysisStage s5;
+  QVERIFY(s5.compute(measurement));
+
+  // test_data/report.txt: FIA = 45.000, FIC = -135.000.
+  const auto report = digitqt::core::buildModalAnalysisReportData(measurement);
+  QVERIFY2(std::abs(report.astigAngleDeg - 45.0) < 0.5, qPrintable(QString::number(report.astigAngleDeg)));
+  QVERIFY2(std::abs(report.comaAngleDeg + 135.0) < 0.5, qPrintable(QString::number(report.comaAngleDeg)));
+}
 
 QTEST_APPLESS_MAIN(MtrAdapterTest)
 #include "MtrAdapterTest.moc"

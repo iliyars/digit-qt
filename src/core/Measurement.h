@@ -144,6 +144,14 @@ public:
   digitqt::core::PolynomialBasis &polynomialBasis() { return m_polynomialBasis; }
   const digitqt::core::PolynomialBasis &polynomialBasis() const { return m_polynomialBasis; }
 
+  /// Нормировка, в которой показываются коэффициенты Цернике -- только
+  /// отображение, подгонку не меняет (см. ZernikeNormalization в
+  /// PolynomialBasis.h).
+  digitqt::core::ZernikeNormalization &zernikeNormalization() { return m_zernikeNormalization; }
+  const digitqt::core::ZernikeNormalization &zernikeNormalization() const {
+    return m_zernikeNormalization;
+  }
+
   ModalAnalysisResult &modalAnalysis() { return m_modalAnalysis; }
   const ModalAnalysisResult &modalAnalysis() const { return m_modalAnalysis; }
 
@@ -177,6 +185,8 @@ private:
   bool m_modified = false;
   digitqt::core::ModalFitMethod m_modalFitMethod = digitqt::core::ModalFitMethod::JointLeastSquares;
   digitqt::core::PolynomialBasis m_polynomialBasis = digitqt::core::PolynomialBasis::Seregin;
+  digitqt::core::ZernikeNormalization m_zernikeNormalization =
+      digitqt::core::ZernikeNormalization::Unit;
   int m_edgeErosionPixels = 2;
   FiducialSet m_fiducials;
   FiducialTransformFit m_fiducialTransformFit;

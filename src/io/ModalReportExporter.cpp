@@ -31,6 +31,48 @@ QString basisName(digitqt::core::PolynomialBasis basis) {
              : Report::tr("Seregin (DAPPSIM/WinFringe-compatible)");
 }
 
+QString normalizationName(digitqt::core::ZernikeNormalization normalization) {
+  switch (normalization) {
+    case digitqt::core::ZernikeNormalization::Iso14999:
+      return Report::tr("ISO 14999 / OST 3-5476-83 (leading coefficient = 1)");
+    case digitqt::core::ZernikeNormalization::Rms:
+      return Report::tr("RMS = 1 per term (ANSI Z80.28 / Zemax Standard)");
+    case digitqt::core::ZernikeNormalization::Unit:
+    default:
+      return Report::tr("unit (1 at the pupil edge, Born-Wolf)");
+  }
+}
+
+/// Формулы членов Цернике в выбранной нормировке -- без них коэффициенты
+/// нельзя сравнить с другими программами. Y вверх, theta от +X против
+/// часовой стрелки (см. buildZernikeHierarchy() в ModalAnalysisStage.cpp).
+QStringList zernikeTermFormulas(digitqt::core::ZernikeNormalization normalization) {
+  switch (normalization) {
+    case digitqt::core::ZernikeNormalization::Iso14999:
+      return {QStringLiteral("Tilt X/Y:     rho*cos(theta), rho*sin(theta)"),
+              QStringLiteral("Defocus:      rho^2 - 1/2"),
+              QStringLiteral("Astigmatism:  rho^2*cos(2theta), rho^2*sin(2theta)"),
+              QStringLiteral("Coma X/Y:     (rho^3 - 2rho/3)*cos(theta), *sin(theta)"),
+              QStringLiteral("Trefoil X/Y:  rho^3*cos(3theta), rho^3*sin(3theta)"),
+              QStringLiteral("Spherical:    rho^4 - rho^2 + 1/6")};
+    case digitqt::core::ZernikeNormalization::Rms:
+      return {QStringLiteral("Tilt X/Y:     2*rho*cos(theta), 2*rho*sin(theta)"),
+              QStringLiteral("Defocus:      sqrt(3)*(2rho^2 - 1)"),
+              QStringLiteral("Astigmatism:  sqrt(6)*rho^2*cos(2theta), sqrt(6)*rho^2*sin(2theta)"),
+              QStringLiteral("Coma X/Y:     sqrt(8)*(3rho^3 - 2rho)*cos(theta), *sin(theta)"),
+              QStringLiteral("Trefoil X/Y:  sqrt(8)*rho^3*cos(3theta), sqrt(8)*rho^3*sin(3theta)"),
+              QStringLiteral("Spherical:    sqrt(5)*(6rho^4 - 6rho^2 + 1)")};
+    case digitqt::core::ZernikeNormalization::Unit:
+    default:
+      return {QStringLiteral("Tilt X/Y:     rho*cos(theta), rho*sin(theta)"),
+              QStringLiteral("Defocus:      2rho^2 - 1"),
+              QStringLiteral("Astigmatism:  rho^2*cos(2theta), rho^2*sin(2theta)"),
+              QStringLiteral("Coma X/Y:     (3rho^3 - 2rho)*cos(theta), *sin(theta)"),
+              QStringLiteral("Trefoil X/Y:  rho^3*cos(3theta), rho^3*sin(3theta)"),
+              QStringLiteral("Spherical:    6rho^4 - 6rho^2 + 1")};
+  }
+}
+
 QString fitMethodName(digitqt::core::ModalFitMethod method) {
   switch (method) {
     case digitqt::core::ModalFitMethod::GramSchmidtOnAperture:
@@ -115,7 +157,16 @@ void writeModalSection(QTextStream &out, const digitqt::core::ModalAnalysisRepor
 
   out << Report::tr("Wavelength: %1 nm").arg(data.wavelengthNm) << "\n";
   out << Report::tr("Polynomial basis: %1").arg(basisName(data.basis)) << "\n";
+  const bool zernike = data.basis == digitqt::core::PolynomialBasis::Zernike;
+  if (zernike)
+    out << Report::tr("Zernike normalization: %1").arg(normalizationName(data.zernikeNormalization))
+        << "\n";
   out << Report::tr("Fit method: %1").arg(fitMethodName(measurement.modalFitMethod())) << "\n";
+  if (zernike) {
+    out << Report::tr("Terms (Y up, theta from +X counterclockwise):") << "\n";
+    for (const QString &formula : zernikeTermFormulas(data.zernikeNormalization))
+      out << "  " << formula << "\n";
+  }
   out << "\n";
 
   // Модуль, угол и составляющие X/Y одного терма.
@@ -398,27 +449,28 @@ void writeDappsimSection(QTextStream &out, const digitqt::core::Measurement &mea
   const bool zernike = measurement.modalAnalysis().basis == digitqt::core::PolynomialBasis::Zernike;
   auto orders = [perOrderNm](double nm) { return perOrderNm > 0.0 ? nm / perOrderNm : 0.0; };
 
-  // Y = -y: в базисе Цернике y растёт вниз по строкам, у Серегина знак
-  // уже перевёрнут в самих формулах.
+  // Сырые коэффициенты подгонки (Цернике -- в единичной нормировке); Y
+  // вверх в обоих базисах, переворот уже в самих формулах.
   const double lx = orders(c.tiltX);
-  const double ly = orders(zernike ? -c.tiltY : c.tiltY);
+  const double ly = orders(c.tiltY);
   const double b4 = orders(zernike ? 6.0 * c.spherical : c.spherical);
   const double b2 = orders(zernike ? 2.0 * c.defocus : c.defocus + c.spherical);
   const double astigCos = orders(zernike ? c.astigX : 1.5 * c.astigX);  // при X^2 - Y^2
-  const double astigSin = orders(zernike ? -c.astigY : 0.5 * c.astigY);  // при 2XY
+  const double astigSin = orders(zernike ? c.astigY : 0.5 * c.astigY);  // при 2XY
   const double comaX = orders(zernike ? 3.0 * c.comaX : c.comaX);  // при X(rho^2 - 2/3)
-  const double comaY = orders(zernike ? -3.0 * c.comaY : c.comaY);  // при Y(rho^2 - 2/3)
+  const double comaY = orders(zernike ? 3.0 * c.comaY : c.comaY);  // при Y(rho^2 - 2/3)
   const double trefoilCos = orders(zernike ? c.trefoilX : -c.trefoilX);  // при X^3 - 3XY^2
-  const double trefoilSin = orders(-c.trefoilY);                         // при 3X^2Y - Y^3
+  const double trefoilSin = orders(zernike ? c.trefoilY : -c.trefoilY);  // при 3X^2Y - Y^3
 
   const double degPerRad = 180.0 / std::acos(-1.0);
   auto angle = [](double deg, double period) {  // в [0, period)
     deg = std::fmod(deg, period);
     return deg < 0.0 ? deg + period : deg;
   };
-  // Углы -- как в DAPPSIM, от оси +Y (против часовой стрелки): на
-  // синтетике с FIA = FIC = 0 астигматизм и кома DigitQt вышли на 90° от +X.
-  // Направление отсчёта (по или против часовой) этим примером не проверено.
+  // Углы -- как в DAPPSIM, от оси +Y против часовой стрелки; та же формула,
+  // что в buildModalAnalysisReportData, здесь только приведена к
+  // [0, period). Проверено на синтетике с FIA = FIC = 0 и на
+  // test_data/report.txt (FIA = 45, FIC = -135; по часовой вышло бы 135).
   const double astig = std::hypot(astigCos, astigSin);
   const double astigDeg =
       angle(0.5 * std::atan2(astigSin, astigCos) * degPerRad - 90.0, 180.0);
@@ -446,8 +498,8 @@ void writeDappsimSection(QTextStream &out, const digitqt::core::Measurement &mea
              .arg(fixed(trefoil, 3), fixed(trefoilDeg, 1))
       << "\n";
   out << "  "
-      << Report::tr("Angles from +Y, counterclockwise, as in DAPPSIM (checked on one synthetic\n"
-                    "  series with FIA = FIC = 0; the direction of rotation is not checked yet).")
+      << Report::tr("Angles from +Y, counterclockwise, as in DAPPSIM (checked on test_data/report.txt\n"
+                    "  and a synthetic series with FIA = FIC = 0; trefoil not checked).")
       << "\n";
 }
 
@@ -531,7 +583,9 @@ bool writeFullReport(const QString &path, const digitqt::core::Measurement &meas
         {"trefoilY", c.trefoilY}, {"spherical", c.spherical}};
     out << "\n"
         << Report::tr("Raw fit coefficients (%1; no WinFringe x2 for coma/trefoil/spherical):")
-               .arg(basisName(data.basis))
+               .arg(data.basis == digitqt::core::PolynomialBasis::Zernike
+                        ? Report::tr("Zernike, unit normalization")
+                        : basisName(data.basis))
         << "\n";
     const QString headers[] = {Report::tr("Term"), Report::tr("nm"), Report::tr("waves"),
                                Report::tr("fringe orders")};
