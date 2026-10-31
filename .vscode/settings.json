@@ -10,7 +10,8 @@
     "--compile-commands-dir=${workspaceFolder}/build",
     "--query-driver=C:/msys64/mingw64/bin/g++.exe",
     "--background-index",
-    "--header-insertion=never"
+    "--header-insertion=never",
+    "-j=2"
   ],
   "[cpp]": {
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"

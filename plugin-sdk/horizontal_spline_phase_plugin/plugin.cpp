@@ -19,6 +19,7 @@
 #include <limits>
 #include <new>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -258,6 +259,20 @@ class HorizontalSplinePhaseReconstructor {
   std::string m_lastError;
 };
 
+// Полосы скорее горизонтальны, если отрезки трасс в сумме длиннее по X,
+// чем по Y. Тогда строка изображения идёт вдоль полос и почти их не
+// пересекает -- интерполировать надо по столбцам.
+bool fringesMostlyHorizontal(const std::vector<Line> &lines) {
+  double sx = 0.0, sy = 0.0;
+  for (const auto &line : lines) {
+    for (size_t i = 0; i + 1 < line.points.size(); ++i) {
+      sx += std::abs(line.points[i + 1].x - line.points[i].x);
+      sy += std::abs(line.points[i + 1].y - line.points[i].y);
+    }
+  }
+  return sx > sy;
+}
+
 // --- Граница ABI --------------------------------------------------------
 
 struct PluginState {
@@ -294,7 +309,24 @@ int reconstruct(DqtPhaseReconstructorHandle self, int32_t gridWidth, int32_t gri
     return isVisible(x, y, isVisibleUserData) != 0;
   };
 
-  const bool ok = state->reconstructor.reconstruct(gridWidth, gridHeight, predicate, cLines, outValues);
+  // При горизонтальных полосах -- тот же алгоритм на транспонированной
+  // геометрии (строки становятся столбцами), результат переводится обратно.
+  bool ok = false;
+  if (fringesMostlyHorizontal(cLines)) {
+    for (auto &line : cLines)
+      for (auto &p : line.points)
+        std::swap(p.x, p.y);
+    auto transposedPredicate = [&predicate](int x, int y) { return predicate(y, x); };
+    std::vector<double> transposed(static_cast<size_t>(gridWidth) * gridHeight);
+    ok = state->reconstructor.reconstruct(gridHeight, gridWidth, transposedPredicate, cLines,
+                                          transposed.data());
+    for (int y = 0; y < gridHeight; ++y)
+      for (int x = 0; x < gridWidth; ++x)
+        outValues[static_cast<size_t>(y) * gridWidth + x] =
+            transposed[static_cast<size_t>(x) * gridHeight + y];
+  } else {
+    ok = state->reconstructor.reconstruct(gridWidth, gridHeight, predicate, cLines, outValues);
+  }
   state->lastErrorUtf8 = state->reconstructor.lastError();
   return ok ? 1 : 0;
 }

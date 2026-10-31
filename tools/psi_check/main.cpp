@@ -8,7 +8,7 @@
 // режимы (--no-refine, --tilt) на одних и тех же кадрах.
 //
 // Usage:
-//   psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt]
+//   psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt] [--pad]
 //       [--center-x=X] [--center-y=Y] [--radius=R]
 //       [--wavelength=NM] [--double-pass] [--zernike[=unit|iso|rms]] [--out-map=FILE]
 //       [--out-report=FILE] [--qm=FILE]
@@ -24,12 +24,14 @@
 // фазой в test_data/psi_synthetic/psi_demo.py. --out-report -- тот же
 // полный отчёт, что File -> Export Report в программе (io::writeFullReport).
 //
-// В отличие от GUI кадры не дополняются полем (padImageBackground) --
-// координаты апертуры здесь в пикселях исходных кадров. По умолчанию
+// В отличие от GUI кадры не дополняются полем (padImageBackground), если
+// не задан --pad (тогда -- ровно как в GUI); координаты апертуры в обоих
+// случаях в пикселях исходных кадров. По умолчанию
 // апертура -- вписанный круг с отступом 1px; для синтетики
 // (апертура 0.45 от кадра) -- --radius=230. Без двойного хода (как в
 // CLAUDE.md при сверке со статьёй): RMS в волнах = RMS фронта / λ.
 
+#include "core/ImagePadding.h"
 #include "core/Measurement.h"
 #include "core/PhaseReconstructionAlgorithm.h"
 #include "core/pipeline/Pipeline.h"
@@ -69,7 +71,7 @@ int main(int argc, char **argv) {
   QStringList positional;
   QString mapPath, reportPath, qmPath;
   double stepDeg = 90.0;
-  bool refine = true, tilt = false, doublePass = false, zernike = false;
+  bool refine = true, tilt = false, doublePass = false, zernike = false, pad = false;
   auto normalization = digitqt::core::ZernikeNormalization::Unit;
   double wavelengthNm = 632.8;
   double centerX = -1, centerY = -1, radius = -1;
@@ -81,6 +83,8 @@ int main(int argc, char **argv) {
       refine = false;
     else if (a == QStringLiteral("--tilt"))
       tilt = true;
+    else if (a == QStringLiteral("--pad"))
+      pad = true;
     else if (a == QStringLiteral("--double-pass"))
       doublePass = true;
     else if (a == QStringLiteral("--zernike"))
@@ -127,7 +131,7 @@ int main(int argc, char **argv) {
   }
 
   if (positional.size() != 1) {
-    err << "Usage: psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt] "
+    err << "Usage: psi_check <series.idf> [--step=DEG] [--no-refine] [--tilt] [--pad] "
            "[--center-x=X] [--center-y=Y] [--radius=R] [--wavelength=NM] [--double-pass] "
            "[--zernike[=unit|iso|rms]] [--out-map=FILE] [--out-report=FILE] [--qm=FILE]\n";
     return 1;
@@ -160,9 +164,15 @@ int main(int argc, char **argv) {
     frames.push_back(result.image);
   }
   const int width = frames.front().width(), height = frames.front().height();
+  // Поле -- как в MainWindow::openPhaseShiftingSeries(); апертура сдвигается
+  // на его ширину.
+  const int margin = pad ? static_cast<int>(std::lround(0.15 * std::max(width, height))) : 0;
+  if (pad)
+    for (auto &frame : frames)
+      frame = digitqt::core::padImageBackground(frame);
 
   digitqt::core::Measurement measurement;
-  measurement.setPhaseShiftingFrames(std::move(frames), idfPath.toStdString());
+  measurement.setPhaseShiftingFrames(std::move(frames), idfPath.toStdString(), width, height);
   measurement.setPhaseReconstructionAlgorithm(
       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
   measurement.setWavelengthNm(wavelengthNm);
@@ -182,7 +192,7 @@ int main(int argc, char **argv) {
   if (radius < 0)
     radius = std::min(width, height) / 2.0 - 1.0;
   measurement.boundaries().addExternal(
-      std::make_unique<aperture::Ellipse>(radius, radius, centerX, centerY));
+      std::make_unique<aperture::Ellipse>(radius, radius, centerX + margin, centerY + margin));
 
   out << "Series: " << idf.frameFiles.size() << " frames " << width << "x" << height
       << ", aperture center=(" << centerX << ", " << centerY << ") radius=" << radius << "\n"

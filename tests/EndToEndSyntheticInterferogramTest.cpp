@@ -296,6 +296,12 @@ private slots:
   // ScanlineExtremum tracer + HorizontalSpline, Max fringe-center mode
   // (see runScanlineExtremumCase's doc for why MinMax isn't covered).
   void scanlineExtremumMaxRecoversCoefficients();
+
+  // То же, но несущий наклон по Y -- полосы горизонтальные. Трассировщик
+  // должен сам перейти на сканирование столбцов, а сплайн -- на
+  // интерполяцию по столбцам (вдоль строк, параллельных полосам, оба
+  // раньше разваливались).
+  void scanlineExtremumHorizontalFringes();
 };
 
 void EndToEndSyntheticInterferogramTest::tiltOnlyBaseline() {
@@ -341,6 +347,21 @@ void EndToEndSyntheticInterferogramTest::scanlineExtremumMaxRecoversCoefficients
   c.astigX = 80.0;
   c.astigY = 50.0;
   runScanlineExtremumCase("scanlineExtremumMax", c, digitqt::core::FringeCenterMode::Max);
+}
+
+void EndToEndSyntheticInterferogramTest::scanlineExtremumHorizontalFringes() {
+  // Ровно транспонированный кадр scanlineExtremumMaxRecoversCoefficients
+  // (x <-> y): W(x, y) -> W(y, x), т. е. tiltX <-> -tiltY, astigX -> -astigX,
+  // defocus и astigY (при -xy) не меняются. Знак самой карты по одной
+  // интерферограмме не определён (W и -W дают одинаковые кадры), поэтому
+  // берётся именно транспонирование, а не произвольный поворот наклона.
+  auto c = withCarrierTilt();
+  c.tiltX = 900.0;
+  c.tiltY = -1500.0;
+  c.defocus = 300.0;
+  c.astigX = -80.0;
+  c.astigY = 50.0;
+  runScanlineExtremumCase("scanlineExtremumHorizontal", c, digitqt::core::FringeCenterMode::Max);
 }
 
 QTEST_MAIN(EndToEndSyntheticInterferogramTest)

@@ -800,47 +800,77 @@ private:
 
 /// Преобладающая частота полос кадра по пику спектра, периодов на пиксель.
 /// Знак не определён: у спектра вещественного кадра пики +f и -f равны.
+///
+/// Спектр -- по прямоугольнику вокруг точек апертуры, а не по всему кадру,
+/// и пик уточняется параболой между ячейками: иначе оценка зависела от
+/// размера холста (в GUI кадры дополнены полем, см. padImageBackground) --
+/// у изогнутых полос пик широкий, его максимум перескакивал в соседнюю
+/// ячейку, и стартовый наклон всех кадров (он отсчитывается от кадра 0)
+/// сдвигался на ~1.5 волны -- итерации застревали в ложном минимуме.
 bool fringeFrequency(const Bitmap &frame, const PointMask &points, double &fx, double &fy) {
-  const int width = frame.width(), height = frame.height();
+  const int frameWidth = frame.width(), frameHeight = frame.height();
+  int minX = frameWidth, maxX = -1, minY = frameHeight, maxY = -1;
   double sum = 0.0;
   long long count = 0;
-  for (int y = 0; y < height; ++y)
-    for (int x = 0; x < width; ++x)
-      if (points[static_cast<size_t>(y) * width + x]) {
+  for (int y = 0; y < frameHeight; ++y)
+    for (int x = 0; x < frameWidth; ++x)
+      if (points[static_cast<size_t>(y) * frameWidth + x]) {
         sum += frame.pixel(x, y);
         ++count;
+        minX = std::min(minX, x);
+        maxX = std::max(maxX, x);
+        minY = std::min(minY, y);
+        maxY = std::max(maxY, y);
       }
   if (count == 0)
     return false;
   const double mean = sum / static_cast<double>(count);
+  const int width = maxX - minX + 1, height = maxY - minY + 1;
   cv::Mat image(height, width, CV_32F, cv::Scalar(0));
-  for (int y = 0; y < height; ++y)
-    for (int x = 0; x < width; ++x)
-      if (points[static_cast<size_t>(y) * width + x])
-        image.at<float>(y, x) = static_cast<float>(frame.pixel(x, y) - mean);
+  for (int y = minY; y <= maxY; ++y)
+    for (int x = minX; x <= maxX; ++x)
+      if (points[static_cast<size_t>(y) * frameWidth + x])
+        image.at<float>(y - minY, x - minX) = static_cast<float>(frame.pixel(x, y) - mean);
   cv::Mat spectrum;
   cv::dft(image, spectrum, cv::DFT_COMPLEX_OUTPUT);
+  auto power = [&](int row, int column) {
+    const cv::Vec2f value =
+        spectrum.at<cv::Vec2f>((row + height) % height, (column + width) % width);
+    return static_cast<double>(value[0]) * value[0] + static_cast<double>(value[1]) * value[1];
+  };
 
   // Окрестность нулевой частоты -- фон и огибающая апертуры, не полосы.
   constexpr int kLowFrequency = 2;
   double best = -1.0;
+  int bestRow = 0, bestColumn = 0, bestKx = 0, bestKy = 0;
   for (int row = 0; row < height; ++row) {
     const int ky = row < (height + 1) / 2 ? row : row - height;
     for (int column = 0; column < width; ++column) {
       const int kx = column < (width + 1) / 2 ? column : column - width;
       if (std::abs(kx) <= kLowFrequency && std::abs(ky) <= kLowFrequency)
         continue;
-      const cv::Vec2f value = spectrum.at<cv::Vec2f>(row, column);
-      const double power = static_cast<double>(value[0]) * value[0] +
-                           static_cast<double>(value[1]) * value[1];
-      if (power > best) {
-        best = power;
-        fx = static_cast<double>(kx) / width;
-        fy = static_cast<double>(ky) / height;
+      const double p = power(row, column);
+      if (p > best) {
+        best = p;
+        bestRow = row;
+        bestColumn = column;
+        bestKx = kx;
+        bestKy = ky;
       }
     }
   }
-  return best > 0.0;
+  if (best <= 0.0)
+    return false;
+  // Вершина параболы по трём ячейкам вдоль каждой оси.
+  auto vertex = [](double left, double center, double right) {
+    const double denominator = left - 2.0 * center + right;
+    return std::fabs(denominator) > 1e-30 ? 0.5 * (left - right) / denominator : 0.0;
+  };
+  const double dx = vertex(power(bestRow, bestColumn - 1), best, power(bestRow, bestColumn + 1));
+  const double dy = vertex(power(bestRow - 1, bestColumn), best, power(bestRow + 1, bestColumn));
+  fx = (bestKx + std::clamp(dx, -0.5, 0.5)) / width;
+  fy = (bestKy + std::clamp(dy, -0.5, 0.5)) / height;
+  return true;
 }
 
 }  // namespace

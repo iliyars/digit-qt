@@ -28,6 +28,13 @@ struct SeedPoint {
  * трассировщик: сканирует изображение построчно (RedCenterDetector),
  * затем связывает и нумерует найденные экстремумы в непрерывные полосы
  * (FringeConstructor).
+ *
+ * Сканирование идёт поперёк полос: если полосы скорее горизонтальны,
+ * кадр транспонируется (сканируются столбцы), а точки трасс переводятся
+ * обратно. Вдоль строки, параллельной полосам, настоящих экстремумов нет --
+ * только шум, и цепочки скачут с полосы на полосу. Перед поиском кадр
+ * сглаживается гауссом: иначе спекл и кольца от пылинок дробят одну полосу
+ * на несколько "бугров", и в трассах появляются иглы.
  */
 class ScanlineExtremumTracker {
  public:
@@ -36,6 +43,11 @@ class ScanlineExtremumTracker {
     double fringeStep = 1.0;
     double toleranceFactor = 0.3;
     bool hasInternalObstruction = false;
+    enum class ScanDirection { Auto, Rows, Columns };
+    ScanDirection scanDirection = ScanDirection::Auto;
+    /// σ гауссова сглаживания в пикселях; 0 -- без сглаживания, < 0 --
+    /// автоматически по периоду полос (см. extract()).
+    double smoothingSigma = -1.0;
   };
 
   bool initialize(const uint8_t *pixels, int width, int height,
@@ -52,6 +64,12 @@ class ScanlineExtremumTracker {
   /// том же порядке.
   const std::vector<double> &lastFringeNumbers() const { return m_lastFringeNumbers; }
 
+  /// Что выбрал последний extract() в автоматических режимах -- для
+  /// диагностики и тестов.
+  bool lastScannedColumns() const { return m_lastScannedColumns; }
+  double lastSmoothingSigma() const { return m_lastSmoothingSigma; }
+  int lastEdgeMargin() const { return m_lastEdgeMargin; }
+
  private:
   std::vector<uint8_t> m_pixelStorage;
   const uint8_t *m_image = nullptr;
@@ -61,6 +79,9 @@ class ScanlineExtremumTracker {
   Params m_params;
   std::string m_lastError;
   std::vector<double> m_lastFringeNumbers;
+  bool m_lastScannedColumns = false;
+  double m_lastSmoothingSigma = 0.0;
+  int m_lastEdgeMargin = 0;
 };
 
 }  // namespace scanline_extremum_plugin
