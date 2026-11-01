@@ -33,19 +33,18 @@
 
 namespace {
 
-void fftShift(cv::Mat &m) {
-  const int cx = m.cols / 2, cy = m.rows / 2;
-  cv::Mat q0(m, cv::Rect(0, 0, cx, cy));
-  cv::Mat q1(m, cv::Rect(cx, 0, cx, cy));
-  cv::Mat q2(m, cv::Rect(0, cy, cx, cy));
-  cv::Mat q3(m, cv::Rect(cx, cy, cx, cy));
-  cv::Mat tmp;
-  q0.copyTo(tmp);
-  q3.copyTo(q0);
-  tmp.copyTo(q3);
-  q1.copyTo(tmp);
-  q2.copyTo(q1);
-  tmp.copyTo(q2);
+// fftshift rolls by floor(n/2); its inverse rolls by ceil(n/2).
+// They coincide only for even dimensions. Copy whole elements, including
+// the final row/column on odd grids.
+void fftShift(cv::Mat &m, bool inverse = false) {
+  const int dx = inverse ? (m.cols + 1) / 2 : m.cols / 2;
+  const int dy = inverse ? (m.rows + 1) / 2 : m.rows / 2;
+  cv::Mat shifted(m.size(), m.type());
+  for (int y = 0; y < m.rows; ++y)
+    for (int x = 0; x < m.cols; ++x)
+      std::memcpy(shifted.ptr((y + dy) % m.rows) + ((x + dx) % m.cols) * m.elemSize(),
+                  m.ptr(y) + x * m.elemSize(), m.elemSize());
+  m = shifted;
 }
 
 class FourierPhaseReconstructor {
@@ -85,6 +84,19 @@ class FourierPhaseReconstructor {
       return false;
     }
     const double meanVal = sum / count;
+    double variance = 0.0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        if (hardMask.at<uchar>(y, x)) {
+          const double v = gray.at<double>(y, x) - meanVal;
+          variance += v * v;
+        }
+    // One 8-bit count RMS is a numerical input floor, not a calibrated
+    // optical contrast or uncertainty threshold.
+    if (variance / count < 1.0) {
+      m_lastError = "Insufficient intensity contrast inside aperture";
+      return false;
+    }
 
     // --- 2. Апподизация края апертуры (приподнятый косинус) ---
     cv::Mat distToOutside;
@@ -119,6 +131,8 @@ class FourierPhaseReconstructor {
     const int cx0 = W / 2, cy0 = H / 2;
     constexpr double kDcRadius = 8.0;
     double maxVal = -1.0;
+    double searchPower = 0.0;
+    int searchBins = 0;
     int peakX = cx0, peakY = cy0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
@@ -134,6 +148,8 @@ class FourierPhaseReconstructor {
         if (x < cx0 || (x == cx0 && y <= cy0))
           continue;
         const double m = mag.at<double>(y, x);
+        searchPower += m * m;
+        ++searchBins;
         if (m > maxVal) {
           maxVal = m;
           peakX = x;
@@ -143,7 +159,11 @@ class FourierPhaseReconstructor {
     }
 
     const double peakDist = std::hypot(peakX - cx0, peakY - cy0);
-    if (peakDist < kDcRadius + 1.0) {
+    // A distant bin alone is not evidence of a carrier: flat inputs and
+    // broad noise must not produce a plausible-looking phase map.
+    const double peakPower = maxVal * maxVal;
+    if (peakDist < kDcRadius + 1.0 || searchBins == 0 || searchPower <= 0.0 ||
+        peakPower < 0.01 * searchPower || peakPower * searchBins < 25.0 * searchPower) {
       m_lastError = "Could not find a clear carrier frequency -- fringes may be too faint or absent";
       return false;
     }
@@ -171,7 +191,7 @@ class FourierPhaseReconstructor {
         shifted.at<cv::Vec2d>(sy, sx) = complexImg.at<cv::Vec2d>(y, x);
       }
     }
-    fftShift(shifted);
+    fftShift(shifted, true);
 
     cv::Mat inv;
     cv::idft(shifted, inv, cv::DFT_SCALE);
@@ -196,6 +216,7 @@ class FourierPhaseReconstructor {
       startX = static_cast<int>(sxA / count);
       startY = static_cast<int>(syA / count);
       if (!hardMask.at<uchar>(startY, startX)) {
+        startX = -1;
         for (int y = 0; y < H && startX < 0; ++y) {
           for (int x = 0; x < W; ++x) {
             if (hardMask.at<uchar>(y, x)) {
@@ -217,6 +238,7 @@ class FourierPhaseReconstructor {
     q.push({startY, startX});
     constexpr int dy[4] = {-1, 1, 0, 0};
     constexpr int dx[4] = {0, 0, -1, 1};
+    int visitedCount = 1;
     while (!q.empty()) {
       const auto [y, x] = q.front();
       q.pop();
@@ -228,11 +250,20 @@ class FourierPhaseReconstructor {
         if (!hardMask.at<uchar>(ny, nx) || visited.at<uchar>(ny, nx))
           continue;
         visited.at<uchar>(ny, nx) = 1;
+        ++visitedCount;
         const double wv = wrapped.at<double>(ny, nx);
         const double k2pi = std::round((wv - base) / (2 * M_PI));
         unwrapped.at<double>(ny, nx) = wv - k2pi * 2 * M_PI;
         q.push({ny, nx});
       }
+    }
+
+    // Relative integer orders of disconnected components are unknown.
+    // ABI has no component-offset diagnostics: reject instead of silently
+    // inventing a common phase. Output remains entirely NaN on failure.
+    if (visitedCount != count) {
+      m_lastError = "Disconnected aperture: relative fringe orders are unknown";
+      return false;
     }
 
     // --- 9. Восстанавливаем "потерянный" при демодуляции наклон ---
@@ -260,7 +291,8 @@ class FourierPhaseReconstructor {
         const double carrierPhase =
             2 * M_PI * (carrierFreqX * (x - apCx) + carrierFreqY * (y - apCy));
         const double totalPhase = unwrapped.at<double>(y, x) + carrierPhase;
-        outValues[static_cast<size_t>(y) * W + x] = totalPhase / (2 * M_PI);  // -> номер полосы N
+        if (visited.at<uchar>(y, x))
+          outValues[static_cast<size_t>(y) * W + x] = totalPhase / (2 * M_PI);  // -> номер полосы N
       }
     }
 

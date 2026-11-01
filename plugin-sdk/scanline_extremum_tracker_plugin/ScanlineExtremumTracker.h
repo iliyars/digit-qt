@@ -40,7 +40,7 @@ class ScanlineExtremumTracker {
  public:
   struct Params {
     FringeCenterMode fringeCenterAs = FringeCenterMode::MinMax;
-    double fringeStep = 1.0;
+    double fringeStep = 1.0;  // full period; adjacent MinMax extrema use half
     double toleranceFactor = 0.3;
     bool hasInternalObstruction = false;
     enum class ScanDirection { Auto, Rows, Columns };

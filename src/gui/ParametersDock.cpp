@@ -157,6 +157,7 @@ ParametersDock::ParametersDock(QWidget *parent)
                   m_phaseAlgorithmCombo->currentData().toInt()));
             }
             refreshPsiStepRow();
+            emit inputsChanged();
           });
 
   m_edgeErosionSpin->setRange(0, 20);
@@ -232,6 +233,7 @@ ParametersDock::ParametersDock(QWidget *parent)
   connect(m_doublePassCheck, &QCheckBox::toggled, this, [this](bool checked) {
     if (m_measurement)
       m_measurement->setDoublePass(checked);
+    emit inputsChanged();
   });
   wavelengthLayout->addWidget(m_doublePassCheck);
   layout->addWidget(m_wavelengthRow);
@@ -283,6 +285,7 @@ ParametersDock::ParametersDock(QWidget *parent)
           [this](double value) {
             if (m_measurement)
               m_measurement->phaseShifting().setNominalStepDeg(value);
+            emit inputsChanged();
           });
   psiStepLayout->addWidget(m_psiStepSpin);
   m_psiTiltCheck = new QCheckBox(tr("Compensate tilt between frames"), m_psiStepRow);
@@ -295,6 +298,7 @@ ParametersDock::ParametersDock(QWidget *parent)
   connect(m_psiTiltCheck, &QCheckBox::toggled, this, [this](bool checked) {
     if (m_measurement)
       m_measurement->phaseShifting().setCompensateTilt(checked);
+    emit inputsChanged();
   });
   m_psiRefineCheck = new QCheckBox(tr("Refine phase shifts from the frames"), m_psiStepRow);
   m_psiRefineCheck->setContentsMargins(8, 4, 8, 0);
@@ -307,6 +311,7 @@ ParametersDock::ParametersDock(QWidget *parent)
     if (m_measurement)
       m_measurement->phaseShifting().setRefineShifts(checked);
     m_psiTiltCheck->setEnabled(checked);
+    emit inputsChanged();
   });
   psiStepLayout->addWidget(m_psiRefineCheck);
   psiStepLayout->addWidget(m_psiTiltCheck);
@@ -356,6 +361,7 @@ ParametersDock::ParametersDock(QWidget *parent)
     if (m_measurement)
       m_measurement->modalFitMethod() =
           static_cast<digitqt::core::ModalFitMethod>(m_fitMethodCombo->currentData().toInt());
+    emit inputsChanged();
   });
   fitMethodLayout->addWidget(m_fitMethodCombo);
   layout->addWidget(m_fitMethodRow);
@@ -395,6 +401,7 @@ ParametersDock::ParametersDock(QWidget *parent)
       m_measurement->zernikeNormalization() = static_cast<digitqt::core::ZernikeNormalization>(key);
     }
     refresh();  // нормировка -- только отображение, показать сразу
+    emit inputsChanged();
   });
   polynomialBasisLayout->addWidget(m_polynomialBasisCombo);
   layout->addWidget(m_polynomialBasisRow);
@@ -687,6 +694,7 @@ void ParametersDock::onAlgorithmChanged(int /*index*/) {
   const auto algorithm = static_cast<TracerAlgorithm>(m_algorithmCombo->currentData().toInt());
   m_measurement->fringeTracing().setAlgorithm(algorithm);
   m_fringeCenterCombo->setEnabled(algorithm == TracerAlgorithm::ScanlineExtremum);
+  emit inputsChanged();
 }
 
 void ParametersDock::onFringeCenterModeChanged(int /*index*/) {
@@ -694,6 +702,7 @@ void ParametersDock::onFringeCenterModeChanged(int /*index*/) {
     return;
   const auto mode = static_cast<FringeCenterMode>(m_fringeCenterCombo->currentData().toInt());
   m_measurement->fringeTracing().setFringeCenterMode(mode);
+  emit inputsChanged();
 }
 
 void ParametersDock::onEdgeExtensionMarginChanged(int value) {
@@ -714,6 +723,7 @@ void ParametersDock::onWavelengthChanged(double value) {
   if (!m_measurement)
     return;
   m_measurement->setWavelengthNm(value);
+  emit inputsChanged();
 }
 
 void ParametersDock::onIsolineStepChanged(double value) {
@@ -731,12 +741,14 @@ void ParametersDock::onModalTermToggled() {
   sel.coma = m_termComaCheck->isChecked();
   sel.trefoil = m_termTrefoilCheck->isChecked();
   sel.spherical = m_termSphericalCheck->isChecked();
+  emit inputsChanged();
 }
 
 void ParametersDock::onEdgeErosionChanged(int value) {
   if (!m_measurement)
     return;
   m_measurement->setEdgeErosionPixels(value);
+  emit inputsChanged();
 }
 
 void ParametersDock::refreshOrderEditor() {
@@ -845,9 +857,11 @@ void ParametersDock::refresh() {
                  "length) -- see S4 (Wavefront Reconstruction) for that.")
                   .arg(phase.width())
                   .arg(phase.height());
-      const bool isPsi = m_measurement->customPhaseReconstructorPluginPath().empty() &&
-                         m_measurement->phaseReconstructionAlgorithm() ==
-                             digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+      const auto parameters =
+          m_measurement->phaseParameters().value_or(m_measurement->currentPhaseParameters());
+      const bool isPsi =
+          parameters.pluginPath.empty() &&
+          parameters.algorithm == digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
       if (isPsi)
         text += phaseShiftingReportHtml();
     }
@@ -860,15 +874,20 @@ void ParametersDock::refresh() {
     } else {
       double minV = 0.0, maxV = 0.0;
       computeRange(wavefront, minV, maxV);
+      const auto parameters = m_measurement->wavefrontParameters().value_or(
+          digitqt::core::Measurement::WavefrontParameters{m_measurement->wavelengthNm(),
+                                                          m_measurement->isDoublePass()});
       text += tr("Grid: %1 × %2<br>"
                  "Wavelength: %3 nm<br>"
                  "PV: %4 nm (%5 λ)<br><br>"
-                 "height = fringe order × wavelength / 2")
+                 "%6")
                   .arg(wavefront.width())
                   .arg(wavefront.height())
-                  .arg(m_measurement->wavelengthNm())
+                  .arg(parameters.wavelengthNm)
                   .arg(maxV - minV, 0, 'f', 2)
-                  .arg((maxV - minV) / m_measurement->wavelengthNm(), 0, 'f', 3);
+                  .arg((maxV - minV) / parameters.wavelengthNm, 0, 'f', 3)
+                  .arg(parameters.doublePass ? tr("height = fringe order × wavelength / 2")
+                                             : tr("height = fringe order × wavelength"));
     }
   } else if (m_currentStage == StageId::S5 && m_measurement) {
     const auto data = digitqt::core::buildModalAnalysisReportData(*m_measurement);

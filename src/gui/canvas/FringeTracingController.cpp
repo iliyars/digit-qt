@@ -513,7 +513,7 @@ bool FringeTracingController::runTracing() {
     return false;
 
   auto &stage = m_pipeline->stage(digitqt::core::pipeline::StageId::Setup);
-  const bool ok = stage.compute(*m_measurement);
+  const bool ok = m_pipeline->compute(digitqt::core::pipeline::StageId::Setup, *m_measurement);
   m_lastError = QString::fromStdString(stage.errorMessage());
   emit tracedLinesChanged();
   return ok;

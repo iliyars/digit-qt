@@ -3,6 +3,7 @@
 #include "PipelineStageId.h"
 
 #include <string>
+#include <utility>
 
 namespace digitqt::core {
 class Measurement;
@@ -40,6 +41,16 @@ public:
   StageId id() const { return m_id; }
   StageStatus status() const { return m_status; }
 
+  void reset() {
+    m_status = StageStatus::NotComputed;
+    m_errorMessage.clear();
+  }
+
+  void setError(std::string message) {
+    m_status = StageStatus::Error;
+    m_errorMessage = std::move(message);
+  }
+
   /// Marks this single stage as needing to be recomputed. Pipeline is
   /// responsible for propagating this to downstream stages.
   void invalidate() {
@@ -50,6 +61,8 @@ public:
   /**
    * @brief Runs the stage's algorithm against the given Measurement,
    * using whatever parameters have been set on this stage.
+   * This is the standalone algorithm entry point; application code should use
+   * Pipeline::compute() to also track inputs and invalidate downstream results.
    * @return true and sets status() to Computed on success; false and
    * sets status() to Error (see errorMessage()) on failure.
    */

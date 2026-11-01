@@ -506,7 +506,11 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
   input.bytesPerLine = workWidth;
   input.isVisible = workVisible;
   input.fringeCenterAs = m_params.fringeCenterAs;
-  input.fringeStep = m_params.fringeStep;
+  // fringeStep is a full max-to-max (or min-to-min) phase period.
+  // In MinMax mode adjacent detected extrema are separated by pi.
+  const double orderStep = m_params.fringeStep *
+      (m_params.fringeCenterAs == FringeCenterMode::MinMax ? 0.5 : 1.0);
+  input.fringeStep = orderStep;
   input.toleranceFactor = m_params.toleranceFactor;
 
   auto scanlines = RedCenterDetector::detectExtrema(input);
@@ -517,7 +521,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
 
   auto fringes = FringeConstructor::constructFringes(
       scanlines, input.imageWidth, input.imageHeight, workVisible, m_params.fringeCenterAs,
-      m_params.fringeStep, m_params.toleranceFactor, m_params.hasInternalObstruction);
+      orderStep, m_params.toleranceFactor, m_params.hasInternalObstruction);
 
   if (fringes.empty()) {
     m_lastError = "Extrema were detected but no continuous fringes could be constructed";
@@ -556,7 +560,7 @@ std::vector<TracedLine> ScanlineExtremumTracker::extract(
     };
     fringes.erase(std::remove_if(fringes.begin(), fringes.end(), isFragment), fringes.end());
   }
-  renumberByAdjacency(fringes, workHeight, m_params.fringeStep);
+  renumberByAdjacency(fringes, workHeight, orderStep);
   if (margin > 0)
     extendToApertureEdge(fringes, workVisible, period / 2.0, 3.0 * margin);
 

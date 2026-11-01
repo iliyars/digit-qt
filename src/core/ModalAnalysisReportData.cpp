@@ -45,6 +45,12 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
   data.fitMethod = measurement.modalFitMethod();
   data.sequential = modal.sequential;
   data.wavelengthNm = measurement.wavelengthNm();
+  data.doublePass = measurement.isDoublePass();
+  if (modal.parameters) {
+    data.fitMethod = modal.parameters->fitMethod;
+    data.wavelengthNm = modal.parameters->wavelengthNm;
+    data.doublePass = modal.parameters->doublePass;
+  }
 
   // WinFringe-совместимое отображение (не сам алгоритм подгонки!): на
   // базисе Seregin кома, трилистник и сферическая выходят из МНК РОВНО
@@ -111,18 +117,19 @@ ModalAnalysisReportData buildModalAnalysisReportData(const Measurement &measurem
   double minB = 0.0, maxB = 0.0, minA = 0.0, maxA = 0.0;
   if (computeRange(measurement.wavefrontMap(), minB, maxB))
     data.pvBeforeNm = maxB - minB;
+  if (modal.parameters)
+    data.pvBeforeNm = modal.parameters->pvBeforeNm;
   if (computeRange(modal.residual, minA, maxA))
     data.pvAfterNm = maxA - minA;
 
   data.rmsBeforeNm = modal.rmsBefore;
   data.rmsAfterNm = modal.rmsAfter;
 
-  // rmsAfterNm -- RMS остатка карты ВЫСОТЫ поверхности (см. S4: высота =
-  // порядок × λ/2, коэффициент 2 -- двойной проход при отражении).
-  // Волновой фронт (OPD) вдвое больше высоты, поэтому для Струма нужен
-  // именно он, а не высота напрямую.
+  // При двойном проходе S4 хранит высоту поверхности: OPD = 2 × высота.
+  // При одинарном проходе карта уже содержит OPD. Используем режим
+  // выполненного расчёта, сохранённый вместе с результатом S5.
   const double rmsWaves = data.wavelengthNm > 0.0 ? data.rmsAfterNm / data.wavelengthNm : 0.0;
-  const double rmsWavefrontWaves = 2.0 * rmsWaves;
+  const double rmsWavefrontWaves = (data.doublePass ? 2.0 : 1.0) * rmsWaves;
   data.strehl = std::exp(-std::pow(2.0 * kPi * rmsWavefrontWaves, 2.0));
 
   return data;

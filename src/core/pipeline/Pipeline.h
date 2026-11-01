@@ -3,7 +3,9 @@
 #include "core/pipeline/PipelineStage.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace digitqt::core::pipeline {
 
@@ -32,10 +34,24 @@ public:
   /// it Stale. Does NOT recompute anything.
   void invalidateFrom(StageId id);
 
+  /// Detect parameter and geometry edits, including edits through mutable references
+  /// and undo commands. Call on the GUI thread after edits, never during compute().
+  void synchronizeInputs(const digitqt::core::Measurement &measurement);
+
+  /// Invalidates downstream results on every attempt and rejects stale prerequisites.
+  bool compute(StageId id, digitqt::core::Measurement &measurement);
+
+  bool hasOutdatedResults() const;
+
 private:
   static size_t indexOf(StageId id);
 
   std::array<std::unique_ptr<PipelineStage>, kCanonicalOrder.size()> m_stages;
+  struct Inputs {
+    uint64_t sourceRevision;
+    std::array<size_t, 5> fingerprints;  // Setup, lines, S2, S4, S5
+  };
+  std::optional<Inputs> m_inputs;
 };
 
 }  // namespace digitqt::core::pipeline

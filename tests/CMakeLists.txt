@@ -6,6 +6,36 @@
 
 find_package(Qt5 REQUIRED COMPONENTS Test)
 
+add_executable(digitqt_algorithm_regression_tests AlgorithmRegressionTest.cpp)
+target_link_libraries(digitqt_algorithm_regression_tests PRIVATE Qt5::Test
+    DigitQt::Core DigitQt::PluginAbi)
+set_target_properties(digitqt_algorithm_regression_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:DigitQt>")
+# Load the application's DLLs, also when building this target alone.
+add_dependencies(digitqt_algorithm_regression_tests fourier_phase_plugin
+    scanline_extremum_tracker_plugin horizontal_spline_phase_plugin)
+add_test(NAME AlgorithmRegressionTest COMMAND digitqt_algorithm_regression_tests)
+
+add_executable(digitqt_background_computation_tests
+    BackgroundComputationTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/BackgroundComputation.h
+    ${CMAKE_SOURCE_DIR}/src/gui/BackgroundComputation.cpp
+)
+target_include_directories(digitqt_background_computation_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(digitqt_background_computation_tests PRIVATE Qt5::Test Qt5::Widgets Qt5::Concurrent)
+add_test(NAME BackgroundComputationTest COMMAND digitqt_background_computation_tests)
+set_tests_properties(BackgroundComputationTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(digitqt_pipeline_validity_tests
+    PipelineValidityTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/io/ModalReportExporter.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/AddSeedCommand.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/ReplaceShapeCommand.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/SetFringeOrderCommand.cpp
+)
+target_link_libraries(digitqt_pipeline_validity_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Core)
+add_test(NAME PipelineValidityTest COMMAND digitqt_pipeline_validity_tests)
+
 add_executable(digitqt_tests
     ModalAnalysisStageTest.cpp
 )

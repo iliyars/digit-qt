@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BackgroundComputation.h"
 #include "canvas/BoundaryEditController.h"
 #include "canvas/FiducialController.h"
 #include "canvas/FringeTracingController.h"
@@ -13,6 +14,7 @@
 #include <QList>
 #include <QMainWindow>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 
 
@@ -32,6 +34,7 @@ class MainWindow : public QMainWindow {
   Q_OBJECT
 public:
   explicit MainWindow(QWidget *parent = nullptr);
+  ~MainWindow() override;
 
 private slots:
   void openImage();
@@ -76,12 +79,15 @@ private:
   /// concurrently -- see PipelineStage.h's "Measurement owns all data"
   /// rule). `onDone(result)` runs on the GUI thread once finished, with
   /// the UI already re-enabled.
-  void runComputeInBackground(const QString &busyText, std::function<bool()> compute,
+  void runComputeInBackground(digitqt::core::pipeline::StageId stage,
+                              const QString &busyText, std::function<bool()> compute,
                               std::function<void(bool)> onDone);
   void setUiBusy(bool busy, const QString &text = {});
+  bool ensureCurrentResults(std::initializer_list<digitqt::core::pipeline::StageId> stages);
 
   std::unique_ptr<digitqt::core::Measurement> m_measurement;
   std::unique_ptr<digitqt::core::pipeline::Pipeline> m_pipeline;
+  BackgroundComputation m_backgroundComputation;
 
   QUndoStack *m_undoStack;
   digitqt::gui::canvas::BoundaryEditController *m_controller;

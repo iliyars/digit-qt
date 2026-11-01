@@ -1,5 +1,7 @@
 target_sources(DigitQt
     PRIVATE
+        BackgroundComputation.h
+        BackgroundComputation.cpp
         MainWindow.h
         MainWindow.cpp
         IconFactory.h

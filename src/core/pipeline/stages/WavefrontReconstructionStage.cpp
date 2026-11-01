@@ -35,6 +35,7 @@ bool WavefrontReconstructionStage::doCompute(digitqt::core::Measurement &measure
   }
 
   measurement.wavefrontMap() = std::move(wavefront);
+  measurement.recordWavefrontParameters();
   return true;
 }
 

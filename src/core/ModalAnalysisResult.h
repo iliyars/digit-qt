@@ -1,8 +1,11 @@
 #pragma once
 
+#include "core/ModalFitMethod.h"
 #include "core/PhaseMap.h"
 #include "core/PolynomialBasis.h"
 #include "core/SequentialSereginResult.h"
+
+#include <optional>
 
 namespace digitqt::core {
 
@@ -96,6 +99,14 @@ struct ModalCoefficients {
 /// -- это и есть "настоящие" особенности формы поверхности, без вклада
 /// геометрии измерения (наклон/дефокус/астигматизм).
 struct ModalAnalysisResult {
+  struct ComputationParameters {
+    double wavelengthNm;
+    bool doublePass;
+    ModalFitMethod fitMethod;
+    double pvBeforeNm;
+  };
+  /// Captured on successful S5; absent only for manually supplied legacy results.
+  std::optional<ComputationParameters> parameters;
   ModalCoefficients coefficients;
   ModalTermSelection selection;  // какие термы реально подгонялись
   PolynomialBasis basis = PolynomialBasis::Seregin;  // какой базис использовался
@@ -115,6 +126,7 @@ struct ModalAnalysisResult {
   bool isEmpty() const { return residual.isEmpty(); }
 
   void clear() {
+    parameters.reset();
     coefficients = ModalCoefficients();
     selection = ModalTermSelection();
     basis = PolynomialBasis::Seregin;

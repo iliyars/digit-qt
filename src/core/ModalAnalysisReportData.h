@@ -49,15 +49,15 @@ struct ModalAnalysisReportData {
   double trefoilAngleDeg = 0.0;
 
   double wavelengthNm = 0.0;
+  bool doublePass = true;
   double rmsBeforeNm = 0.0;
   double rmsAfterNm = 0.0;
   double pvBeforeNm = 0.0;
   double pvAfterNm = 0.0;
 
   /// Maréchal approximation: Strehl ≈ exp(-(2π·RMS_wavefront/λ)²) --
-  /// accurate for well-corrected systems (RMS ≲ 0.15λ); see
-  /// ParametersDock's original comment on why rmsAfterNm (surface
-  /// height) is doubled to get the wavefront (OPD) RMS this needs.
+  /// accurate for well-corrected systems (RMS ≲ 0.15λ). Surface-height
+  /// RMS is doubled for double pass; single-pass RMS already represents OPD.
   double strehl = 0.0;
 };
 

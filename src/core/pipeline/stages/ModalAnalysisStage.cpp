@@ -8,12 +8,17 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
 namespace digitqt::core::pipeline {
 
 namespace {
+
+// Relative numerical-rank tolerance for the normalized polynomial columns.
+// This detects dependent terms; it is not a measurement-accuracy threshold.
+constexpr double kRankTolerance = 1e-12;
 
 /// Один член базиса: функция от нормализованных пупильных координат +
 /// указатель, куда записать подогнанный коэффициент в ModalCoefficients,
@@ -157,8 +162,9 @@ struct SequentialFitOutput {
   Eigen::VectorXd residual;
 };
 
-SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::VectorXd &y,
-                                          const Eigen::VectorXd &z) {
+bool fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::VectorXd &y,
+                         const Eigen::VectorXd &z, SequentialFitOutput &result,
+                         std::string &errorMessage) {
   using digitqt::core::SequentialSereginResult;
   const Eigen::Index n = z.size();
   SequentialSereginResult out;
@@ -168,21 +174,27 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   auto rms = [&](const Eigen::VectorXd &r) {
     return std::sqrt(r.squaredNorm() / static_cast<double>(r.size()));
   };
-  // Возвращаемый тип указан явно (Eigen::VectorXd), а не auto: без этого
-  // лямбда возвращала бы ленивое выражение Eigen::Solve<...>, которое
-  // хранит ссылку на ЛОКАЛЬНУЮ матрицу M -- к моменту, когда вызывающий
-  // код читает результат, M уже разрушена (лямбда вернулась), и мы читаем
-  // висячую ссылку. На практике это проявлялось как попытка выделить
-  // ~400 ГБ памяти (мусорные размеры из разрушенного объекта) и падение
-  // приложения. С явным типом возврата Eigen вычисляет результат В
-  // конкретный VectorXd ДО выхода из лямбды, пока M ещё жива.
-  auto solveStage = [&](const std::vector<Eigen::VectorXd> &cols) -> Eigen::VectorXd {
+  // Materialize the solution before M/qr leave scope (Eigen::Solve is lazy).
+  auto solveStage = [&](const std::vector<Eigen::VectorXd> &cols, Eigen::VectorXd &coefficients,
+                        const char *name) {
     const auto k = static_cast<Eigen::Index>(cols.size());
     Eigen::MatrixXd M(n, k);
     for (Eigen::Index c = 0; c < k; ++c)
       M.col(c) = cols[static_cast<size_t>(c)];
     const Eigen::VectorXd target = z - aber;
-    return M.colPivHouseholderQr().solve(target);
+    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(M);
+    qr.setThreshold(kRankTolerance);
+    if (qr.rank() < k) {
+      errorMessage = std::string("Degenerate aperture in sequential Seregin step ") + name +
+                     ": polynomial terms are not independent";
+      return false;
+    }
+    coefficients = qr.solve(target);
+    if (!coefficients.allFinite()) {
+      errorMessage = std::string("Non-finite solution in sequential Seregin step ") + name;
+      return false;
+    }
+    return true;
   };
 
   out.rmsInitial = rms(z);
@@ -207,7 +219,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd negY = -y;
   {
     const std::vector<Eigen::VectorXd> cols = {ones, x, negY};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "tilt"))
+      return false;
     out.piston = c(0);
     out.tiltX = c(1);
     out.tiltY = c(2);
@@ -220,7 +234,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd rho2 = x.array().square() + y.array().square();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "defocus"))
+      return false;
     out.defocus = c(1);
     discardedIntercepts += c(0);
     aber += c(0) * ones + out.defocus * rho2;
@@ -234,7 +250,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd a6 = (3.0 * y.array().square() - 1.0) / 2.0;
   {
     const std::vector<Eigen::VectorXd> cols = {ones, x, negY, a4, a5, a6};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "astigmatism"))
+      return false;
     out.astig4 = c(3);
     out.astig5 = c(4);
     out.astig6 = c(5);
@@ -255,7 +273,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd trefYCol = 3.0 * x.array().square() * y.array() - y.array().cube();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, x, negY, comaXCol, comaYCol, trefXCol, trefYCol};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "coma/trefoil"))
+      return false;
     out.comaResidualX = c(1);
     out.comaResidualY = c(2);
     out.comaX = c(3);
@@ -274,7 +294,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd rho4 = rho2.array().square();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2, rho4};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "S3"))
+      return false;
     out.s3rho2 = c(1);
     out.s3rho4 = c(2);
     discardedIntercepts += c(0);
@@ -286,7 +308,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd rho6 = rho4.array() * rho2.array();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2, rho4, rho6};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "S5"))
+      return false;
     out.s5rho2 = c(1);
     out.s5rho4 = c(2);
     out.s5rho6 = c(3);
@@ -299,7 +323,9 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   const Eigen::VectorXd rho8 = rho4.array().square();
   {
     const std::vector<Eigen::VectorXd> cols = {ones, rho2, rho4, rho6, rho8};
-    const Eigen::VectorXd c = solveStage(cols);
+    Eigen::VectorXd c;
+    if (!solveStage(cols, c, "S7"))
+      return false;
     out.s7rho2 = c(1);
     out.s7rho4 = c(2);
     out.s7rho6 = c(3);
@@ -311,7 +337,8 @@ SequentialFitOutput fitSequentialSeregin(const Eigen::VectorXd &x, const Eigen::
   out.rmsAfterS7 = rms(z - aber);
   out.discardedIntercepts = discardedIntercepts;
 
-  return {out, z - aber};
+  result = {out, z - aber};
+  return true;
 }
 
 }  // namespace
@@ -325,6 +352,21 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
 
   const int w = wavefront.width();
   const int h = wavefront.height();
+  double minValue = std::numeric_limits<double>::infinity();
+  double maxValue = -std::numeric_limits<double>::infinity();
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      if (!wavefront.hasValue(x, y))
+        continue;
+      const double value = wavefront.value(x, y);
+      if (!std::isfinite(value)) {
+        errorMessage = "Non-finite wavefront value. Invalid points must be marked NaN.";
+        return false;
+      }
+      minValue = std::min(minValue, value);
+      maxValue = std::max(maxValue, value);
+    }
+  }
 
   // Центр/радиус апертуры и сами сэмплы -- см. ApertureSamples.h/.cpp
   // (вынесено туда, чтобы внешние инструменты сравнения/диагностики
@@ -335,6 +377,10 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
   const int edgeErosionPixels = std::max(0, measurement.edgeErosionPixels());
   const std::vector<digitqt::core::ApertureSample> samples =
       digitqt::core::collectApertureSamples(wavefront, geometry, edgeErosionPixels);
+  if (samples.empty()) {
+    errorMessage = "No valid points remain for modal fitting. Check the map and edge erosion.";
+    return false;
+  }
 
   const auto selection = measurement.modalTermSelection();
   const auto method = measurement.modalFitMethod();
@@ -372,7 +418,17 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
         A(i, t) = active[static_cast<size_t>(t)]->basis(s.x, s.y);
     }
 
-    const Eigen::VectorXd coeffs = A.colPivHouseholderQr().solve(z);
+    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(A);
+    qr.setThreshold(kRankTolerance);
+    if (qr.rank() < numActive) {
+      errorMessage = "Degenerate aperture: selected polynomial terms are not independent";
+      return false;
+    }
+    const Eigen::VectorXd coeffs = qr.solve(z);
+    if (!coeffs.allFinite()) {
+      errorMessage = "Polynomial fit produced non-finite coefficients";
+      return false;
+    }
     for (Eigen::Index t = 0; t < numActive; ++t)
       mc.*(active[static_cast<size_t>(t)]->coeff) = coeffs(t);
     fit = A * coeffs;
@@ -392,7 +448,9 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
       sx(i) = samples[static_cast<size_t>(i)].x;
       sy(i) = samples[static_cast<size_t>(i)].y;
     }
-    const SequentialFitOutput seq = fitSequentialSeregin(sx, sy, z);
+    SequentialFitOutput seq;
+    if (!fitSequentialSeregin(sx, sy, z, seq, errorMessage))
+      return false;
     fit = z - seq.residual;
 
     mc.piston = seq.coeffs.piston;
@@ -441,11 +499,18 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
     }
     for (Eigen::Index t = 0; t < numTerms; ++t) {
       auto &col = basis[static_cast<size_t>(t)];
+      const double originalNormSquared = col.squaredNorm();
       for (Eigen::Index p = 0; p < t; ++p) {
         const auto &prev = basis[static_cast<size_t>(p)];
         const double denom = prev.squaredNorm();
         if (denom > 1e-12)
           col -= (col.dot(prev) / denom) * prev;
+      }
+      if (isActive(hierarchy[static_cast<size_t>(t)], selection) &&
+          col.squaredNorm() <= kRankTolerance * kRankTolerance * originalNormSquared) {
+        errorMessage = "Degenerate aperture: selected Gram-Schmidt term " +
+                       std::to_string(t + 1) + " is not independent";
+        return false;
       }
     }
 
@@ -455,12 +520,24 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
         continue;  // остаётся невычтенным в остатке, коэффициент не репортится
       const auto &col = basis[static_cast<size_t>(t)];
       const double denom = col.squaredNorm();
-      if (denom <= 1e-12)
-        continue;  // вырожденный термин на этой апертуре
+      if (denom <= 1e-12) {
+        errorMessage = "Degenerate aperture: selected Gram-Schmidt term " +
+                       std::to_string(t + 1) + " is too small to fit reliably";
+        return false;
+      }
       const double coeff = col.dot(z) / denom;
+      if (!std::isfinite(coeff)) {
+        errorMessage = "Gram-Schmidt fit produced non-finite coefficients";
+        return false;
+      }
       mc.*(term.coeff) = coeff;
       fit += coeff * col;
     }
+  }
+
+  if (!fit.allFinite()) {
+    errorMessage = "Polynomial fit produced non-finite values";
+    return false;
   }
 
   // "RMS before" -- отклонение от среднего (СКО), а не sqrt(mean(z^2)):
@@ -487,6 +564,16 @@ bool ModalAnalysisStage::doCompute(digitqt::core::Measurement &measurement, std:
   result.residual = std::move(residual);
   result.rmsBefore = std::sqrt(sumSqBefore / static_cast<double>(samples.size()));
   result.rmsAfter = std::sqrt(sumSqAfter / static_cast<double>(samples.size()));
+
+  if (!std::isfinite(result.rmsBefore) || !std::isfinite(result.rmsAfter) ||
+      !std::isfinite(maxValue - minValue)) {
+    errorMessage = "Modal fit statistics exceed the finite numeric range";
+    return false;
+  }
+  const auto source = measurement.wavefrontParameters().value_or(
+      Measurement::WavefrontParameters{measurement.wavelengthNm(), measurement.isDoublePass()});
+  result.parameters = ModalAnalysisResult::ComputationParameters{
+      source.wavelengthNm, source.doublePass, method, maxValue - minValue};
 
   measurement.modalAnalysis() = std::move(result);
   return true;

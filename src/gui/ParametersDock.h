@@ -49,6 +49,10 @@ public:
   /// boundary counts) and refreshes the displayed text.
   void refresh();
 
+signals:
+  /// Computational inputs changed; the owner synchronizes pipeline validity.
+  void inputsChanged();
+
 private slots:
   void onAlgorithmChanged(int index);
   void onFringeCenterModeChanged(int index);

@@ -12,6 +12,8 @@
 #include "core/PolynomialBasis.h"
 
 #include <aperture/include/visibility/ShapeCollection.h>
+#include <cstdint>
+#include <optional>
 #include <string>
 
 namespace digitqt::core {
@@ -31,6 +33,9 @@ namespace digitqt::core {
 class Measurement {
 public:
   Measurement() = default;
+
+  /// Changes whenever the source image/series/import is replaced, even at the same path.
+  uint64_t sourceRevision() const { return m_sourceRevision; }
 
   // --- S0: raw image -------------------------------------------------
   // Loading images from disk is not this class's job (see io::loadImage).
@@ -83,6 +88,21 @@ public:
   PhaseMap &phaseMap() { return m_phaseMap; }
   const PhaseMap &phaseMap() const { return m_phaseMap; }
 
+  struct PhaseParameters {
+    PhaseReconstructionAlgorithm algorithm;
+    std::string pluginPath;
+    double nominalStepDeg;
+    bool refineShifts;
+    bool compensateTilt;
+  };
+  PhaseParameters currentPhaseParameters() const {
+    return {m_phaseReconstructionAlgorithm, m_customPhaseReconstructorPluginPath,
+            m_phaseShifting.nominalStepDeg(), m_phaseShifting.refineShifts(),
+            m_phaseShifting.compensateTilt()};
+  }
+  const std::optional<PhaseParameters> &phaseParameters() const { return m_phaseParameters; }
+  void recordPhaseParameters() { m_phaseParameters = currentPhaseParameters(); }
+
   /// Заменяет S2 картой фазы, полученной не из Setup/S1 (например,
   /// импортом .mtr), а откуда-то ещё. Сбрасывает всё, что относится к
   /// исходному изображению (его для такой карты просто нет) и всё, что
@@ -131,6 +151,17 @@ public:
   PhaseMap &wavefrontMap() { return m_wavefrontMap; }
   const PhaseMap &wavefrontMap() const { return m_wavefrontMap; }
 
+  struct WavefrontParameters {
+    double wavelengthNm;
+    bool doublePass;
+  };
+  const std::optional<WavefrontParameters> &wavefrontParameters() const {
+    return m_wavefrontParameters;
+  }
+  void recordWavefrontParameters() {
+    m_wavefrontParameters = WavefrontParameters{m_wavelengthNm, m_doublePass};
+  }
+
   // --- S5: подогнанные аберрации + остаток (реальная форма) ----------
   ModalTermSelection &modalTermSelection() { return m_modalTermSelection; }
   const ModalTermSelection &modalTermSelection() const { return m_modalTermSelection; }
@@ -166,6 +197,7 @@ public:
   void setModified(bool modified) { m_modified = modified; }
 
 private:
+  uint64_t m_sourceRevision = 0;
   digitqt::core::Bitmap m_image;
   std::string m_imagePath;
   bool m_imageIsPlaceholder = false;
@@ -173,6 +205,7 @@ private:
   aperture::ShapeCollection m_boundaries;
   FringeTracingData m_fringeTracing;
   PhaseMap m_phaseMap;
+  std::optional<PhaseParameters> m_phaseParameters;
   PhaseReconstructionAlgorithm m_phaseReconstructionAlgorithm =
       PhaseReconstructionAlgorithm::HorizontalSpline;
   std::string m_customPhaseReconstructorPluginPath;
@@ -180,6 +213,7 @@ private:
       632.8;  // He-Ne laser -- самая распространённая длина волны в интерферометрии
   bool m_doublePass = true;
   PhaseMap m_wavefrontMap;
+  std::optional<WavefrontParameters> m_wavefrontParameters;
   ModalTermSelection m_modalTermSelection;
   ModalAnalysisResult m_modalAnalysis;
   bool m_modified = false;

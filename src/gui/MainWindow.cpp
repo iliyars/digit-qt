@@ -23,7 +23,6 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
-#include <QFutureWatcher>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QSettings>
@@ -33,7 +32,6 @@
 #include <QStyle>
 #include <QToolBar>
 #include <QUndoStack>
-#include <QtConcurrent>
 
 #include <algorithm>
 #include <cmath>
@@ -50,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       m_measurement(std::make_unique<digitqt::core::Measurement>()),
       m_pipeline(std::make_unique<digitqt::core::pipeline::Pipeline>()),
+      m_backgroundComputation(this),
       m_undoStack(new QUndoStack(this)),
       m_controller(new digitqt::gui::canvas::BoundaryEditController(m_undoStack, this)),
       m_fringeController(new digitqt::gui::canvas::FringeTracingController(m_undoStack, this)),
@@ -84,6 +83,9 @@ MainWindow::MainWindow(QWidget *parent)
 
   m_statusLabel = new QLabel(this);
   statusBar()->addPermanentWidget(m_statusLabel);
+  connect(&m_backgroundComputation, &BackgroundComputation::closeDeferred, this, [this] {
+    m_statusLabel->setText(tr("Waiting for the calculation to finish before closing..."));
+  });
 
   m_busyIndicator = new QProgressBar(this);
   m_busyIndicator->setRange(0, 0);  // indeterminate ("marquee") style
@@ -104,6 +106,7 @@ MainWindow::MainWindow(QWidget *parent)
   buildMenusAndToolbars();
   buildLanguageMenu();
   buildDocks();
+  connect(m_parametersDock, &ParametersDock::inputsChanged, this, &MainWindow::updateStatusBar);
 
   m_disableWhileBusy = {menuBar(),         m_setupToolBar,    m_phaseToolBar,
                         m_wavefrontToolBar, m_modalToolBar,    m_pipelineDock,
@@ -126,6 +129,12 @@ MainWindow::MainWindow(QWidget *parent)
   updateStatusBar();
 }
 
+MainWindow::~MainWindow() {
+  // Also covers application shutdown or direct deletion, which may bypass close().
+  // The worker captures this and uses both model members and QObject controllers.
+  m_backgroundComputation.waitForFinished();
+}
+
 void MainWindow::buildMenusAndToolbars() {
   // --- File menu ---
   auto *fileMenu = menuBar()->addMenu(tr("&File"));
@@ -141,6 +150,8 @@ void MainWindow::buildMenusAndToolbars() {
          "Analysis) or a .frn file with aperture shapes and numbered fringes (into Setup)"));
   auto *exportMtrAction = fileMenu->addAction(tr("Export &Wavefront (.mtr)..."));
   connect(exportMtrAction, &QAction::triggered, this, [this] {
+    if (!ensureCurrentResults({StageId::S2, StageId::S4}))
+      return;
     if (m_measurement->wavefrontMap().isEmpty()) {
       QMessageBox::warning(this, tr("Export"), tr("No wavefront map yet -- run S4 first."));
       return;
@@ -165,6 +176,8 @@ void MainWindow::buildMenusAndToolbars() {
   });
   auto *exportFrnAction = fileMenu->addAction(tr("Export &Fringes (.frn)..."));
   connect(exportFrnAction, &QAction::triggered, this, [this] {
+    if (!ensureCurrentResults({StageId::Setup}))
+      return;
     const auto &lines = m_measurement->fringeTracing().tracedLines();
     if (lines.empty()) {
       QMessageBox::warning(this, tr("Export"), tr("No numbered fringe lines yet -- trace fringes first."));
@@ -196,6 +209,8 @@ void MainWindow::buildMenusAndToolbars() {
       tr("Save everything computed so far as a plain text report: input and aperture, S2 "
          "(for PSI -- shifts and tilts per frame, diagnostics), S4 and the S5 aberrations"));
   connect(exportReportAction, &QAction::triggered, this, [this] {
+    if (!ensureCurrentResults({StageId::Setup, StageId::S2, StageId::S4, StageId::S5}))
+      return;
     if (!m_measurement->hasImage() && m_measurement->phaseMap().isEmpty()) {
       QMessageBox::warning(this, tr("Export"), tr("Nothing to report yet -- open an image first."));
       return;
@@ -637,6 +652,7 @@ void MainWindow::onStageSelected(StageId id) {
 
 void MainWindow::runTracing() {
   runComputeInBackground(
+      StageId::Setup,
       tr("Tracing fringes..."), [this] { return m_fringeController->runTracing(); },
       [this](bool ok) {
         if (!ok) {
@@ -649,8 +665,9 @@ void MainWindow::runTracing() {
 
 void MainWindow::computePhase() {
   runComputeInBackground(
+      StageId::S2,
       tr("Reconstructing phase..."),
-      [this] { return m_pipeline->stage(StageId::S2).compute(*m_measurement); },
+      [this] { return m_pipeline->compute(StageId::S2, *m_measurement); },
       [this](bool ok) {
         if (!ok) {
           QMessageBox::warning(this, tr("Phase Reconstruction"),
@@ -669,8 +686,9 @@ void MainWindow::computePhase() {
 
 void MainWindow::computeWavefront(std::function<void()> then) {
   runComputeInBackground(
+      StageId::S4,
       tr("Computing wavefront..."),
-      [this] { return m_pipeline->stage(StageId::S4).compute(*m_measurement); },
+      [this] { return m_pipeline->compute(StageId::S4, *m_measurement); },
       [this, then](bool ok) {
         if (!ok) {
           QMessageBox::warning(this, tr("Wavefront Reconstruction"),
@@ -680,15 +698,16 @@ void MainWindow::computeWavefront(std::function<void()> then) {
         }
         m_phaseMapView->refresh();
         updateStatusBar();
-        if (then)
+        if (then && ok)
           then();
       });
 }
 
 void MainWindow::computeModalAnalysis(std::function<void()> then) {
   runComputeInBackground(
+      StageId::S5,
       tr("Fitting aberrations..."),
-      [this] { return m_pipeline->stage(StageId::S5).compute(*m_measurement); },
+      [this] { return m_pipeline->compute(StageId::S5, *m_measurement); },
       [this, then](bool ok) {
         if (!ok) {
           QMessageBox::warning(this, tr("Modal Analysis"),
@@ -699,22 +718,28 @@ void MainWindow::computeModalAnalysis(std::function<void()> then) {
         m_surface3DView->refresh();
         m_modalPhaseMapView->refresh();
         updateStatusBar();
-        if (then)
+        if (then && ok)
           then();
       });
 }
 
-void MainWindow::runComputeInBackground(const QString &busyText, std::function<bool()> compute,
+void MainWindow::runComputeInBackground(StageId stage, const QString &busyText,
+                                        std::function<bool()> compute,
                                         std::function<void(bool)> onDone) {
-  setUiBusy(true, busyText);
-  auto *watcher = new QFutureWatcher<bool>(this);
-  connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, onDone] {
-    const bool ok = watcher->result();
-    watcher->deleteLater();
-    setUiBusy(false);
-    onDone(ok);
-  });
-  watcher->setFuture(QtConcurrent::run(std::move(compute)));
+  const bool started = m_backgroundComputation.start(
+      std::move(compute), [this, stage, onDone = std::move(onDone)](bool ok, const QString &error) {
+        if (!error.isEmpty()) {
+          m_pipeline->invalidateFrom(stage);
+          m_pipeline->stage(stage).setError(error.toStdString());
+          setUiBusy(false);
+          QMessageBox::warning(this, tr("Calculation failed"), error);
+          return;
+        }
+        setUiBusy(false);
+        onDone(ok);
+      });
+  if (started)
+    setUiBusy(true, busyText);
 }
 
 void MainWindow::setUiBusy(bool busy, const QString &text) {
@@ -874,6 +899,7 @@ void MainWindow::openPhaseShiftingSeries() {
 }
 
 void MainWindow::resetViewsToMeasurement() {
+  m_pipeline->synchronizeInputs(*m_measurement);
   m_undoStack->clear();
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
@@ -1138,6 +1164,11 @@ void MainWindow::showPhaseShiftingReport() {
 }
 
 void MainWindow::updateStatusBar() {
+  if (m_backgroundComputation.isClosing()) {
+    m_statusLabel->setText(tr("Waiting for the calculation to finish before closing..."));
+    return;
+  }
+  m_pipeline->synchronizeInputs(*m_measurement);
   const auto &b = m_measurement->boundaries();
   const auto &tracingData = m_measurement->fringeTracing();
   m_statusLabel->setText(tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
@@ -1145,8 +1176,26 @@ void MainWindow::updateStatusBar() {
                              .arg(b.getInternal().size())
                              .arg(tracingData.seeds().size())
                              .arg(tracingData.tracedLines().size()));
+  if (m_pipeline->hasOutdatedResults())
+    m_statusLabel->setText(m_statusLabel->text() +
+                           tr(" — Results are out of date; recompute affected stages."));
   m_pipelineDock->refreshStatuses();
   m_parametersDock->refresh();
+}
+
+bool MainWindow::ensureCurrentResults(std::initializer_list<StageId> stages) {
+  m_pipeline->synchronizeInputs(*m_measurement);
+  for (const auto id : stages) {
+    const auto status = m_pipeline->stage(id).status();
+    if (status == digitqt::core::pipeline::StageStatus::Stale ||
+        status == digitqt::core::pipeline::StageStatus::Error) {
+      QMessageBox::warning(this, tr("Export"),
+                           tr("Results are out of date or a calculation failed. Recompute affected "
+                              "stages before exporting."));
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace digitqt::gui

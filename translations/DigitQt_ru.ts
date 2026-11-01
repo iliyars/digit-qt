@@ -881,6 +881,14 @@
 <context>
     <name>digitqt::gui::MainWindow</name>
     <message>
+        <source>Waiting for the calculation to finish before closing...</source>
+        <translation>Ожидание завершения расчёта перед закрытием...</translation>
+    </message>
+    <message>
+        <source>Calculation failed</source>
+        <translation>Ошибка расчёта</translation>
+    </message>
+    <message>
         <location filename="../src/gui/MainWindow.cpp" line="57"/>
         <source>DigitQt — Interferogram Processing</source>
         <translation>DigitQt — обработка интерферограмм</translation>
@@ -1566,6 +1574,25 @@ Per-fiducial residuals:
         <source>External: %1   Internal: %2   Seeds: %3   Traced: %4</source>
         <translation>Внешние: %1   Внутренние: %2   Точки: %3   Прослежено: %4</translation>
     </message>
+    <message>
+        <source> — Results are out of date; recompute affected stages.</source>
+        <translation> — Результаты устарели; пересчитайте затронутые этапы.</translation>
+    </message>
+    <message>
+        <source>Results are out of date or a calculation failed. Recompute affected stages before exporting.</source>
+        <translation>Результаты устарели или расчёт завершился ошибкой. Перед экспортом пересчитайте затронутые этапы.</translation>
+    </message>
+</context>
+<context>
+    <name>digitqt::gui::BackgroundComputation</name>
+    <message>
+        <source>Background calculation failed.</source>
+        <translation>Фоновый расчёт завершился ошибкой.</translation>
+    </message>
+    <message>
+        <source>Unknown error in background calculation.</source>
+        <translation>Неизвестная ошибка фонового расчёта.</translation>
+    </message>
 </context>
 <context>
     <name>digitqt::gui::NotImplementedPage</name>
@@ -1951,8 +1978,16 @@ Off -- transmission test (single pass): the measured value is already the wavefr
     </message>
     <message>
         <location filename="../src/gui/ParametersDock.cpp" line="863"/>
-        <source>Grid: %1 × %2&lt;br&gt;Wavelength: %3 nm&lt;br&gt;PV: %4 nm (%5 λ)&lt;br&gt;&lt;br&gt;height = fringe order × wavelength / 2</source>
-        <translation>Сетка: %1 × %2&lt;br&gt;Длина волны: %3 нм&lt;br&gt;PV: %4 нм (%5 λ)&lt;br&gt;&lt;br&gt;высота = порядок полосы × длина волны / 2</translation>
+        <source>Grid: %1 × %2&lt;br&gt;Wavelength: %3 nm&lt;br&gt;PV: %4 nm (%5 λ)&lt;br&gt;&lt;br&gt;%6</source>
+        <translation>Сетка: %1 × %2&lt;br&gt;Длина волны: %3 нм&lt;br&gt;PV: %4 нм (%5 λ)&lt;br&gt;&lt;br&gt;%6</translation>
+    </message>
+    <message>
+        <source>height = fringe order × wavelength / 2</source>
+        <translation>высота = порядок полосы × длина волны / 2</translation>
+    </message>
+    <message>
+        <source>height = fringe order × wavelength</source>
+        <translation>высота = порядок полосы × длина волны</translation>
     </message>
     <message>
         <location filename="../src/gui/ParametersDock.cpp" line="889"/>

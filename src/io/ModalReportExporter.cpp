@@ -90,10 +90,11 @@ QString notSubtracted() {
 }
 
 QString phaseAlgorithmName(const digitqt::core::Measurement &measurement) {
-  if (!measurement.customPhaseReconstructorPluginPath().empty())
-    return Report::tr("plugin %1")
-        .arg(QString::fromStdString(measurement.customPhaseReconstructorPluginPath()));
-  switch (measurement.phaseReconstructionAlgorithm()) {
+  const auto parameters =
+      measurement.phaseParameters().value_or(measurement.currentPhaseParameters());
+  if (!parameters.pluginPath.empty())
+    return Report::tr("plugin %1").arg(QString::fromStdString(parameters.pluginPath));
+  switch (parameters.algorithm) {
     case digitqt::core::PhaseReconstructionAlgorithm::HorizontalSpline:
       return Report::tr("Horizontal Spline (traced lines)");
     case digitqt::core::PhaseReconstructionAlgorithm::FourierTransform:
@@ -149,8 +150,7 @@ void mapStats(const digitqt::core::PhaseMap &map, double &rms, double &pv, long 
 QString fixed(double value, int decimals) { return QString::number(value, 'f', decimals); }
 
 /// Секция S5 -- общая для writeModalReport() и writeFullReport().
-void writeModalSection(QTextStream &out, const digitqt::core::ModalAnalysisReportData &data,
-                       const digitqt::core::Measurement &measurement) {
+void writeModalSection(QTextStream &out, const digitqt::core::ModalAnalysisReportData &data) {
   const auto &c = data.coefficients;
   const auto &sel = data.selection;
   const QChar lambda(0x03BB);
@@ -161,7 +161,7 @@ void writeModalSection(QTextStream &out, const digitqt::core::ModalAnalysisRepor
   if (zernike)
     out << Report::tr("Zernike normalization: %1").arg(normalizationName(data.zernikeNormalization))
         << "\n";
-  out << Report::tr("Fit method: %1").arg(fitMethodName(measurement.modalFitMethod())) << "\n";
+  out << Report::tr("Fit method: %1").arg(fitMethodName(data.fitMethod)) << "\n";
   if (zernike) {
     out << Report::tr("Terms (Y up, theta from +X counterclockwise):") << "\n";
     for (const QString &formula : zernikeTermFormulas(data.zernikeNormalization))
@@ -367,14 +367,16 @@ void writePhaseSection(QTextStream &out, const digitqt::core::Measurement &measu
 
   const auto &psi = measurement.phaseShifting();
   const auto &report = psi.report();
-  const bool isPsi = measurement.customPhaseReconstructorPluginPath().empty() &&
-                     measurement.phaseReconstructionAlgorithm() ==
-                         digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+  const auto parameters =
+      measurement.phaseParameters().value_or(measurement.currentPhaseParameters());
+  const bool isPsi =
+      parameters.pluginPath.empty() &&
+      parameters.algorithm == digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
   if (isPsi && !report.shiftsDeg.empty()) {
     out << "\n"
         << Report::tr("PSI settings: nominal step %1 deg, refine shifts %2, compensate tilt %3")
-               .arg(psi.nominalStepDeg())
-               .arg(onOff(psi.refineShifts()), onOff(psi.compensateTilt()))
+               .arg(parameters.nominalStepDeg)
+               .arg(onOff(parameters.refineShifts), onOff(parameters.compensateTilt))
         << "\n";
     if (report.refined)
       out << Report::tr("Iterations: %1 (%2)")
@@ -510,13 +512,16 @@ void writeWavefrontSection(QTextStream &out, const digitqt::core::Measurement &m
     out << Report::tr("Not computed") << "\n\n";
     return;
   }
-  const double lambdaNm = measurement.wavelengthNm();
+  const auto parameters =
+      measurement.wavefrontParameters().value_or(digitqt::core::Measurement::WavefrontParameters{
+          measurement.wavelengthNm(), measurement.isDoublePass()});
+  const double lambdaNm = parameters.wavelengthNm;
   double rms = 0.0, pv = 0.0;
   long long points = 0;
   mapStats(wavefront, rms, pv, points);
   out << Report::tr("Wavelength: %1 nm, %2")
              .arg(lambdaNm)
-             .arg(measurement.isDoublePass()
+             .arg(parameters.doublePass
                       ? Report::tr("double pass (height = order * wavelength / 2)")
                       : Report::tr("single pass (height = order * wavelength)"))
       << "\n";
@@ -544,7 +549,7 @@ bool writeModalReport(const QString &path, const digitqt::core::Measurement &mea
     return false;
   out << Report::tr("DigitQt -- Polynomial / Modal Analysis (S5) report") << "\n";
   out << generatedLine() << "\n";
-  writeModalSection(out, data, measurement);
+  writeModalSection(out, data);
   return closeReport(file, out, errorMessage);
 }
 
@@ -566,7 +571,7 @@ bool writeFullReport(const QString &path, const digitqt::core::Measurement &meas
   if (data.isEmpty) {
     out << Report::tr("Not computed") << "\n";
   } else {
-    writeModalSection(out, data, measurement);
+    writeModalSection(out, data);
     // Коэффициенты в волнах и в порядках полос -- для сравнения с
     // параметрами генераторов синтетики и с отчётами DAPPSIM (Lx, Ly...).
     // Сырые коэффициенты МНК, без WinFringe-множителя x2 для комы,
@@ -574,7 +579,7 @@ bool writeFullReport(const QString &path, const digitqt::core::Measurement &meas
     // buildModalAnalysisReportData() (см. там) к секции выше. Имена термов
     // -- поля ModalCoefficients, не переводятся.
     const double lambdaNm = data.wavelengthNm;
-    const double perOrder = lambdaNm * (measurement.isDoublePass() ? 0.5 : 1.0);
+    const double perOrder = lambdaNm * (data.doublePass ? 0.5 : 1.0);
     const auto &c = measurement.modalAnalysis().coefficients;
     const std::pair<const char *, double> terms[] = {
         {"piston", c.piston},     {"tiltX", c.tiltX},       {"tiltY", c.tiltY},

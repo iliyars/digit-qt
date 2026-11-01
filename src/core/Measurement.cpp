@@ -5,6 +5,9 @@
 namespace digitqt::core {
 
 void Measurement::setImage(digitqt::core::Bitmap image, std::string path) {
+  ++m_sourceRevision;
+  m_phaseParameters.reset();
+  m_wavefrontParameters.reset();
   m_image = std::move(image);
   m_imagePath = std::move(path);
   m_imageIsPlaceholder = false;
@@ -37,6 +40,9 @@ void Measurement::setPhaseShiftingFrames(std::vector<digitqt::core::Bitmap> fram
 }
 
 void Measurement::setImportedPhaseMap(PhaseMap phase) {
+  ++m_sourceRevision;
+  m_phaseParameters.reset();
+  m_wavefrontParameters.reset();
   m_image = digitqt::core::Bitmap();
   m_imagePath.clear();
   m_imageIsPlaceholder = false;
