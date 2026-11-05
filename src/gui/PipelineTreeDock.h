@@ -29,6 +29,7 @@ public:
   /// Re-reads status() from every stage and refreshes the tree's icons.
   /// Call after anything that might change a stage's status.
   void refreshStatuses();
+  void setPsiMode(bool enabled);
 
   /// Programmatically selects a stage's tree node (e.g. jump to S5 right
   /// after an import that filled several stages at once). Goes through

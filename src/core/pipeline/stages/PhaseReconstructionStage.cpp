@@ -91,11 +91,39 @@ bool computePhaseShifting(digitqt::core::Measurement &measurement, std::string &
   report.refined = psiData.refineShifts();
   report.iterations = psi.iterations;
   report.converged = psi.converged;
+  report.illuminationRefined = psi.illuminationRefined;
   report.mirrored = psi.mirrored;
   report.regionCount = unwrapped.regionCount;
+  int visiblePoints = 0, retainedPoints = 0, noisyPoints = 0;
+  std::vector<double> uncertainties;
+  for (int y = 0; y < psi.wrappedPhase.height(); ++y) {
+    for (int x = 0; x < psi.wrappedPhase.width(); ++x) {
+      if (!isVisible(x, y))
+        continue;
+      ++visiblePoints;
+      if (!unwrapped.orders.hasValue(x, y))
+        continue;
+      ++retainedPoints;
+      if (!psi.phaseStdError.isEmpty() && psi.phaseStdError.hasValue(x, y)) {
+        const double sigma = psi.phaseStdError.value(x, y);
+        uncertainties.push_back(sigma);
+        if (sigma > 0.05)
+          ++noisyPoints;
+      }
+    }
+  }
+  report.mapCoverage = visiblePoints > 0 ? double(retainedPoints) / visiblePoints : 0.0;
+  if (!uncertainties.empty()) {
+    std::sort(uncertainties.begin(), uncertainties.end());
+    report.phaseStdErrorP95 =
+        uncertainties[static_cast<size_t>(std::ceil(0.95 * uncertainties.size())) - 1];
+    report.noisyPointFraction = double(noisyPoints) / uncertainties.size();
+  }
   report.maskedLowModulation = masked;
   report.droppedIslandPoints = unwrapped.droppedPoints;
   report.shiftPoints = psi.diagnostics.shiftPoints;
+  report.upperPlateauLevel = psi.diagnostics.upperPlateauLevel;
+  report.upperPlateauFraction = psi.diagnostics.upperPlateauFraction;
   report.halvesDisagreementDeg = psi.diagnostics.halvesDisagreementDeg;
   report.residual = psi.diagnostics.residual;
   report.amplitude = psi.diagnostics.amplitude;

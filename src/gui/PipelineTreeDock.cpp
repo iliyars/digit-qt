@@ -85,4 +85,34 @@ void PipelineTreeDock::selectStage(StageId id) {
   }
 }
 
+void PipelineTreeDock::setPsiMode(bool enabled) {
+  setWindowTitle(enabled ? tr("Measurement") : tr("Pipeline"));
+  for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+    auto *item = m_tree->topLevelItem(i);
+    const auto id = static_cast<StageId>(item->data(0, kStageIdRole).toInt());
+    item->setHidden(enabled && id != StageId::Setup && id != StageId::S2 && id != StageId::S4 &&
+                    id != StageId::S5);
+    QString name = stageDisplayName(id);
+    if (enabled) {
+      switch (id) {
+        case StageId::Setup:
+          name = tr("Frames and aperture");
+          break;
+        case StageId::S2:
+          name = tr("Phase");
+          break;
+        case StageId::S4:
+          name = tr("Surface / wavefront");
+          break;
+        case StageId::S5:
+          name = tr("Aberrations");
+          break;
+        default:
+          break;
+      }
+    }
+    item->setText(0, name);
+  }
+}
+
 }  // namespace digitqt::gui

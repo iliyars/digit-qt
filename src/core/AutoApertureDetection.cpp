@@ -10,6 +10,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace digitqt::core {
@@ -32,6 +33,47 @@ constexpr int kCloseKernelSize = 31;
 // aperture) -- this caps how many get passed to FitEllipse.
 constexpr size_t kMaxFitPoints = 200;
 
+ApertureDetectionResult fitActivity(const cv::Mat &activity) {
+  ApertureDetectionResult result;
+  std::vector<std::vector<cv::Point>> contours;
+  cv::findContours(activity, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+  if (contours.empty()) {
+    result.errorMessage = "No fringe activity found -- check contrast and phase shifts";
+    return result;
+  }
+  const auto &largest = *std::max_element(
+      contours.begin(), contours.end(),
+      [](const auto &a, const auto &b) { return cv::contourArea(a) < cv::contourArea(b); });
+  if (largest.size() < 5 || cv::contourArea(largest) < 100.0) {
+    result.errorMessage = "Detected aperture region is too small";
+    return result;
+  }
+  const size_t stride = std::max<size_t>(1, largest.size() / kMaxFitPoints);
+  std::vector<cv::Point2f> points;
+  for (size_t i = 0; i < largest.size(); i += stride)
+    points.emplace_back(static_cast<float>(largest[i].x), static_cast<float>(largest[i].y));
+  cv::RotatedRect fit;
+  try {
+    fit = cv::fitEllipse(points);
+  } catch (const cv::Exception &) {
+    result.errorMessage = "Ellipse fit failed";
+    return result;
+  }
+  if (!std::isfinite(fit.center.x) || !std::isfinite(fit.center.y) ||
+      !std::isfinite(fit.size.width) || !std::isfinite(fit.size.height) ||
+      !std::isfinite(fit.angle) || fit.size.width < 4 || fit.size.height < 4 ||
+      fit.size.width > 2 * std::max(activity.cols, activity.rows) ||
+      fit.size.height > 2 * std::max(activity.cols, activity.rows) || fit.center.x < 0 ||
+      fit.center.x >= activity.cols || fit.center.y < 0 || fit.center.y >= activity.rows) {
+    result.errorMessage = "Detected ellipse is invalid -- draw the aperture manually";
+    return result;
+  }
+  result.ellipse =
+      std::make_unique<aperture::Ellipse>(fit.size.width / 2.0, fit.size.height / 2.0, fit.center.x,
+                                          fit.center.y, fit.angle, aperture::TypeLimits::EXTERNAL);
+  return result;
+}
+
 }  // namespace
 
 ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &image) {
@@ -48,6 +90,33 @@ ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &imag
                         const_cast<uint8_t *>(image.data()));
   const cv::Mat src = wrapped.clone();
 
+  // With a uniform camera background the pupil can be located directly
+  // from contrast against that background. Unlike a variance window,
+  // this mask does not grow several pixels beyond the illuminated edge.
+  std::vector<uint8_t> border;
+  for (int x=0;x<src.cols;++x) {
+    border.push_back(src.at<uint8_t>(0,x));
+    border.push_back(src.at<uint8_t>(src.rows-1,x));
+  }
+  for (int y=0;y<src.rows;++y) {
+    border.push_back(src.at<uint8_t>(y,0));
+    border.push_back(src.at<uint8_t>(y,src.cols-1));
+  }
+  std::sort(border.begin(),border.end());
+  const int spread=border[9*border.size()/10]-border[border.size()/10];
+  if(spread<=12) {
+    cv::Mat contrast,mask;
+    cv::absdiff(src,cv::Scalar(border[border.size()/2]),contrast);
+    cv::threshold(contrast,mask,std::max(6,2*spread),255,cv::THRESH_BINARY);
+    cv::morphologyEx(mask,mask,cv::MORPH_OPEN,
+                    cv::getStructuringElement(cv::MORPH_ELLIPSE,cv::Size(3,3)));
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(31, 31)));
+    auto contrasted = fitActivity(mask);
+    if (contrasted.ok())
+      return contrasted;
+  }
+
   cv::Mat blurred;
   cv::GaussianBlur(src, blurred, cv::Size(5, 5), 0);
 
@@ -60,66 +129,71 @@ ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &imag
   cv::Mat mean, meanOfSquares;
   cv::boxFilter(grayF, mean, CV_32F, cv::Size(kVarianceWindow, kVarianceWindow));
   cv::boxFilter(grayF.mul(grayF), meanOfSquares, CV_32F,
-               cv::Size(kVarianceWindow, kVarianceWindow));
+                cv::Size(kVarianceWindow, kVarianceWindow));
   const cv::Mat variance = meanOfSquares - mean.mul(mean);
 
   cv::Mat variance8;
   cv::normalize(variance, variance8, 0, 255, cv::NORM_MINMAX, CV_8U);
 
   cv::Mat activity;
-  cv::threshold(variance8, activity, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-  cv::morphologyEx(activity, activity, cv::MORPH_CLOSE,
-                   cv::getStructuringElement(cv::MORPH_ELLIPSE,
-                                             cv::Size(kCloseKernelSize, kCloseKernelSize)));
+  const double otsu =
+      cv::threshold(variance8, activity, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+  // A high-frequency part of a curved fringe field must not set the
+  // threshold for the whole pupil: slow fringes can have much lower local
+  // variance while still belonging to the same illuminated aperture.
+  // Keep Otsu for low thresholds, cap it for strongly uneven fringe spacing.
+  cv::threshold(variance8, activity, std::min(otsu, 5.0), 255, cv::THRESH_BINARY);
+  cv::morphologyEx(
+      activity, activity, cv::MORPH_CLOSE,
+      cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kCloseKernelSize, kCloseKernelSize)));
+  // Local windows expand activity beyond the actual image edge. Compensate
+  // conservatively after closing, without altering the PSI temporal mask.
+  cv::erode(activity, activity, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9)));
 
-  std::vector<std::vector<cv::Point>> contours;
-  cv::findContours(activity, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-  if (contours.empty()) {
-    result.errorMessage =
-        "No fringe activity found -- the image may be blank, too noisy, or "
-        "too low-contrast for automatic detection";
+  return fitActivity(activity);
+}
+
+ApertureDetectionResult detectApertureBoundary(const std::vector<Bitmap> &frames) {
+  ApertureDetectionResult result;
+  if (frames.size() < 3 || frames[0].isNull()) {
+    result.errorMessage = "Aperture detection needs at least 3 non-empty PSI frames";
     return result;
   }
-
-  const auto &largest = *std::max_element(
-      contours.begin(), contours.end(),
-      [](const auto &a, const auto &b) { return cv::contourArea(a) < cv::contourArea(b); });
-
-  if (cv::contourArea(largest) < 100.0) {
-    result.errorMessage = "Detected aperture region is too small";
-    return result;
+  const int width = frames[0].width(), height = frames[0].height();
+  for (const auto &frame : frames)
+    if (frame.width() != width || frame.height() != height) {
+      result.errorMessage = "All PSI frames must have the same size";
+      return result;
+    }
+  cv::Mat span(height, width, CV_8U);
+  size_t histogram[256] = {};
+  for (int y = 0; y < height; ++y)
+    for (int x = 0; x < width; ++x) {
+      int low = 255, high = 0;
+      for (const auto &frame : frames) {
+        low = std::min(low, int(frame.pixel(x, y)));
+        high = std::max(high, int(frame.pixel(x, y)));
+      }
+      span.at<uint8_t>(y, x) = static_cast<uint8_t>(high - low);
+      ++histogram[high - low];
+    }
+  const double target = .99 * static_cast<double>(width) * height;
+  size_t total = 0;
+  int percentile = 0;
+  while (percentile < 255) {
+    total += histogram[percentile];
+    if (total >= target)
+      break;
+    ++percentile;
   }
-
-  // Same ill-conditioning workaround as
-  // BoundaryEditController::finalizePointsEllipse(): fit in
-  // centroid-relative coordinates, then shift the result back --
-  // ApertureCore's FitEllipse has no coordinate normalization of its
-  // own, and raw pixel coordinates far from the origin make its 5x5
-  // linear system badly conditioned.
-  double sumX = 0.0, sumY = 0.0;
-  for (const auto &p : largest) {
-    sumX += p.x;
-    sumY += p.y;
-  }
-  const double centroidX = sumX / static_cast<double>(largest.size());
-  const double centroidY = sumY / static_cast<double>(largest.size());
-
-  const size_t stride = std::max<size_t>(1, largest.size() / kMaxFitPoints);
-  std::vector<aperture::Point> points;
-  points.reserve(largest.size() / stride + 1);
-  for (size_t i = 0; i < largest.size(); i += stride)
-    points.push_back(aperture::Point{largest[i].x - centroidX, largest[i].y - centroidY});
-
-  auto ellipse = aperture::Ellipse::FitEllipse(points, aperture::TypeLimits::EXTERNAL);
-  if (!ellipse) {
-    result.errorMessage = "Ellipse fit failed";
-    return result;
-  }
-  ellipse->shiftX(centroidX);
-  ellipse->shiftY(centroidY);
-
-  result.ellipse = std::move(ellipse);
-  return result;
+  cv::Mat activity;
+  // 99th percentile prevents isolated hot pixels from setting the threshold.
+  // Six levels is an engineering floor for current 8-bit camera data.
+  cv::threshold(span, activity, std::max(6.0, .1 * percentile), 255, cv::THRESH_BINARY);
+  const auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+  cv::morphologyEx(activity, activity, cv::MORPH_OPEN, kernel);
+  cv::morphologyEx(activity, activity, cv::MORPH_CLOSE, kernel);
+  return fitActivity(activity);
 }
 
 }  // namespace digitqt::core

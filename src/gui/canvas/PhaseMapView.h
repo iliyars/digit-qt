@@ -42,6 +42,7 @@ public:
   /// Перечитать текущую карту (см. setSource()) и перерисовать и
   /// тепловую карту, и изолинии.
   void refresh();
+  void fitMapToView();
 
   void setHeatmapVisible(bool visible);
   void setIsolinesVisible(bool visible);

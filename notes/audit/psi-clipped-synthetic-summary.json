@@ -1,0 +1,62 @@
+[
+  {
+    "case": "clean",
+    "mode": "known",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, shifts NOT refined\nShifts, deg:        0.00 / 60.00 / 120.00 / 180.00 / 240.00 / 300.00\nMirrored:           no\nHalves disagree:    0.00638573 deg\nFit residual:       0.165245 of amplitude 100.007 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52465 waves\nS5 residual RMS:    0.000388082 waves\nS5 coefficients:    tiltX=2.97499 tiltY=-0.99168 defocus=0.68844 astigX=0.00000 astigY=-0.00001 comaX=0.00000 comaY=-0.00002 trefoilX=0.00001 trefoilY=0.00002 spherical=-0.00006 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.00038767447335131926,
+    "fraction_samples_at_ceiling": 0.0
+  },
+  {
+    "case": "clean",
+    "mode": "refine",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, refined\nShifts, deg:        0.00 / 60.00 / 120.01 / 180.00 / 240.00 / 300.01\nIterations:         3 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    0.00602511 deg\nFit residual:       0.165225 of amplitude 100.007 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52465 waves\nS5 residual RMS:    0.000388118 waves\nS5 coefficients:    tiltX=2.97499 tiltY=-0.99168 defocus=0.68844 astigX=0.00000 astigY=-0.00001 comaX=0.00000 comaY=-0.00002 trefoilX=0.00001 trefoilY=0.00002 spherical=-0.00006 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0003876900666953187,
+    "fraction_samples_at_ceiling": 0.0
+  },
+  {
+    "case": "clip_235",
+    "mode": "known",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, shifts NOT refined\nShifts, deg:        0.00 / 60.00 / 120.00 / 180.00 / 240.00 / 300.00\nMirrored:           no\nHalves disagree:    0.228628 deg\nFit residual:       8.13253 of amplitude 88.3409 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52464 waves\nS5 residual RMS:    0.00201327 waves\nS5 coefficients:    tiltX=2.97498 tiltY=-0.99169 defocus=0.68853 astigX=-0.00001 astigY=-0.00000 comaX=-0.00007 comaY=-0.00003 trefoilX=0.00002 trefoilY=0.00001 spherical=-0.00018 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0020121168967700462,
+    "fraction_samples_at_ceiling": 0.27705531965086105
+  },
+  {
+    "case": "clip_235",
+    "mode": "refine",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, refined\nShifts, deg:        0.00 / 59.95 / 119.74 / 179.75 / 239.98 / 299.99\nIterations:         7 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    0.232112 deg\nFit residual:       8.13207 of amplitude 88.3332 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52464 waves\nS5 residual RMS:    0.00201431 waves\nS5 coefficients:    tiltX=2.97497 tiltY=-0.99168 defocus=0.68854 astigX=-0.00000 astigY=-0.00001 comaX=-0.00009 comaY=-0.00003 trefoilX=0.00002 trefoilY=0.00001 spherical=-0.00018 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.002013275531919235,
+    "fraction_samples_at_ceiling": 0.27705531965086105
+  },
+  {
+    "case": "clip_255",
+    "mode": "known",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, shifts NOT refined\nShifts, deg:        0.00 / 60.00 / 120.00 / 180.00 / 240.00 / 300.00\nMirrored:           no\nHalves disagree:    0.228628 deg\nFit residual:       8.13253 of amplitude 88.3409 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52464 waves\nS5 residual RMS:    0.00201327 waves\nS5 coefficients:    tiltX=2.97498 tiltY=-0.99169 defocus=0.68853 astigX=-0.00001 astigY=-0.00000 comaX=-0.00007 comaY=-0.00003 trefoilX=0.00002 trefoilY=0.00001 spherical=-0.00018 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0020121168967700462,
+    "fraction_samples_at_ceiling": 0.27705531965086105
+  },
+  {
+    "case": "clip_255",
+    "mode": "refine",
+    "returncode": 0,
+    "output": "Series: 6 frames 128x128, aperture center=(63.5, 63.5) radius=60\nMode: nominal step 60 deg, refined\nShifts, deg:        0.00 / 59.95 / 119.74 / 179.75 / 239.98 / 299.99\nIterations:         7 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    0.232112 deg\nFit residual:       8.13207 of amplitude 88.3332 grey levels (11304 points)\nUnwrap regions:     1, masked 0 + islands 0 points\nWavefront RMS:      1.52464 waves\nS5 residual RMS:    0.00201431 waves\nS5 coefficients:    tiltX=2.97497 tiltY=-0.99168 defocus=0.68854 astigX=-0.00000 astigY=-0.00001 comaX=-0.00009 comaY=-0.00003 trefoilX=0.00002 trefoilY=0.00001 spherical=-0.00018 waves\n",
+    "error": "",
+    "coverage": 1.0,
+    "phase_rms_orders": 0.002013275531919235,
+    "fraction_samples_at_ceiling": 0.27705531965086105
+  }
+]

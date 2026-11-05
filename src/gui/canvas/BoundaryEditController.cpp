@@ -182,7 +182,10 @@ void BoundaryEditController::autoDetectAperture() {
     return;
   }
 
-  auto detection = digitqt::core::detectApertureBoundary(m_measurement->image());
+  auto detection =
+      m_measurement->phaseShifting().hasSeries()
+          ? digitqt::core::detectApertureBoundary(m_measurement->phaseShifting().frames())
+          : digitqt::core::detectApertureBoundary(m_measurement->image());
   if (!detection.ok()) {
     m_lastError = QString::fromStdString(detection.errorMessage);
     return;

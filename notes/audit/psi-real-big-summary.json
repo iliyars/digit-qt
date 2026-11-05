@@ -1,0 +1,218 @@
+{
+  "series": "notes\\IDF\\big.idf",
+  "size": [
+    320,
+    240
+  ],
+  "frames": [
+    "big0.bmp",
+    "big1.bmp",
+    "big2.bmp",
+    "big3.bmp",
+    "big4.bmp"
+  ],
+  "fitted_pupil": [
+    129.75581198553635,
+    117.79614746902749,
+    107.52117689291207
+  ],
+  "apertures": {
+    "default": [
+      159.5,
+      119.5,
+      119.0
+    ],
+    "pupil": [
+      129.75581198553635,
+      117.79614746902749,
+      104.52117689291207
+    ],
+    "inner": [
+      129.75581198553635,
+      117.79614746902749,
+      73.16482382503844
+    ]
+  },
+  "image_metrics": [
+    {
+      "aperture": "default",
+      "pixels": 44512,
+      "dark_fraction": 0.16424335010783608,
+      "saturated_fraction": 0.0,
+      "upper_histogram_mode": 235,
+      "upper_mode_fraction": 0.11182153127246586,
+      "upper_mode_band_fraction": 0.12854061826024443,
+      "span_percentiles": [
+        2.0,
+        31.0,
+        71.0,
+        86.0
+      ],
+      "temporal_rank2_unexplained": 0.03569028896606928,
+      "temporal_singular_values": [
+        5667.387748478251,
+        4990.827165160463,
+        1159.3121884982625,
+        875.5902954545979,
+        7.899558326836352e-12
+      ]
+    },
+    {
+      "aperture": "pupil",
+      "pixels": 34320,
+      "dark_fraction": 0.0,
+      "saturated_fraction": 0.0,
+      "upper_histogram_mode": 235,
+      "upper_mode_fraction": 0.14502913752913754,
+      "upper_mode_band_fraction": 0.16671328671328672,
+      "span_percentiles": [
+        15.0,
+        46.0,
+        74.0,
+        87.0
+      ],
+      "temporal_rank2_unexplained": 0.036337497509522754,
+      "temporal_singular_values": [
+        5865.427609045657,
+        5095.90741536119,
+        1200.6098341095158,
+        913.787176180064,
+        5.547951094338473e-12
+      ]
+    },
+    {
+      "aperture": "inner",
+      "pixels": 16810,
+      "dark_fraction": 0.0,
+      "saturated_fraction": 0.0,
+      "upper_histogram_mode": 235,
+      "upper_mode_fraction": 0.26916121356335515,
+      "upper_mode_band_fraction": 0.30584176085663295,
+      "span_percentiles": [
+        21.0,
+        43.0,
+        64.0,
+        87.0
+      ],
+      "temporal_rank2_unexplained": 0.0399335549748805,
+      "temporal_singular_values": [
+        3856.780190337127,
+        3389.393620193784,
+        859.9510898119094,
+        597.5208564929534,
+        4.287057102094633e-12
+      ]
+    }
+  ],
+  "individual_pupil_fits": [
+    [
+      129.80182889586075,
+      117.84906867134471,
+      107.41212479340167
+    ],
+    [
+      129.76160916125323,
+      117.88611954157248,
+      107.30060462794003
+    ],
+    [
+      129.77283988891872,
+      117.86697210624403,
+      107.37101304637736
+    ],
+    [
+      129.80355639794982,
+      117.83205330749604,
+      107.47191119396996
+    ],
+    [
+      129.81473902705892,
+      117.8398693694847,
+      107.38818259841055
+    ]
+  ],
+  "foreground_level": 30,
+  "runs": [
+    {
+      "aperture": "default",
+      "mode": "nominal",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(159.5, 119.5) radius=119\nMode: nominal step 90 deg, shifts NOT refined\nShifts, deg:        0.00 / 90.00 / 180.00 / 270.00 / 0.00\nMirrored:           no\nHalves disagree:    54.7671 deg\nFit residual:       4.65049 of amplitude 28.6201 grey levels (24024 points)\nUnwrap regions:     2, masked 17897 + islands 1342 points\nWavefront RMS:      0.358608 waves\nS5 residual RMS:    0.175847 waves\nS5 coefficients:    tiltX=0.04849 tiltY=-0.20384 defocus=-0.81817 astigX=0.28294 astigY=-1.04705 comaX=1.19395 comaY=-1.31802 trefoilX=-0.81476 trefoilY=0.10926 spherical=0.79113 waves\n",
+      "error": "",
+      "valid_pixels": 25273,
+      "aperture_coverage": 0.5677794751976994
+    },
+    {
+      "aperture": "default",
+      "mode": "refine",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(159.5, 119.5) radius=119\nMode: nominal step 90 deg, refined\nShifts, deg:        0.00 / 90.41 / 166.20 / 255.22 / 10.42\nIterations:         11 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    21.2932 deg\nFit residual:       3.99363 of amplitude 28.4868 grey levels (24024 points)\nUnwrap regions:     2, masked 17544 + islands 1389 points\nWavefront RMS:      0.47865 waves\nS5 residual RMS:    0.179572 waves\nS5 coefficients:    tiltX=-1.08069 tiltY=0.60418 defocus=-2.41860 astigX=0.09396 astigY=0.48746 comaX=-0.54017 comaY=-0.23789 trefoilX=-0.83362 trefoilY=-0.09218 spherical=0.72206 waves\n",
+      "error": "",
+      "valid_pixels": 25579,
+      "aperture_coverage": 0.5746540258806614
+    },
+    {
+      "aperture": "default",
+      "mode": "tilt",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(159.5, 119.5) radius=119\nMode: nominal step 90 deg, refined, tilt compensated\nShifts, deg:        0.00 / 117.83 / 160.38 / 245.36 / 359.55\nIterations:         200 (NOT converged)\nTilt x, waves:      0.000 / 0.351 / 0.297 / 0.565 / -0.437\nTilt y, waves:      0.000 / 0.451 / 0.298 / -0.062 / -0.096\nMirrored:           no\nHalves disagree:    39.829 deg\nFit residual:       8.09232 of amplitude 30.6465 grey levels (24024 points)\nUnwrap regions:     2, masked 14464 + islands 1683 points\nWavefront RMS:      0.454649 waves\nS5 residual RMS:    0.296846 waves\nS5 coefficients:    tiltX=-0.07916 tiltY=-0.57768 defocus=-2.86322 astigX=-0.12803 astigY=-0.86384 comaX=1.99526 comaY=-2.58228 trefoilX=-0.63214 trefoilY=-0.29592 spherical=3.28171 waves\n",
+      "error": "",
+      "valid_pixels": 28365,
+      "aperture_coverage": 0.6372438892882818
+    },
+    {
+      "aperture": "pupil",
+      "mode": "nominal",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=104.521\nMode: nominal step 90 deg, shifts NOT refined\nShifts, deg:        0.00 / 90.00 / 180.00 / 270.00 / 0.00\nMirrored:           no\nHalves disagree:    36.851 deg\nFit residual:       4.62656 of amplitude 28.4318 grey levels (25649 points)\nUnwrap regions:     1, masked 12664 + islands 423 points\nWavefront RMS:      0.341264 waves\nS5 residual RMS:    0.0641757 waves\nS5 coefficients:    tiltX=-0.12303 tiltY=0.07737 defocus=-0.81379 astigX=-0.13042 astigY=-0.73300 comaX=-0.38728 comaY=-0.13308 trefoilX=-0.46835 trefoilY=-0.00635 spherical=-0.10066 waves\n",
+      "error": "",
+      "valid_pixels": 21233,
+      "aperture_coverage": 0.6186771561771561
+    },
+    {
+      "aperture": "pupil",
+      "mode": "refine",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=104.521\nMode: nominal step 90 deg, refined\nShifts, deg:        0.00 / 89.45 / 164.72 / 253.84 / 8.39\nIterations:         10 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    21.373 deg\nFit residual:       4.0351 of amplitude 28.3525 grey levels (25649 points)\nUnwrap regions:     1, masked 12347 + islands 421 points\nWavefront RMS:      0.341716 waves\nS5 residual RMS:    0.06518 waves\nS5 coefficients:    tiltX=-0.13818 tiltY=0.07574 defocus=-0.86176 astigX=-0.13003 astigY=-0.73878 comaX=-0.39674 comaY=-0.11748 trefoilX=-0.47567 trefoilY=-0.00749 spherical=-0.07010 waves\n",
+      "error": "",
+      "valid_pixels": 21552,
+      "aperture_coverage": 0.627972027972028
+    },
+    {
+      "aperture": "pupil",
+      "mode": "tilt",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=104.521\nMode: nominal step 90 deg, refined, tilt compensated\nShifts, deg:        0.00 / 144.59 / 184.30 / 280.16 / 3.07\nIterations:         78 (converged)\nTilt x, waves:      0.000 / 0.525 / 0.494 / 0.673 / 0.318\nTilt y, waves:      0.000 / 0.723 / 0.535 / 0.303 / -0.119\nMirrored:           no\nHalves disagree:    12.7849 deg\nFit residual:       5.86885 of amplitude 32.0694 grey levels (25649 points)\nUnwrap regions:     2, masked 9512 + islands 1360 points\nWavefront RMS:      0.368293 waves\nS5 residual RMS:    0.0663388 waves\nS5 coefficients:    tiltX=-0.21794 tiltY=0.36297 defocus=-0.62583 astigX=-0.14033 astigY=-0.40428 comaX=-0.29706 comaY=-0.23132 trefoilX=-0.46979 trefoilY=0.01357 spherical=-0.17657 waves\n",
+      "error": "",
+      "valid_pixels": 23448,
+      "aperture_coverage": 0.6832167832167833
+    },
+    {
+      "aperture": "inner",
+      "mode": "nominal",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=73.1648\nMode: nominal step 90 deg, shifts NOT refined\nShifts, deg:        0.00 / 90.00 / 180.00 / 270.00 / 0.00\nMirrored:           no\nHalves disagree:    35.7493 deg\nFit residual:       4.54069 of amplitude 26.3076 grey levels (13658 points)\nUnwrap regions:     1, masked 7101 + islands 362 points\nWavefront RMS:      0.195133 waves\nS5 residual RMS:    0.0244541 waves\nS5 coefficients:    tiltX=0.03596 tiltY=0.21691 defocus=-0.67707 astigX=-0.07023 astigY=-0.11107 comaX=-0.28897 comaY=-0.07286 trefoilX=-0.21362 trefoilY=-0.01551 spherical=0.09148 waves\n",
+      "error": "",
+      "valid_pixels": 9347,
+      "aperture_coverage": 0.5560380725758477
+    },
+    {
+      "aperture": "inner",
+      "mode": "refine",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=73.1648\nMode: nominal step 90 deg, refined\nShifts, deg:        0.00 / 117.03 / 164.37 / 293.20 / 5.01\nIterations:         13 (converged)\nIllumination fit:   per pixel\nMirrored:           no\nHalves disagree:    14.9704 deg\nFit residual:       3.78629 of amplitude 30.2335 grey levels (13658 points)\nUnwrap regions:     1, masked 5781 + islands 602 points\nWavefront RMS:      0.210108 waves\nS5 residual RMS:    0.0314827 waves\nS5 coefficients:    tiltX=0.01116 tiltY=0.23634 defocus=-0.46347 astigX=-0.07504 astigY=-0.13287 comaX=-0.23878 comaY=-0.22674 trefoilX=-0.19929 trefoilY=0.00637 spherical=-0.00150 waves\n",
+      "error": "",
+      "valid_pixels": 10427,
+      "aperture_coverage": 0.6202855443188579
+    },
+    {
+      "aperture": "inner",
+      "mode": "tilt",
+      "returncode": 0,
+      "output": "Series: 5 frames 320x240, aperture center=(129.756, 117.796) radius=73.1648\nMode: nominal step 90 deg, refined, tilt compensated\nShifts, deg:        0.00 / 122.07 / 172.03 / 293.16 / 32.55\nIterations:         142 (converged)\nTilt x, waves:      0.000 / -0.043 / 0.017 / 0.513 / -0.141\nTilt y, waves:      0.000 / 0.314 / 0.183 / -0.026 / -0.163\nMirrored:           YES -- check the sign of the map\nHalves disagree:    36.9328 deg\nFit residual:       5.90707 of amplitude 25.9622 grey levels (13658 points)\nUnwrap regions:     1, masked 6727 + islands 506 points\nWavefront RMS:      0.19996 waves\nS5 residual RMS:    0.0317235 waves\nS5 coefficients:    tiltX=-0.00929 tiltY=0.25278 defocus=-0.73125 astigX=-0.07905 astigY=-0.14747 comaX=-0.18636 comaY=-0.12293 trefoilX=-0.20400 trefoilY=-0.00224 spherical=0.17828 waves\n",
+      "error": "",
+      "valid_pixels": 9577,
+      "aperture_coverage": 0.5697204045211184
+    }
+  ]
+}

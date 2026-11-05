@@ -145,6 +145,26 @@
 <context>
     <name>Report</name>
     <message>
+        <source>Retained points above 0.05 cycles conditional noise: %1%</source>
+        <translation>Сохранённые точки с условным шумом выше 0,05 периода: %1%</translation>
+    </message>
+    <message>
+        <source>Map coverage: %1%; conditional phase noise p95: %2 cycles (fixed shifts; excludes calibration and unwrap errors).</source>
+        <translation>Покрытие карты: %1%; условный шум фазы p95: %2 периода (сдвиги фиксированы; без ошибок калибровки и развёртки).</translation>
+    </message>
+    <message>
+        <source>Upper intensity plateau: level %1, %2% of shift samples (possible clipping).</source>
+        <translation>Плато яркости: уровень %1, %2% отсчётов оценки сдвигов (возможно ограничение сигнала).</translation>
+    </message>
+    <message>
+        <source>Spatially varying illumination accounted for.</source>
+        <translation>Учтена пространственная неоднородность освещения.</translation>
+    </message>
+    <message>
+        <source>Shift estimation assumes uniform illumination.</source>
+        <translation>Оценка сдвигов предполагает однородное освещение.</translation>
+    </message>
+    <message>
         <location filename="../src/io/ModalReportExporter.cpp" line="30"/>
         <source>Zernike (classical textbook polynomials)</source>
         <translation>Цернике (классические полиномы)</translation>
@@ -881,6 +901,30 @@
 <context>
     <name>digitqt::gui::MainWindow</name>
     <message>
+        <source>PSI · Frames: %1 · Apertures: %2 · Obscurations: %3</source>
+        <translation>PSI · кадров: %1 · апертур: %2 · экранирований: %3</translation>
+    </message>
+    <message>
+        <source>Loaded %1 phase-shifting frames. Check the frames and aperture, then use Calculate PSI.</source>
+        <translation>Загружено кадров: %1. Проверьте кадры и апертуру, затем нажмите «Рассчитать PSI».</translation>
+    </message>
+    <message>
+        <source>Conditional phase noise is unavailable (three frames or tilt model). A completed calculation does not establish map accuracy.</source>
+        <translation>Оценка условного шума фазы недоступна (три кадра или модель с наклонами). Завершение расчёта не подтверждает точность карты.</translation>
+    </message>
+    <message>
+        <source>%1% of retained points have conditional phase noise above 0.05 cycles. The map may be unreliable; use better-separated shifts or improve the signal.</source>
+        <translation>У %1% сохранённых точек условный шум фазы превышает 0,05 периода. Карта может быть ненадёжной; увеличьте разнос сдвигов или улучшите сигнал.</translation>
+    </message>
+    <message>
+        <source>Only %1% of the aperture remains in the phase map. Check the missing areas.</source>
+        <translation>В карте фазы осталось %1% апертуры. Проверьте пропущенные участки.</translation>
+    </message>
+    <message>
+        <source>Many samples share an upper intensity level (%1; %2%). Possible clipping or nonlinear camera processing; check exposure and capture settings.</source>
+        <translation>Много отсчётов имеют один верхний уровень яркости (%1; %2%). Возможно ограничение сигнала или нелинейная обработка камерой; проверьте экспозицию и настройки захвата.</translation>
+    </message>
+    <message>
         <source>Waiting for the calculation to finish before closing...</source>
         <translation>Ожидание завершения расчёта перед закрытием...</translation>
     </message>
@@ -1202,8 +1246,8 @@ Per-fiducial residuals:
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="394"/>
-        <source>Automatically place seeds along one row at the fringes&apos; intensity peaks</source>
-        <translation>Автоматически расставить начальные точки вдоль одной строки по пикам интенсивности полос</translation>
+        <source>Automatically place seeds at bright peaks along a row or column across the fringes</source>
+        <translation>Автоматически расставить начальные точки на светлых максимумах вдоль строки или столбца поперёк полос</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="477"/>
@@ -1606,6 +1650,34 @@ not implemented yet</source>
 </context>
 <context>
     <name>digitqt::gui::ParametersDock</name>
+    <message>
+        <source>Draw or detect the pupil on the selected frame. The same aperture applies to the whole series.&lt;br&gt;Check the shift model and physical units, then use Calculate PSI.</source>
+        <translation>Нарисуйте или определите зрачок на выбранном кадре. Апертура применяется ко всей серии.&lt;br&gt;Проверьте настройки сдвигов и физические единицы, затем нажмите «Рассчитать PSI».</translation>
+    </message>
+    <message>
+        <source>Draw or detect the pupil on the selected frame. The same aperture applies to the whole series.&lt;br&gt;Check the shift model and physical units below, then use Calculate PSI.</source>
+        <translation>Нарисуйте или определите зрачок на выбранном кадре. Апертура применяется ко всей серии.&lt;br&gt;Проверьте ниже модель сдвигов и физические единицы, затем нажмите «Рассчитать PSI».</translation>
+    </message>
+    <message>
+        <source>Phase change from edge to edge of the frame, cycles; X right, Y down, relative to frame 1.&lt;br&gt;For normalized-coordinate coefficients: dLx = X/2, dLy = -Y/2.&lt;br&gt;</source>
+        <translation>Перепад фазы от края до края кадра, периоды; X вправо, Y вниз, относительно кадра 1.&lt;br&gt;Коэффициенты нормированных координат: dLx = X/2, dLy = −Y/2.&lt;br&gt;</translation>
+    </message>
+    <message>
+        <source>Map coverage: %1%; conditional phase noise p95: %2 cycles (fixed shifts; excludes calibration and unwrap errors).&lt;br&gt;</source>
+        <translation>Покрытие карты: %1%; условный шум фазы p95: %2 периода (сдвиги фиксированы; без ошибок калибровки и развёртки).&lt;br&gt;</translation>
+    </message>
+    <message>
+        <source>Upper intensity plateau: level %1, %2% of shift samples (possible clipping).&lt;br&gt;</source>
+        <translation>Плато яркости: уровень %1, %2% отсчётов оценки сдвигов (возможно ограничение сигнала).&lt;br&gt;</translation>
+    </message>
+    <message>
+        <source>Spatially varying illumination accounted for.&lt;br&gt;</source>
+        <translation>Учтена пространственная неоднородность освещения.&lt;br&gt;</translation>
+    </message>
+    <message>
+        <source>Shift estimation assumes uniform illumination.&lt;br&gt;</source>
+        <translation>Оценка сдвигов предполагает однородное освещение.&lt;br&gt;</translation>
+    </message>
     <message>
         <location filename="../src/gui/ParametersDock.cpp" line="64"/>
         <source>Parameters</source>
@@ -2065,6 +2137,26 @@ Off -- transmission test (single pass): the measured value is already the wavefr
 <context>
     <name>digitqt::gui::PipelineTreeDock</name>
     <message>
+        <source>Frames and aperture</source>
+        <translation>Кадры и апертура</translation>
+    </message>
+    <message>
+        <source>Phase</source>
+        <translation>Фаза</translation>
+    </message>
+    <message>
+        <source>Surface / wavefront</source>
+        <translation>Поверхность / фронт</translation>
+    </message>
+    <message>
+        <source>Aberrations</source>
+        <translation>Аберрации</translation>
+    </message>
+    <message>
+        <source>Measurement</source>
+        <translation>Измерение</translation>
+    </message>
+    <message>
         <location filename="../src/gui/PipelineTreeDock.cpp" line="37"/>
         <source>Pipeline</source>
         <translation>Конвейер</translation>
@@ -2125,6 +2217,160 @@ intensity: %3</source>
         <location filename="../src/gui/canvas/Surface3DView.cpp" line="308"/>
         <source>Z, %1</source>
         <translation>Z, %1</translation>
+    </message>
+</context>
+<context>
+    <name>digitqt::gui::PsiWorkflowPanel</name>
+    <message>
+        <source>WinFringe matrix in phase cycles. Wavelength and reflection conversion are not applied to this file.</source>
+        <translation>Матрица WinFringe в периодах фазы. Пересчёт по длине волны и схеме отражения к этому файлу не применяется.</translation>
+    </message>
+    <message>
+        <source>Phase is ready. Physical maps or aberration results are missing or out of date. Recalculate PSI.</source>
+        <translation>Фаза готова. Физические карты или результаты анализа отсутствуют либо устарели. Пересчитайте PSI.</translation>
+    </message>
+    <message>
+        <source>Open PSI series...</source>
+        <translation>Открыть PSI-серию…</translation>
+    </message>
+    <message>
+        <source>Select a frame to inspect it. The original order and calculation data stay unchanged.</source>
+        <translation>Выберите кадр для просмотра. Порядок серии и входные данные расчёта сохраняются.</translation>
+    </message>
+    <message>
+        <source>Auto aperture</source>
+        <translation>Автоапертура</translation>
+    </message>
+    <message>
+        <source>Draw ellipse</source>
+        <translation>Нарисовать эллипс</translation>
+    </message>
+    <message>
+        <source>Edit aperture</source>
+        <translation>Править апертуру</translation>
+    </message>
+    <message>
+        <source>Use the entire frame</source>
+        <translation>Использовать весь кадр</translation>
+    </message>
+    <message>
+        <source>Calculate PSI</source>
+        <translation>Рассчитать PSI</translation>
+    </message>
+    <message>
+        <source>Recalculate PSI</source>
+        <translation>Пересчитать PSI</translation>
+    </message>
+    <message>
+        <source>Calculate phase, convert to physical units and fit aberrations using the current settings.</source>
+        <translation>Восстановить фазу, перевести её в физические единицы и рассчитать аберрации с текущими настройками.</translation>
+    </message>
+    <message>
+        <source>Frames / aperture</source>
+        <translation>Кадры / апертура</translation>
+    </message>
+    <message>
+        <source>Phase</source>
+        <translation>Фаза</translation>
+    </message>
+    <message>
+        <source>Surface / wavefront</source>
+        <translation>Поверхность / фронт</translation>
+    </message>
+    <message>
+        <source>Surface height</source>
+        <translation>Высота поверхности</translation>
+    </message>
+    <message>
+        <source>Wavefront</source>
+        <translation>Волновой фронт</translation>
+    </message>
+    <message>
+        <source>Optical path difference</source>
+        <translation>Разность хода</translation>
+    </message>
+    <message>
+        <source>Aberrations</source>
+        <translation>Аберрации</translation>
+    </message>
+    <message>
+        <source>Export map...</source>
+        <translation>Экспорт карты…</translation>
+    </message>
+    <message>
+        <source>Report...</source>
+        <translation>Отчёт…</translation>
+    </message>
+    <message>
+        <source>Measurement remarks</source>
+        <translation>Замечания к измерению</translation>
+    </message>
+    <message>
+        <source>Frame %1</source>
+        <translation>Кадр %1</translation>
+    </message>
+    <message>
+        <source>PSI: open a series of at least three phase-shifted frames.</source>
+        <translation>PSI: откройте серию из трёх или более кадров с фазовыми сдвигами.</translation>
+    </message>
+    <message>
+        <source>Frames → aperture → calculation → result → export</source>
+        <translation>Кадры → апертура → расчёт → результат → экспорт</translation>
+    </message>
+    <message>
+        <source>PSI · %1 frames · %2 × %3 px · %4</source>
+        <translation>PSI · кадров: %1 · %2 × %3 пикс. · %4</translation>
+    </message>
+    <message>
+        <source>Next: detect or draw the aperture. You can explicitly choose the entire frame instead.</source>
+        <translation>Следующий шаг: определите или нарисуйте апертуру. Можно явно выбрать расчёт по всему кадру.</translation>
+    </message>
+    <message>
+        <source>Inputs changed. Recalculate before viewing or exporting the result.</source>
+        <translation>Исходные данные изменились. Пересчитайте результат перед просмотром или экспортом.</translation>
+    </message>
+    <message>
+        <source>Next: check PSI, wavelength and reflection/transmission settings on the right, then calculate.</source>
+        <translation>Следующий шаг: проверьте справа настройки PSI, длину волны и схему измерения, затем запустите расчёт.</translation>
+    </message>
+    <message>
+        <source>Phase is ready. Calculate PSI to complete physical conversion and aberration analysis.</source>
+        <translation>Фаза готова. Нажмите «Рассчитать PSI», чтобы завершить пересчёт в физические единицы и анализ аберраций.</translation>
+    </message>
+    <message>
+        <source>Result is ready. Inspect the maps and remarks before exporting.</source>
+        <translation>Результат готов. Проверьте карты и замечания перед экспортом.</translation>
+    </message>
+    <message>
+        <source>Calculation stopped: %1</source>
+        <translation>Расчёт остановлен: %1</translation>
+    </message>
+    <message>
+        <source>Previous result is out of date. Its remarks are retained below.</source>
+        <translation>Предыдущий результат устарел. Замечания к нему сохранены ниже.</translation>
+    </message>
+    <message>
+        <source>No calculated map yet.</source>
+        <translation>Карта ещё не рассчитана.</translation>
+    </message>
+    <message>
+        <source>Coverage: %1% · Unwrap regions: %2 · Phase: cycles · %3: nm · λ = %4 nm (%5)</source>
+        <translation>Покрытие: %1% · Областей развёртки: %2 · Фаза: периоды · %3: нм · λ = %4 нм (%5)</translation>
+    </message>
+    <message>
+        <source>reflection, λ/2</source>
+        <translation>отражение, λ/2</translation>
+    </message>
+    <message>
+        <source>transmission, λ</source>
+        <translation>пропускание, λ</translation>
+    </message>
+</context>
+<context>
+    <name>digitqt::gui::canvas::PhaseMapView</name>
+    <message>
+        <source> cycles</source>
+        <translation> пер.</translation>
     </message>
 </context>
 </TS>

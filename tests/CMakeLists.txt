@@ -13,7 +13,7 @@ set_target_properties(digitqt_algorithm_regression_tests PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:DigitQt>")
 # Load the application's DLLs, also when building this target alone.
 add_dependencies(digitqt_algorithm_regression_tests fourier_phase_plugin
-    scanline_extremum_tracker_plugin horizontal_spline_phase_plugin)
+    scanline_extremum_tracker_plugin sequential_fringe_tracker_plugin horizontal_spline_phase_plugin)
 add_test(NAME AlgorithmRegressionTest COMMAND digitqt_algorithm_regression_tests)
 
 add_executable(digitqt_background_computation_tests
@@ -214,3 +214,24 @@ set_target_properties(digitqt_phase_shifting_tests PROPERTIES
 )
 
 add_test(NAME PhaseShiftingTest COMMAND digitqt_phase_shifting_tests)
+
+add_executable(digitqt_auto_aperture_tests
+    AutoApertureDetectionTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/canvas/BoundaryItem.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/canvas/BoundaryEditController.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/AddShapeCommand.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/RemoveShapeCommand.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/commands/ReplaceShapeCommand.cpp
+)
+target_link_libraries(digitqt_auto_aperture_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Core)
+add_test(NAME AutoApertureDetectionTest COMMAND digitqt_auto_aperture_tests)
+set_tests_properties(AutoApertureDetectionTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(digitqt_psi_workflow_tests
+    PsiWorkflowPanelTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/PsiWorkflowPanel.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/PipelineTreeDock.cpp
+)
+target_link_libraries(digitqt_psi_workflow_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Core)
+add_test(NAME PsiWorkflowPanelTest COMMAND digitqt_psi_workflow_tests)
+set_tests_properties(PsiWorkflowPanelTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

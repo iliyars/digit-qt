@@ -383,7 +383,18 @@ void writePhaseSection(QTextStream &out, const digitqt::core::Measurement &measu
                  .arg(report.iterations)
                  .arg(report.converged ? Report::tr("converged") : Report::tr("did NOT converge"))
           << "\n";
+    if (report.refined)
+      out << (report.illuminationRefined
+                  ? Report::tr("Spatially varying illumination accounted for.")
+                  : Report::tr("Shift estimation assumes uniform illumination."))
+          << "\n";
     out << Report::tr("Mirrored to the nominal direction: %1").arg(yesNo(report.mirrored)) << "\n";
+    if (report.upperPlateauLevel >= 0)
+      out << Report::tr(
+                 "Upper intensity plateau: level %1, %2% of shift samples (possible clipping).")
+                 .arg(report.upperPlateauLevel)
+                 .arg(100.0 * report.upperPlateauFraction, 0, 'f', 1)
+          << "\n";
 
     // Наклон -- в двух единицах: как в окне (волны на ширину и высоту
     // исходного кадра, y вниз по строкам) и как Lx/Ly отчётов DAPPSIM и
@@ -423,6 +434,18 @@ void writePhaseSection(QTextStream &out, const digitqt::core::Measurement &measu
     const double relative =
         report.amplitude > 0.0 ? 100.0 * report.residual / report.amplitude : 0.0;
     out << "\n" << Report::tr("Diagnostics:") << "\n";
+    out << Report::tr(
+               "Map coverage: %1%; conditional phase noise p95: %2 cycles "
+               "(fixed shifts; excludes calibration and unwrap errors).")
+               .arg(fixed(100.0 * report.mapCoverage, 1))
+               .arg(std::isfinite(report.phaseStdErrorP95) ? fixed(report.phaseStdErrorP95, 5)
+                                                           : Report::tr("n/a"))
+        << "\n";
+    out << Report::tr("Retained points above 0.05 cycles conditional noise: %1%")
+               .arg(std::isfinite(report.noisyPointFraction)
+                        ? fixed(100.0 * report.noisyPointFraction, 2)
+                        : Report::tr("n/a"))
+        << "\n";
     out << "  " << Report::tr("Points used for the shifts: %1").arg(report.shiftPoints) << "\n";
     out << "  " << Report::tr("Halves of the field disagree by: %1 deg").arg(halves) << "\n";
     out << "  "

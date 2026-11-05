@@ -3,6 +3,7 @@
 #include "core/Bitmap.h"
 
 #include <utility>
+#include <limits>
 #include <vector>
 
 namespace digitqt::core {
@@ -55,12 +56,20 @@ public:
     bool refined = true;            ///< false -- shiftsDeg номинальные, см. refineShifts()
     int iterations = 0;
     bool converged = false;
+    bool illuminationRefined = false;  ///< см. psi::PsiResult::illuminationRefined
     bool mirrored = false;  ///< см. psi::PsiResult::mirrored
     int regionCount = 0;    ///< см. UnwrapResult::regionCount
+    double mapCoverage = 0.0;  ///< Finite unwrapped points / all visible aperture pixels.
+    /// Conditional phase noise p95 on retained pixels, cycles; NaN = unavailable.
+    double phaseStdErrorP95 = std::numeric_limits<double>::quiet_NaN();
+    /// Fraction of retained pixels with conditional noise >0.05 cycles.
+    double noisyPointFraction = std::numeric_limits<double>::quiet_NaN();
     int maskedLowModulation = 0;  ///< точек апертуры, выброшенных из-за слабых полос
     int droppedIslandPoints = 0;  ///< точек в мелких оторванных островках, тоже выброшенных
     // Надёжность сдвигов -- см. psi::PsiResult::Diagnostics.
     int shiftPoints = 0;
+    int upperPlateauLevel = -1;  ///< Возможное ограничение яркости; см. PsiResult::Diagnostics.
+    double upperPlateauFraction = 0.0;
     double halvesDisagreementDeg = 0.0;  ///< NaN -- не посчитано
     double residual = 0.0;               ///< уровни яркости
     double amplitude = 0.0;              ///< уровни яркости

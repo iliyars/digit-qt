@@ -11,14 +11,15 @@ namespace digitqt::core {
  * @brief Automatically places seed points for the seed-based fringe
  * tracers (SequentialFringeTracker, StructureTensorTracker).
  *
- * Scans a single horizontal row for intensity peaks and returns one seed
- * per peak found, left to right. Reuses
+ * Scans a horizontal row or vertical column across the fringes, chosen
+ * from the dominant image gradient. Returns one seed per bright peak,
+ * ordered left to right or top to bottom. Reuses
  * tracing::scanline_extremum::removeBackground()/detectPeaks() -- the
  * same per-row peak detection already used by ScanlineExtremumTracker --
  * rather than re-implementing peak finding.
  *
- * The row scanned is not necessarily the image's geometric vertical
- * center: it's whichever row has the most visible (inside-aperture)
+ * The section scanned is not necessarily the image's geometric
+ * center: it's whichever section has the most visible (inside-aperture)
  * pixels, so this still works for an aperture that isn't centered in the
  * image.
  */

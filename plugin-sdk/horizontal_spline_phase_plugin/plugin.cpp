@@ -11,8 +11,10 @@
  */
 
 #include "dqt_phase_reconstructor_abi.h"
+#include <Eigen/QR>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <functional>
@@ -86,7 +88,7 @@ std::vector<FringeCrossing> findFringeCrossings(double worldY, const std::vector
 }
 
 class NaturalCubicSpline {
- public:
+public:
   explicit NaturalCubicSpline(const std::vector<FringeCrossing> &crossings) {
     const int n = static_cast<int>(crossings.size());
     m_x.resize(n);
@@ -159,12 +161,12 @@ class NaturalCubicSpline {
     return m_a[i] + m_b[i] * dx + m_c[i] * dx * dx + m_d[i] * dx * dx * dx;
   }
 
- private:
+private:
   std::vector<double> m_x, m_a, m_b, m_c, m_d;
 };
 
 class HorizontalSplinePhaseReconstructor {
- public:
+public:
   bool reconstruct(int width, int height, std::function<bool(int, int)> isVisible,
                    const std::vector<Line> &lines, double *outValues) {
     m_lastError.clear();
@@ -173,7 +175,7 @@ class HorizontalSplinePhaseReconstructor {
     // что у core::PhaseMap). Плагин полностью владеет заполнением
     // буфера, хосту незачем его предварительно нулить.
     std::fill(outValues, outValues + static_cast<size_t>(width) * height,
-             std::numeric_limits<double>::quiet_NaN());
+              std::numeric_limits<double>::quiet_NaN());
 
     if (width <= 0 || height <= 0) {
       m_lastError = "Invalid grid size";
@@ -184,15 +186,77 @@ class HorizontalSplinePhaseReconstructor {
       return false;
     }
 
-    auto value = [&](int x, int y) -> double & { return outValues[static_cast<size_t>(y) * width + x]; };
+    auto value = [&](int x, int y) -> double & {
+      return outValues[static_cast<size_t>(y) * width + x];
+    };
     auto hasValue = [&](int x, int y) { return !std::isnan(value(x, y)); };
+
+    // Interpolate departures from a smooth polynomial trend, rather than
+    // extrapolating the full curved phase independently in each section.
+    // The trend is added back unchanged, including all tilt/curvature.
+    auto basis = [&](double x, double y) {
+      const double u = 2 * (x - .5 * (width - 1)) / std::max(width, height);
+      const double v = 2 * (y - .5 * (height - 1)) / std::max(width, height);
+      return std::array<double, 15>{1,
+                                    u,
+                                    v,
+                                    u * u,
+                                    u * v,
+                                    v * v,
+                                    u * u * u,
+                                    u * u * v,
+                                    u * v * v,
+                                    v * v * v,
+                                    u * u * u * u,
+                                    u * u * u * v,
+                                    u * u * v * v,
+                                    u * v * v * v,
+                                    v * v * v * v};
+    };
+    std::vector<double> coefficients(15, 0);
+    size_t sampleCount = 0;
+    for (const auto &line : lines)
+      sampleCount += line.points.size();
+    Eigen::MatrixXd design(sampleCount, 15);
+    Eigen::VectorXd observed(sampleCount);
+    Eigen::Index row = 0;
+    for (const auto &line : lines)
+      for (const auto &p : line.points) {
+        const auto b = basis(p.x, p.y);
+        for (int i = 0; i < 15; ++i)
+          design(row, i) = b[i];
+        observed(row++) = line.order;
+      }
+    for (int terms : {15, 6, 3}) {
+      if (sampleCount < size_t(terms))
+        continue;
+      auto qr = design.leftCols(terms).colPivHouseholderQr();
+      qr.setThreshold(1e-8);
+      if (qr.rank() != terms)
+        continue;
+      const Eigen::VectorXd fit = qr.solve(observed);
+      if (!fit.allFinite())
+        continue;
+      for (int i = 0; i < terms; ++i)
+        coefficients[i] = fit[i];
+      break;
+    }
+    auto trend = [&](double x, double y) {
+      const auto b = basis(x, y);
+      double z = 0;
+      for (int i = 0; i < 15; ++i)
+        z += b[i] * coefficients[i];
+      return z;
+    };
 
     bool anyRow = false;
     for (int y = 0; y < height; ++y) {
-      const auto crossings = findFringeCrossings(static_cast<double>(y), lines);
+      auto crossings = findFringeCrossings(static_cast<double>(y), lines);
       if (crossings.size() < 2)
         continue;
 
+      for (auto &c : crossings)
+        c.value -= trend(c.x, y);
       const NaturalCubicSpline spline(crossings);
       anyRow = true;
       for (int x = 0; x < width; ++x) {
@@ -207,55 +271,72 @@ class HorizontalSplinePhaseReconstructor {
       return false;
     }
 
-    // Строки с <2 пересечений остаются NaN -- подтягиваем по вертикали
-    // (см. объяснение в оригинале, core::pipeline::PhaseReconstructor).
+    // Rows with fewer than two crossings have no independent spline.
+    // Interpolate internal gaps; at the rim continue a locally fitted
+    // slope instead of copying the nearest row as a constant plateau.
     for (int x = 0; x < width; ++x) {
-      std::vector<double> aboveValue(height, std::numeric_limits<double>::quiet_NaN());
-      std::vector<int> aboveDist(height, -1);
-      double lastValue = std::numeric_limits<double>::quiet_NaN();
-      int lastDist = -1;
-      for (int y = 0; y < height; ++y) {
-        if (hasValue(x, y)) {
-          lastValue = value(x, y);
-          lastDist = 0;
-        } else if (lastDist >= 0) {
-          ++lastDist;
+      int start = 0;
+      while (start < height) {
+        while (start < height && !isVisible(x, start))
+          ++start;
+        int end = start;
+        while (end < height && isVisible(x, end))
+          ++end;
+        std::vector<std::pair<int, double>> samples;
+        for (int y = start; y < end; ++y)
+          if (hasValue(x, y))
+            samples.emplace_back(y, value(x, y));
+        if (!samples.empty()) {
+          auto edgeSlope = [&](bool first) {
+            const auto &edge = first ? samples.front() : samples.back();
+            double sy = 0, sz = 0, syy = 0, syz = 0;
+            int n = 0;
+            for (size_t k = 0; k < samples.size() && n < 32; ++k) {
+              const auto &s = first ? samples[k] : samples[samples.size() - 1 - k];
+              if (std::abs(s.first - edge.first) > 32)
+                break;
+              const double dy = s.first - edge.first, dz = s.second - edge.second;
+              sy += dy;
+              sz += dz;
+              syy += dy * dy;
+              syz += dy * dz;
+              ++n;
+            }
+            const double denominator = n * syy - sy * sy;
+            return denominator > 0 ? (n * syz - sy * sz) / denominator : 0.0;
+          };
+          const double firstSlope = edgeSlope(true), lastSlope = edgeSlope(false);
+          for (int y = start; y < end; ++y) {
+            if (hasValue(x, y))
+              continue;
+            const auto below =
+                std::lower_bound(samples.begin(), samples.end(), y,
+                                 [](const auto &s, int row) { return s.first < row; });
+            if (below == samples.begin())
+              value(x, y) = samples.front().second + (y - samples.front().first) * firstSlope;
+            else if (below == samples.end())
+              value(x, y) = samples.back().second + (y - samples.back().first) * lastSlope;
+            else {
+              const auto above = below - 1;
+              const double t = double(y - above->first) / (below->first - above->first);
+              value(x, y) = above->second + t * (below->second - above->second);
+            }
+          }
         }
-        aboveValue[y] = lastValue;
-        aboveDist[y] = lastDist;
-      }
-
-      lastValue = std::numeric_limits<double>::quiet_NaN();
-      lastDist = -1;
-      for (int y = height - 1; y >= 0; --y) {
-        if (hasValue(x, y)) {
-          lastValue = value(x, y);
-          lastDist = 0;
-        } else if (lastDist >= 0) {
-          ++lastDist;
-        }
-        if (hasValue(x, y) || !isVisible(x, y))
-          continue;
-
-        const int dAbove = aboveDist[y];
-        const int dBelow = lastDist;
-        if (dAbove >= 0 && dBelow >= 0) {
-          value(x, y) =
-              (aboveValue[y] * dBelow + lastValue * dAbove) / static_cast<double>(dAbove + dBelow);
-        } else if (dAbove >= 0) {
-          value(x, y) = aboveValue[y];
-        } else if (dBelow >= 0) {
-          value(x, y) = lastValue;
-        }
+        start = end + 1;
       }
     }
 
+    for (int y = 0; y < height; ++y)
+      for (int x = 0; x < width; ++x)
+        if (hasValue(x, y))
+          value(x, y) += trend(x, y);
     return true;
   }
 
   const std::string &lastError() const { return m_lastError; }
 
- private:
+private:
   std::string m_lastError;
 };
 
@@ -346,9 +427,9 @@ const DqtPhaseReconstructorVTable kVTable = {
 
 }  // namespace
 
-extern "C" DQT_ABI_EXPORT int dqt_phase_plugin_entry(uint32_t hostAbiVersion,
-                                                      DqtPhasePluginInfo *outInfo,
-                                                      const DqtPhaseReconstructorVTable **outVTable) {
+extern "C" DQT_ABI_EXPORT int dqt_phase_plugin_entry(
+    uint32_t hostAbiVersion, DqtPhasePluginInfo *outInfo,
+    const DqtPhaseReconstructorVTable **outVTable) {
   if (hostAbiVersion != DQT_PHASE_RECONSTRUCTOR_ABI_VERSION) {
     *outVTable = nullptr;
     return 0;

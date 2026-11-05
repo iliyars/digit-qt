@@ -3,6 +3,7 @@
 #include <opencv2/core.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 
@@ -10,31 +11,13 @@ namespace digitqt::core::psi {
 
 namespace {
 
-/// Обращение матрицы 3x3 через алгебраические дополнения. false, если
-/// определитель слишком мал по сравнению с самими элементами.
-bool invert3x3(const double m[3][3], double inv[3][3]) {
-  const double c00 = m[1][1] * m[2][2] - m[1][2] * m[2][1];
-  const double c01 = m[1][2] * m[2][0] - m[1][0] * m[2][2];
-  const double c02 = m[1][0] * m[2][1] - m[1][1] * m[2][0];
-  const double det = m[0][0] * c00 + m[0][1] * c01 + m[0][2] * c02;
+// Numerical guards for the current 8-bit data model. Neither is an instrument
+// accuracy specification: the S2 stage additionally applies its modulation mask.
+constexpr double kMaxFitCondition = 1e4;
+constexpr double kMinPhaseAmplitude = 1.0;
 
-  double scale = 0.0;
-  for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < 3; ++j)
-      scale = std::max(scale, std::fabs(m[i][j]));
-  if (std::fabs(det) <= 1e-12 * scale * scale * scale)
-    return false;
-
-  inv[0][0] = c00 / det;
-  inv[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) / det;
-  inv[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) / det;
-  inv[1][0] = c01 / det;
-  inv[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) / det;
-  inv[1][2] = (m[0][2] * m[1][0] - m[0][0] * m[1][2]) / det;
-  inv[2][0] = c02 / det;
-  inv[2][1] = (m[0][1] * m[2][0] - m[0][0] * m[2][1]) / det;
-  inv[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) / det;
-  return true;
+bool allFinite(const std::vector<double> &values) {
+  return std::all_of(values.begin(), values.end(), [](double v) { return std::isfinite(v); });
 }
 
 bool checkFrames(const std::vector<Bitmap> &frames, std::string &error) {
@@ -53,26 +36,43 @@ bool checkFrames(const std::vector<Bitmap> &frames, std::string &error) {
 }
 
 /// Модель шага 1 при известных сдвигах: строки [1, cos(delta_n),
-/// -sin(delta_n)] и обращённая нормальная матрица A^T*A. Она одна на все
-/// пиксели -- меняется только правая часть A^T*I.
+/// -sin(delta_n)]. Factor A itself once with SVD, never A^T*A: forming the
+/// normal matrix squares its condition number. The pseudoinverse is reused
+/// across pixels; its columns also supply the variable-projection operator.
 struct ShiftModel {
   std::vector<double> cosShift, sinShift;
-  double inv[3][3];
+  std::vector<std::array<double, 3>> pseudoColumns;
+  double condition = std::numeric_limits<double>::infinity();
 
   bool build(const std::vector<double> &shifts) {
+    if (shifts.size() < 3 || !allFinite(shifts))
+      return false;
     const size_t frameCount = shifts.size();
     cosShift.resize(frameCount);
     sinShift.resize(frameCount);
-    double matrix[3][3] = {};
+    cv::Mat design(static_cast<int>(frameCount), 3, CV_64F);
     for (size_t n = 0; n < frameCount; ++n) {
       cosShift[n] = std::cos(shifts[n]);
       sinShift[n] = std::sin(shifts[n]);
-      const double row[3] = {1.0, cosShift[n], -sinShift[n]};
-      for (int i = 0; i < 3; ++i)
-        for (int j = 0; j < 3; ++j)
-          matrix[i][j] += row[i] * row[j];
+      design.at<double>(static_cast<int>(n), 0) = 1.0;
+      design.at<double>(static_cast<int>(n), 1) = cosShift[n];
+      design.at<double>(static_cast<int>(n), 2) = -sinShift[n];
     }
-    return invert3x3(matrix, inv);
+    cv::SVD svd(design);
+    const double largest = svd.w.at<double>(0), smallest = svd.w.at<double>(2);
+    condition = smallest > 0.0 ? largest / smallest : std::numeric_limits<double>::infinity();
+    if (!std::isfinite(condition) || condition > kMaxFitCondition)
+      return false;
+    pseudoColumns.resize(frameCount);
+    for (size_t n = 0; n < frameCount; ++n)
+      for (int parameter = 0; parameter < 3; ++parameter) {
+        double weight = 0.0;
+        for (int k = 0; k < 3; ++k)
+          weight += svd.vt.at<double>(k, parameter) * svd.u.at<double>(static_cast<int>(n), k) /
+                    svd.w.at<double>(k);
+        pseudoColumns[n][parameter] = weight;
+      }
+    return true;
   }
 
   /// Подгонка a + c*cos(delta) - s*sin(delta) к кадрам в точке (x, y).
@@ -81,13 +81,12 @@ struct ShiftModel {
     double rhs[3] = {};
     for (size_t n = 0; n < frames.size(); ++n) {
       const double intensity = frames[n].pixel(x, y);
-      rhs[0] += intensity;
-      rhs[1] += cosShift[n] * intensity;
-      rhs[2] -= sinShift[n] * intensity;
+      for (int p = 0; p < 3; ++p)
+        rhs[p] += pseudoColumns[n][p] * intensity;
     }
-    a = inv[0][0] * rhs[0] + inv[0][1] * rhs[1] + inv[0][2] * rhs[2];
-    c = inv[1][0] * rhs[0] + inv[1][1] * rhs[1] + inv[1][2] * rhs[2];
-    s = inv[2][0] * rhs[0] + inv[2][1] * rhs[1] + inv[2][2] * rhs[2];
+    a = rhs[0];
+    c = rhs[1];
+    s = rhs[2];
   }
 };
 
@@ -140,6 +139,43 @@ bool fitFrameShifts(const std::vector<Bitmap> &frames, const PhaseMap &phase,
   return true;
 }
 
+// Diagnostic shift fit with per-pixel photometry fixed at the current solution.
+// Keep the same illumination model in the full-field solve and half-field check.
+bool fitPhotometricShifts(const std::vector<Bitmap> &frames, const PsiResult &current,
+                          const PointMask &points, std::vector<double> &raw) {
+  ShiftModel model;
+  if (!model.build(current.shifts))
+    return false;
+  double cc = 0.0, cs = 0.0, ss = 0.0;
+  std::vector<double> rhsC(frames.size(), 0.0), rhsS(frames.size(), 0.0);
+  for (int y = 0; y < frames[0].height(); ++y) {
+    for (int x = 0; x < frames[0].width(); ++x) {
+      if (!points[static_cast<size_t>(y) * frames[0].width() + x])
+        continue;
+      double a = 0.0, c = 0.0, s = 0.0;
+      model.fit(frames, x, y, a, c, s);
+      cc += c * c;
+      cs += c * s;
+      ss += s * s;
+      for (size_t n = 0; n < frames.size(); ++n) {
+        const double value = frames[n].pixel(x, y) - a;
+        rhsC[n] += c * value;
+        rhsS[n] -= s * value;
+      }
+    }
+  }
+  const double determinant = cc * ss - cs * cs;
+  if (!std::isfinite(determinant) || determinant <= 1e-12 * (cc + ss) * (cc + ss))
+    return false;
+  raw.resize(frames.size());
+  for (size_t n = 0; n < frames.size(); ++n) {
+    const double cosine = (ss * rhsC[n] + cs * rhsS[n]) / determinant;
+    const double sine = (cs * rhsC[n] + cc * rhsS[n]) / determinant;
+    raw[n] = std::atan2(sine, cosine);
+  }
+  return true;
+}
+
 /// Медиана; vector портится (nth_element).
 double median(std::vector<double> &values) {
   if (values.empty())
@@ -152,8 +188,9 @@ double median(std::vector<double> &values) {
 /// Расхождение сдвигов, найденных по двум половинам точек (разрез по
 /// медиане координаты), при одной и той же фазе -- СКО по кадрам, градусы.
 /// NaN, если на половину не хватило точек.
-double halvesDisagreementDeg(const std::vector<Bitmap> &frames, const PhaseMap &phase,
+double halvesDisagreementDeg(const std::vector<Bitmap> &frames, const PsiResult &result,
                              const PointMask &usable, const Tilts &tilts, bool alongX) {
+  const PhaseMap &phase = result.wrappedPhase;
   std::vector<double> coordinates;
   for (int y = 0; y < phase.height(); ++y)
     for (int x = 0; x < phase.width(); ++x)
@@ -172,8 +209,12 @@ double halvesDisagreementDeg(const std::vector<Bitmap> &frames, const PhaseMap &
   std::vector<double> lowShifts, highShifts;
   int used = 0;
   std::string ignored;
-  if (!fitFrameShifts(frames, phase, low, tilts, lowShifts, used, ignored) ||
-      !fitFrameShifts(frames, phase, high, tilts, highShifts, used, ignored))
+  const auto fitHalf = [&](const PointMask &points, std::vector<double> &shifts) {
+    return result.illuminationRefined && tilts.empty()
+               ? fitPhotometricShifts(frames, result, points, shifts)
+               : fitFrameShifts(frames, phase, points, tilts, shifts, used, ignored);
+  };
+  if (!fitHalf(low, lowShifts) || !fitHalf(high, highShifts))
     return std::numeric_limits<double>::quiet_NaN();
 
   const double twoPi = 2.0 * std::acos(-1.0);
@@ -191,22 +232,47 @@ PsiResult::Diagnostics diagnose(const std::vector<Bitmap> &frames, const PsiResu
   PsiResult::Diagnostics diagnostics;
   const PhaseMap &phase = result.wrappedPhase;
   PointMask usable(points.size(), 0);
+  long long histogram[256] = {};
+  long long sampleCount = 0;
   for (int y = 0; y < phase.height(); ++y) {
     for (int x = 0; x < phase.width(); ++x) {
       const size_t i = static_cast<size_t>(y) * phase.width() + x;
       if (points[i] && phase.hasValue(x, y)) {
         usable[i] = 1;
         ++diagnostics.shiftPoints;
+        for (const auto &frame : frames) {
+          ++histogram[frame.pixel(x, y)];
+          ++sampleCount;
+        }
       }
     }
+  }
+
+  // A video/camera pipeline may clip below 255 (the real big*.bmp series has
+  // a narrow spike at 235). Do not hardcode that level or discard these data:
+  // flag a prominent upper-end atom as a hypothesis for the operator to check.
+  int upperMode = 192;
+  for (int level = 193; level < 256; ++level)
+    if (histogram[level] > histogram[upperMode])
+      upperMode = level;
+  long long neighbourMaximum = 0, above = 0;
+  for (int level = std::max(0, upperMode - 3); level <= std::min(255, upperMode + 3); ++level)
+    if (level != upperMode)
+      neighbourMaximum = std::max(neighbourMaximum, histogram[level]);
+  for (int level = upperMode + 1; level < 256; ++level)
+    above += histogram[level];
+  if (sampleCount > 0 && histogram[upperMode] >= 0.05 * sampleCount &&
+      histogram[upperMode] > 3 * neighbourMaximum && above <= 0.01 * sampleCount) {
+    diagnostics.upperPlateauLevel = upperMode;
+    diagnostics.upperPlateauFraction = static_cast<double>(histogram[upperMode]) / sampleCount;
   }
 
   // С наклонами половины сравниваются по сдвигу в центре при уже
   // найденных наклонах: расхождение тогда -- то, что плоскость не
   // описала (или нехватка полос).
   const Tilts tilts{result.tiltX, result.tiltY};
-  const double alongX = halvesDisagreementDeg(frames, phase, usable, tilts, true);
-  const double alongY = halvesDisagreementDeg(frames, phase, usable, tilts, false);
+  const double alongX = halvesDisagreementDeg(frames, result, usable, tilts, true);
+  const double alongY = halvesDisagreementDeg(frames, result, usable, tilts, false);
   diagnostics.halvesDisagreementDeg = std::isnan(alongX) || std::isnan(alongY)
                                           ? std::numeric_limits<double>::quiet_NaN()
                                           : std::max(alongX, alongY);
@@ -261,23 +327,70 @@ void CosineFit::add(double theta, double intensity) {
 }
 
 void CosineFit::addCosSin(double cosTheta, double sinTheta, double intensity) {
-  // Строка системы: [1, cos(theta), -sin(theta)] * [a, c, s]^T = I.
-  const double row[3] = {1.0, cosTheta, -sinTheta};
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j)
-      m_matrix[i][j] += row[i] * row[j];
-    m_rhs[i] += row[i] * intensity;
-  }
   ++m_count;
+  if (!std::isfinite(cosTheta) || !std::isfinite(sinTheta) || !std::isfinite(intensity)) {
+    m_valid = false;
+    return;
+  }
+  // Append [1, cos(theta), -sin(theta)] using Givens rotations. Only R and
+  // Q^T*I are retained: constant memory even for spatial fits with many pixels.
+  double row[3] = {1.0, cosTheta, -sinTheta};
+  for (int j = 0; j < 3; ++j) {
+    const double diagonal = std::hypot(m_r[j][j], row[j]);
+    if (diagonal == 0.0)
+      continue;
+    const double cosine = m_r[j][j] / diagonal, sine = row[j] / diagonal;
+    m_r[j][j] = diagonal;
+    for (int k = j + 1; k < 3; ++k) {
+      const double old = m_r[j][k];
+      m_r[j][k] = cosine * old + sine * row[k];
+      row[k] = -sine * old + cosine * row[k];
+    }
+    const double old = m_rhs[j];
+    m_rhs[j] = cosine * old + sine * intensity;
+    intensity = -sine * old + cosine * intensity;
+  }
 }
 
 bool CosineFit::solve(double &a, double &c, double &s) const {
-  double inv[3][3];
-  if (m_count < 3 || !invert3x3(m_matrix, inv))
+  if (m_count < 3 || !m_valid)
     return false;
-  a = inv[0][0] * m_rhs[0] + inv[0][1] * m_rhs[1] + inv[0][2] * m_rhs[2];
-  c = inv[1][0] * m_rhs[0] + inv[1][1] * m_rhs[1] + inv[1][2] * m_rhs[2];
-  s = inv[2][0] * m_rhs[0] + inv[2][1] * m_rhs[1] + inv[2][2] * m_rhs[2];
+  double norm = 0.0;
+  for (int i = 0; i < 3; ++i) {
+    if (m_r[i][i] == 0.0)
+      return false;
+    double sum = 0.0;
+    for (int j = i; j < 3; ++j)
+      sum += std::fabs(m_r[i][j]);
+    norm = std::max(norm, sum);
+  }
+  // Exact infinity-norm condition of the small triangular factor. These
+  // solves estimate sensitivity only; coefficients use back substitution.
+  double inverse[3][3] = {};
+  for (int col = 0; col < 3; ++col)
+    for (int i = 2; i >= 0; --i) {
+      double rhs = i == col ? 1.0 : 0.0;
+      for (int j = i + 1; j < 3; ++j)
+        rhs -= m_r[i][j] * inverse[j][col];
+      inverse[i][col] = rhs / m_r[i][i];
+    }
+  double inverseNorm = 0.0;
+  for (const auto &row : inverse)
+    inverseNorm = std::max(inverseNorm, std::fabs(row[0]) + std::fabs(row[1]) + std::fabs(row[2]));
+  if (!std::isfinite(norm * inverseNorm) || norm * inverseNorm > kMaxFitCondition)
+    return false;
+  double solution[3];
+  for (int i = 2; i >= 0; --i) {
+    double rhs = m_rhs[i];
+    for (int j = i + 1; j < 3; ++j)
+      rhs -= m_r[i][j] * solution[j];
+    solution[i] = rhs / m_r[i][i];
+    if (!std::isfinite(solution[i]))
+      return false;
+  }
+  a = solution[0];
+  c = solution[1];
+  s = solution[2];
   return true;
 }
 
@@ -294,30 +407,55 @@ bool computePhase(const std::vector<Bitmap> &frames, const std::vector<double> &
   const int width = frames[0].width();
   const int height = frames[0].height();
 
-  // Матрица системы зависит только от сдвигов, а они одни на все пиксели:
-  // обращается один раз (см. ShiftModel).
+  // The temporal design is shared by all pixels; factor it only once.
   ShiftModel model;
   if (!model.build(shifts)) {
-    error = "Phase shifts are degenerate: at least 3 distinct shifts are needed";
+    error =
+        "Phase shifts are non-finite, degenerate or ill-conditioned "
+        "(condition limit 10000). Use better-separated shifts.";
     return false;
   }
 
   PhaseMap phase(width, height);
   PhaseMap modulation(width, height);
+  PhaseMap phaseStdError(width, height);
+  int validPoints = 0;
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       if (!isVisible(x, y))
         continue;
       double a = 0.0, c = 0.0, s = 0.0;
       model.fit(frames, x, y, a, c, s);
-
+      const double amplitude = std::hypot(c, s);
+      if (!std::isfinite(amplitude) || amplitude < kMinPhaseAmplitude)
+        continue;
+      ++validPoints;
       phase.setValue(x, y, std::atan2(s, c));                                  // (7)
-      modulation.setValue(x, y, a > 0.0 ? std::sqrt(c * c + s * s) / a : 0.0);  // (8)
+      modulation.setValue(x, y, a > 0.0 ? amplitude / a : 0.0);                // (8)
+      if (frames.size() > 3) {
+        double sse = 0.0, sensitivity = 0.0;
+        for (size_t n = 0; n < frames.size(); ++n) {
+          const double r =
+              frames[n].pixel(x, y) - (a + c * model.cosShift[n] - s * model.sinShift[n]);
+          sse += r * r;
+          const double derivative =
+              (-s * model.pseudoColumns[n][1] + c * model.pseudoColumns[n][2]) /
+              (amplitude * amplitude);
+          sensitivity += derivative * derivative;
+        }
+        const double variance = std::max(1.0 / 12.0, sse / (frames.size() - 3));
+        phaseStdError.setValue(x, y, std::sqrt(variance * sensitivity) / (2.0 * std::acos(-1.0)));
+      }
     }
   }
 
+  if (validPoints == 0) {
+    error = "No usable phase points: empty aperture or fringe amplitude below 1 intensity level";
+    return false;
+  }
   out.wrappedPhase = std::move(phase);
   out.modulation = std::move(modulation);
+  out.phaseStdError = std::move(phaseStdError);
   out.shifts = shifts;
   out.tiltX.clear();
   out.tiltY.clear();
@@ -335,6 +473,10 @@ bool computePhaseTilted(const std::vector<Bitmap> &frames, const std::vector<dou
   const size_t frameCount = frames.size();
   if (shifts.size() != frameCount || tiltX.size() != frameCount || tiltY.size() != frameCount) {
     error = "Number of phase shifts or tilts does not match the number of frames";
+    return false;
+  }
+  if (!allFinite(shifts) || !allFinite(tiltX) || !allFinite(tiltY)) {
+    error = "Phase shifts and tilts must be finite";
     return false;
   }
   const int width = frames[0].width();
@@ -360,6 +502,7 @@ bool computePhaseTilted(const std::vector<Bitmap> &frames, const std::vector<dou
 
   PhaseMap phase(width, height);
   PhaseMap modulation(width, height);
+  int validPoints = 0;
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       if (!isVisible(x, y))
@@ -373,16 +516,25 @@ bool computePhaseTilted(const std::vector<Bitmap> &frames, const std::vector<dou
       double a = 0.0, c = 0.0, s = 0.0;
       if (!fit.solve(a, c, s))
         continue;  // в этой точке сдвиги кадров совпали -- фазы нет
+      const double amplitude = std::hypot(c, s);
+      if (amplitude < kMinPhaseAmplitude)
+        continue;
+      ++validPoints;
       phase.setValue(x, y, std::atan2(s, c));
-      modulation.setValue(x, y, a > 0.0 ? std::sqrt(c * c + s * s) / a : 0.0);
+      modulation.setValue(x, y, a > 0.0 ? amplitude / a : 0.0);
     }
   }
 
+  if (validPoints == 0) {
+    error = "No usable phase points: check aperture, fringe amplitude and phase-shift conditioning";
+    return false;
+  }
   out.wrappedPhase = std::move(phase);
   out.modulation = std::move(modulation);
   out.shifts = shifts;
   out.tiltX = tiltX;
   out.tiltY = tiltY;
+  out.phaseStdError.clear();
   return true;
 }
 
@@ -507,6 +659,143 @@ std::vector<double> normalizedShifts(std::vector<double> shifts) {
   return shifts;
 }
 
+// Variable projection for I_np = a_p + c_p*cos(delta_n) - s_p*sin(delta_n).
+// Eliminate the three pixel coefficients at every trial. Unlike the article's
+// spatial cosine fit, this makes no uniform-illumination assumption. Fix delta_0
+// to zero, leaving N-1 nonlinear unknowns. The projected Gauss-Newton matrix is
+// H_jk = (I-AA^+)_jk * sum_p(d_pj*d_pk), d_pj = -c_p*sin(delta_j)-s_p*cos(delta_j).
+// The residual is orthogonal to A, so g_j = sum_p(d_pj*r_pj).
+struct ProjectedShiftSystem {
+  double cost = 0.0;
+  cv::Mat hessian, gradient;
+};
+
+bool projectedShiftSystem(const std::vector<Bitmap> &frames, const PointMask &points,
+                          const std::vector<double> &shifts, bool linearize,
+                          ProjectedShiftSystem &out) {
+  ShiftModel model;
+  if (!model.build(shifts))
+    return false;
+  const int n = static_cast<int>(frames.size());
+  ProjectedShiftSystem system;
+  if (linearize) {
+    system.hessian = cv::Mat::zeros(n - 1, n - 1, CV_64F);
+    system.gradient = cv::Mat::zeros(n - 1, 1, CV_64F);
+  }
+  double cc = 0.0, cs = 0.0, ss = 0.0;
+  int used = 0;
+  for (int y = 0; y < frames[0].height(); ++y) {
+    for (int x = 0; x < frames[0].width(); ++x) {
+      if (!points[static_cast<size_t>(y) * frames[0].width() + x])
+        continue;
+      double a = 0.0, c = 0.0, s = 0.0;
+      model.fit(frames, x, y, a, c, s);
+      ++used;
+      cc += c * c;
+      cs += c * s;
+      ss += s * s;
+      for (int j = 0; j < n; ++j) {
+        const double r =
+            frames[j].pixel(x, y) - (a + c * model.cosShift[j] - s * model.sinShift[j]);
+        system.cost += r * r;
+        if (linearize && j > 0)
+          system.gradient.at<double>(j - 1) += (-c * model.sinShift[j] - s * model.cosShift[j]) * r;
+      }
+    }
+  }
+  if (used < 3 || !std::isfinite(system.cost))
+    return false;
+  if (linearize) {
+    for (int j = 1; j < n; ++j) {
+      const double aj[3] = {1.0, model.cosShift[j], -model.sinShift[j]};
+      for (int k = 1; k < n; ++k) {
+        double projection = j == k ? 1.0 : 0.0;
+        for (int u = 0; u < 3; ++u)
+          projection -= aj[u] * model.pseudoColumns[k][u];
+        const double covariance =
+            cc * model.sinShift[j] * model.sinShift[k] +
+            cs * (model.sinShift[j] * model.cosShift[k] + model.cosShift[j] * model.sinShift[k]) +
+            ss * model.cosShift[j] * model.cosShift[k];
+        system.hessian.at<double>(j - 1, k - 1) = projection * covariance;
+      }
+    }
+    // Roundoff in the inverse normal matrix must not break the SPD solve.
+    system.hessian = (system.hessian + system.hessian.t()) * 0.5;
+  }
+  out = std::move(system);
+  return true;
+}
+
+bool hasShiftInformation(const cv::Mat &hessian) {
+  cv::Mat singular;
+  cv::SVD::compute(hessian, singular);
+  const double largest = singular.at<double>(0);
+  const double smallest = singular.at<double>(static_cast<int>(singular.total()) - 1);
+  // Engineering identifiability guard, not a calibrated uncertainty estimate.
+  return std::isfinite(largest) && largest > 0.0 && std::isfinite(smallest) &&
+         smallest > 1e-8 * largest;
+}
+
+bool refineSpatialIllumination(const std::vector<Bitmap> &frames, const PointMask &points,
+                               const PsiOptions &options, std::vector<double> &shifts,
+                               int &iterations, bool &converged) {
+  // Three/four arbitrary frames do not in general determine this larger model.
+  // Start with the article solution and retain it if the projected system lacks
+  // information (also possible with repeated shifts or insufficient phase span).
+  if (frames.size() < 5 || iterations >= options.maxIterations)
+    return false;
+  ProjectedShiftSystem current;
+  if (!projectedShiftSystem(frames, points, shifts, true, current) ||
+      !hasShiftInformation(current.hessian))
+    return false;
+
+  converged = false;
+  double damping = 1e-3;
+  while (iterations < options.maxIterations) {
+    ++iterations;
+    cv::Mat unconstrainedStep;
+    if (!cv::solve(current.hessian, current.gradient, unconstrainedStep, cv::DECOMP_CHOLESKY))
+      return true;
+    if (cv::norm(unconstrainedStep, cv::NORM_INF) < options.tolerance) {
+      converged = true;
+      return true;
+    }
+    bool accepted = false;
+    for (int attempt = 0; attempt < 10; ++attempt) {
+      cv::Mat h = current.hessian.clone();
+      for (int j = 0; j < h.rows; ++j)
+        h.at<double>(j, j) *= 1.0 + damping;
+      cv::Mat step;
+      if (!cv::solve(h, current.gradient, step, cv::DECOMP_CHOLESKY))
+        break;
+      const double maximum = cv::norm(step, cv::NORM_INF);
+      if (!std::isfinite(maximum))
+        break;
+      // A local model must not jump to another phase branch in a single trial.
+      if (maximum > 0.25)
+        step *= 0.25 / maximum;
+      auto trial = shifts;
+      for (size_t n = 1; n < trial.size(); ++n)
+        trial[n] += step.at<double>(static_cast<int>(n) - 1);
+      ProjectedShiftSystem candidate;
+      if (projectedShiftSystem(frames, points, trial, false, candidate) &&
+          candidate.cost < current.cost) {
+        shifts = normalizedShifts(std::move(trial));
+        accepted = true;
+        damping = std::max(1e-12, damping * 0.1);
+        break;
+      }
+      damping *= 10.0;
+    }
+    if (!accepted)
+      return true;  // Keep the best accepted parameters, but not "converged".
+    if (!projectedShiftSystem(frames, points, shifts, true, current) ||
+        !hasShiftInformation(current.hessian))
+      return true;
+  }
+  return true;
+}
+
 /// Уравнения не различают решение (phi, delta) и зеркальное (-phi,
 /// -delta): cos(phi + delta) == cos(-phi - delta) (с наклонами --
 /// зеркальны и они). Какое из двух найдут итерации, зависит от пути, а от
@@ -587,10 +876,18 @@ bool solveWithUnknownShifts(const std::vector<Bitmap> &frames,
     if (!computePhase(frames, shifts, isShiftPoint, result, error))
       return false;
     result.iterations = iteration;
-    if (change < options.tolerance) {
-      result.converged = true;
+    result.converged = change < options.tolerance;
+    // The uniform-illumination initializer need not converge on nonuniform
+    // data. Switch once it has supplied a usable local starting point; leave
+    // the remaining iteration budget for the full photometric model.
+    if ((result.converged || iteration >= 5) &&
+        refineSpatialIllumination(frames, shiftPoints, options, shifts, result.iterations,
+                                  result.converged)) {
+      result.illuminationRefined = true;
       break;
     }
+    if (result.converged)
+      break;
   }
 
   // Итоговая фаза -- во всей апертуре (iterations и converged не трогает).
@@ -641,6 +938,137 @@ struct TiltPlanes {
     return total;
   }
 };
+
+// Full photometric model for tilted shifts. Pixel backgrounds/amplitudes are
+// eliminated with SVD; only frame planes are optimized. Frame 0 fixes the gauge.
+// Coordinates span one frame so all three plane parameters have radian units.
+bool projectedTiltSystem(const std::vector<Bitmap> &frames, const PointMask &points,
+                         const cv::Mat &parameters, bool linearize, ProjectedShiftSystem &out) {
+  const int n = static_cast<int>(frames.size()), dimension = 3 * (n - 1);
+  const int width = frames[0].width(), height = frames[0].height();
+  ProjectedShiftSystem system;
+  if (linearize) {
+    system.hessian = cv::Mat::zeros(dimension, dimension, CV_64F);
+    system.gradient = cv::Mat::zeros(dimension, 1, CV_64F);
+  }
+  std::vector<double> shifts(n, 0.0), derivatives(n), residuals(n);
+  ShiftModel model;
+  int used = 0;
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      if (!points[static_cast<size_t>(y) * width + x])
+        continue;
+      const double basis[3] = {1.0, centered(x, width) / std::max(1, width - 1),
+                               centered(y, height) / std::max(1, height - 1)};
+      for (int j = 1; j < n; ++j) {
+        shifts[j] = 0.0;
+        for (int p = 0; p < 3; ++p)
+          shifts[j] += parameters.at<double>(3 * (j - 1) + p) * basis[p];
+      }
+      // Never improve the objective by silently dropping difficult pixels.
+      if (!model.build(shifts))
+        return false;
+      double a = 0.0, c = 0.0, s = 0.0;
+      model.fit(frames, x, y, a, c, s);
+      ++used;
+      for (int j = 0; j < n; ++j) {
+        residuals[j] = frames[j].pixel(x, y) - (a + c * model.cosShift[j] - s * model.sinShift[j]);
+        derivatives[j] = -c * model.sinShift[j] - s * model.cosShift[j];
+        system.cost += residuals[j] * residuals[j];
+      }
+      if (!linearize)
+        continue;
+      for (int j = 1; j < n; ++j) {
+        for (int p = 0; p < 3; ++p)
+          system.gradient.at<double>(3 * (j - 1) + p) += derivatives[j] * basis[p] * residuals[j];
+        const double row[3] = {1.0, model.cosShift[j], -model.sinShift[j]};
+        for (int k = 1; k < n; ++k) {
+          double projection = j == k ? 1.0 : 0.0;
+          for (int p = 0; p < 3; ++p)
+            projection -= row[p] * model.pseudoColumns[k][p];
+          const double weight = projection * derivatives[j] * derivatives[k];
+          for (int p = 0; p < 3; ++p)
+            for (int q = 0; q < 3; ++q)
+              system.hessian.at<double>(3 * (j - 1) + p, 3 * (k - 1) + q) +=
+                  weight * basis[p] * basis[q];
+        }
+      }
+    }
+  }
+  if (used < dimension || !std::isfinite(system.cost))
+    return false;
+  if (linearize)
+    system.hessian = (system.hessian + system.hessian.t()) * 0.5;
+  out = std::move(system);
+  return true;
+}
+
+bool refineTiltIllumination(const std::vector<Bitmap> &frames, const PointMask &points,
+                            const PsiOptions &options, TiltPlanes &planes, int &iterations,
+                            bool &converged) {
+  if (frames.size() < 5 || iterations >= options.maxIterations)
+    return false;
+  const int width = frames[0].width(), height = frames[0].height();
+  cv::Mat parameters = cv::Mat::zeros(3 * (static_cast<int>(frames.size()) - 1), 1, CV_64F);
+  for (size_t j = 1; j < frames.size(); ++j) {
+    const int index = 3 * (static_cast<int>(j) - 1);
+    parameters.at<double>(index) = planes.shiftX[j] + planes.shiftY[j];
+    parameters.at<double>(index + 1) = planes.tiltX[j] * std::max(1, width - 1);
+    parameters.at<double>(index + 2) = planes.tiltY[j] * std::max(1, height - 1);
+  }
+  ProjectedShiftSystem current;
+  if (!projectedTiltSystem(frames, points, parameters, true, current) ||
+      !hasShiftInformation(current.hessian))
+    return false;
+  converged = false;
+  double damping = 1e-3;
+  while (iterations < options.maxIterations) {
+    ++iterations;
+    cv::Mat rawStep;
+    if (!cv::solve(current.hessian, current.gradient, rawStep, cv::DECOMP_CHOLESKY))
+      break;
+    if (cv::norm(rawStep, cv::NORM_INF) < options.tolerance) {
+      converged = true;
+      break;
+    }
+    bool accepted = false;
+    for (int attempt = 0; attempt < 10; ++attempt) {
+      cv::Mat h = current.hessian.clone(), step;
+      for (int p = 0; p < h.rows; ++p)
+        h.at<double>(p, p) *= 1.0 + damping;
+      if (!cv::solve(h, current.gradient, step, cv::DECOMP_CHOLESKY))
+        break;
+      const double maximum = cv::norm(step, cv::NORM_INF);
+      if (!std::isfinite(maximum))
+        break;
+      if (maximum > 0.25)
+        step *= 0.25 / maximum;
+      cv::Mat trial = parameters + step;
+      ProjectedShiftSystem candidate;
+      if (projectedTiltSystem(frames, points, trial, false, candidate) &&
+          candidate.cost < current.cost) {
+        parameters = std::move(trial);
+        accepted = true;
+        damping = std::max(1e-12, damping * 0.1);
+        break;
+      }
+      damping *= 10.0;
+    }
+    if (!accepted)
+      break;
+    if (!projectedTiltSystem(frames, points, parameters, true, current) ||
+        !hasShiftInformation(current.hessian))
+      break;
+  }
+  for (size_t j = 1; j < frames.size(); ++j) {
+    const int index = 3 * (static_cast<int>(j) - 1);
+    planes.shiftX[j] = parameters.at<double>(index);
+    planes.shiftY[j] = 0.0;
+    planes.tiltX[j] = parameters.at<double>(index + 1) / std::max(1, width - 1);
+    planes.tiltY[j] = parameters.at<double>(index + 2) / std::max(1, height - 1);
+  }
+  return true;
+}
 
 /// Развёртка сдвигов линий (столбцов или строк) по порядку и взвешенная
 /// прямая value = slope*coordinate + intercept. Линии с weight == 0
@@ -975,6 +1403,8 @@ bool solveWithTiltShifts(const std::vector<Bitmap> &frames,
   iterate(iterations, best, options.maxIterations);
 
   PsiResult result;
+  result.illuminationRefined = refineTiltIllumination(frames, shiftPoints, options, best.planes,
+                                                      best.iterations, best.converged);
   if (!computePhaseTilted(frames, best.planes.centerShifts(), best.planes.tiltX,
                           best.planes.tiltY, isVisible, result, error))
     return false;

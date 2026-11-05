@@ -1,0 +1,72 @@
+{
+  "upper_level_hypothesis": 235,
+  "fraction_pupil_with_upper_samples": 0.43216783216783217,
+  "fits": {
+    "all": {
+      "pixels": 25649,
+      "converged": true,
+      "intensity_rms": 4.035104512147437,
+      "phase_design_condition": 1.6546906706138482,
+      "shift_information_ratio": 0.004878429974992092,
+      "median_fringe_amplitude": 28.35249332255576,
+      "shifts_deg": [
+        0.0,
+        89.45451287334693,
+        164.72529869955594,
+        253.83700323918464,
+        8.386498201883327
+      ]
+    },
+    "below_upper": {
+      "pixels": 13934,
+      "converged": true,
+      "intensity_rms": 3.4906190589388446,
+      "phase_design_condition": 1922.3112637213503,
+      "shift_information_ratio": 3.763006815494773e-13,
+      "median_fringe_amplitude": 12256.664428022417,
+      "shifts_deg": [
+        0.0,
+        1.4712801896378647,
+        9.287991743185428,
+        10.87454536364671,
+        0.03401202100778897
+      ]
+    },
+    "below_upper_left": {
+      "pixels": 10634,
+      "converged": true,
+      "intensity_rms": 2.854878072060087,
+      "phase_design_condition": 1.974272463974908,
+      "shift_information_ratio": 0.0020104754128138728,
+      "median_fringe_amplitude": 36.07536322744779,
+      "shifts_deg": [
+        0.0,
+        108.54534646635044,
+        158.82293101185692,
+        278.40614426764887,
+        353.86835643809195
+      ]
+    },
+    "below_upper_right": {
+      "pixels": 3300,
+      "converged": true,
+      "intensity_rms": 2.6389537956541864,
+      "phase_design_condition": 1.7844513683479766,
+      "shift_information_ratio": 0.08193933615515873,
+      "median_fringe_amplitude": 32.46964700211503,
+      "shifts_deg": [
+        0.0,
+        105.08187782119467,
+        177.21686011654512,
+        292.74873286008403,
+        27.155027042447035
+      ]
+    }
+  },
+  "held_out_bright_samples": {
+    "pixels": 9960,
+    "fraction_predictions_obey_upper_bound": 0.685140562248996,
+    "linear_intensity_rms": 4.509503224064325,
+    "unsaturated_fit_clamped_prediction_rms": 15.1788582187713
+  }
+}

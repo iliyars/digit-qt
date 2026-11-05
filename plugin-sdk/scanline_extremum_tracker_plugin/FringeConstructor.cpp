@@ -67,6 +67,11 @@ std::vector<NumberedFringe> FringeConstructor::constructFringes(
         for (int adjacentY = y - step;
              step > 0 ? adjacentY >= searchBound : adjacentY <= searchBound;
              adjacentY -= step) {
+          // Searching all the way back to the anchor can attach an extremum
+          // to a different fringe that occupied this x many rows earlier.
+          // Only bridge a small gap in otherwise continuous detections.
+          if (std::abs(adjacentY - y) > 2)
+            break;
           const auto &candidate = scanlines[static_cast<size_t>(adjacentY)];
           const int idx =
               findMatchingExtremum(ne, ne.position.x, candidate, tolerance, fringeCenterAs);

@@ -339,6 +339,7 @@ def run_demo(args, log=print):
     w = true_wavefront(args)
     idf = write_series(args, make_frames(args, w))
     log("Серия: %d кадров %dx%d -> %s" % (len(args.shifts), args.size, args.size, idf))
+    log("Расчёт: %s" % os.path.abspath(args.exe))
     log("Заложено: сдвиги %s град; наклон x %s, y %s волн на кадр"
         % (args.shifts, args.tilt_x, args.tilt_y))
     log("          фронт PV %.3f волн; шум %g; пучок %s; номинальный шаг %g"

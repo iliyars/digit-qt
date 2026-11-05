@@ -5,6 +5,7 @@
 #include "gui/NotImplementedPage.h"
 #include "gui/ParametersDock.h"
 #include "gui/PipelineTreeDock.h"
+#include "gui/PsiWorkflowPanel.h"
 #include "core/FiducialTransformFit.h"
 #include "core/ImagePadding.h"
 #include "formats/FormatRegistry.h"
@@ -31,7 +32,9 @@
 #include <QStatusBar>
 #include <QStyle>
 #include <QToolBar>
+#include <QTimer>
 #include <QUndoStack>
+#include <QVBoxLayout>
 
 #include <algorithm>
 #include <cmath>
@@ -79,7 +82,52 @@ MainWindow::MainWindow(QWidget *parent)
   m_centralStack->addWidget(m_phaseMapView);  // index 1: S2/S4 (Phase/Wavefront)
   m_centralStack->addWidget(modalSplitter);   // index 2: S5 (Modal Analysis, 3D + 2D residual)
   m_centralStack->addWidget(m_notImplementedPage);  // index 3: everything else
-  setCentralWidget(m_centralStack);
+  m_psiWorkflow = new PsiWorkflowPanel(this);
+  auto *workspace = new QWidget(this);
+  auto *workspaceLayout = new QVBoxLayout(workspace);
+  workspaceLayout->setContentsMargins(0, 0, 0, 0);
+  workspaceLayout->addWidget(m_psiWorkflow);
+  workspaceLayout->addWidget(m_centralStack, 1);
+  setCentralWidget(workspace);
+  connect(m_psiWorkflow, &PsiWorkflowPanel::openRequested, this,
+          &MainWindow::openPhaseShiftingSeries);
+  connect(m_psiWorkflow, &PsiWorkflowPanel::sourceRequested, this,
+          [this] { m_pipelineDock->selectStage(StageId::Setup); });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::frameSelected, this, [this](int index) {
+    const auto &frames = m_measurement->phaseShifting().frames();
+    if (index < 0 || static_cast<size_t>(index) >= frames.size())
+      return;
+    m_pipelineDock->selectStage(StageId::Setup);
+    m_canvas->setDisplayedFrame(frames[static_cast<size_t>(index)]);
+  });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::autoApertureRequested, this, [this] {
+    m_pipelineDock->selectStage(StageId::Setup);
+    m_controller->autoDetectAperture();
+    if (!m_controller->lastError().isEmpty())
+      QMessageBox::warning(this, tr("Auto Detect Aperture"), m_controller->lastError());
+  });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::drawApertureRequested, this, [this] {
+    m_pipelineDock->selectStage(StageId::Setup);
+    m_canvas->setActiveController(ActiveController::Boundary);
+    m_controller->setMode(EditMode::AddExternalEllipse);
+  });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::editApertureRequested, this, [this] {
+    m_pipelineDock->selectStage(StageId::Setup);
+    m_canvas->setActiveController(ActiveController::Boundary);
+    m_controller->setMode(EditMode::Select);
+  });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::phaseRequested, this,
+          [this] { m_pipelineDock->selectStage(StageId::S2); });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::wavefrontRequested, this,
+          [this] { m_pipelineDock->selectStage(StageId::S4); });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::analysisRequested, this,
+          [this] { m_pipelineDock->selectStage(StageId::S5); });
+  connect(m_psiWorkflow, &PsiWorkflowPanel::calculateRequested, this, [this] {
+    computePhase([this] {
+      computeWavefront(
+          [this] { computeModalAnalysis([this] { m_pipelineDock->selectStage(StageId::S2); }); });
+    });
+  });
 
   m_statusLabel = new QLabel(this);
   statusBar()->addPermanentWidget(m_statusLabel);
@@ -108,9 +156,9 @@ MainWindow::MainWindow(QWidget *parent)
   buildDocks();
   connect(m_parametersDock, &ParametersDock::inputsChanged, this, &MainWindow::updateStatusBar);
 
-  m_disableWhileBusy = {menuBar(),         m_setupToolBar,    m_phaseToolBar,
-                        m_wavefrontToolBar, m_modalToolBar,    m_pipelineDock,
-                        m_parametersDock,   m_centralStack};
+  m_disableWhileBusy = {menuBar(),          m_setupToolBar, m_phaseToolBar,
+                        m_wavefrontToolBar, m_modalToolBar, m_pipelineDock,
+                        m_parametersDock,   m_centralStack, m_psiWorkflow};
 
   m_controller->setMeasurement(m_measurement.get());
   m_fringeController->setMeasurement(m_measurement.get());
@@ -125,6 +173,7 @@ MainWindow::MainWindow(QWidget *parent)
   m_parametersDock->setMeasurement(m_measurement.get());
   m_parametersDock->setFringeController(m_fringeController);
   m_parametersDock->setPhaseMapView(m_phaseMapView);
+  m_psiWorkflow->setMeasurement(m_measurement.get(), m_pipeline.get());
   onStageSelected(StageId::Setup);
   updateStatusBar();
 }
@@ -133,6 +182,11 @@ MainWindow::~MainWindow() {
   // Also covers application shutdown or direct deletion, which may bypass close().
   // The worker captures this and uses both model members and QObject controllers.
   m_backgroundComputation.waitForFinished();
+  // QUndoStack is a QObject child: it is normally destroyed after members,
+  // including Measurement. Its clear/indexChanged notifications must not ask
+  // controllers to rebuild overlays from an already destroyed measurement.
+  m_undoStack->clear();
+  disconnect(m_undoStack,nullptr,this,nullptr);
 }
 
 void MainWindow::buildMenusAndToolbars() {
@@ -149,6 +203,7 @@ void MainWindow::buildMenusAndToolbars() {
       tr("Load a WinFringe .mtr wavefront matrix (straight into Phase/Wavefront/Modal "
          "Analysis) or a .frn file with aperture shapes and numbered fringes (into Setup)"));
   auto *exportMtrAction = fileMenu->addAction(tr("Export &Wavefront (.mtr)..."));
+  connect(m_psiWorkflow, &PsiWorkflowPanel::exportMapRequested, exportMtrAction, &QAction::trigger);
   connect(exportMtrAction, &QAction::triggered, this, [this] {
     if (!ensureCurrentResults({StageId::S2, StageId::S4}))
       return;
@@ -205,6 +260,8 @@ void MainWindow::buildMenusAndToolbars() {
       QMessageBox::warning(this, tr("Export"), tr("Export failed:\n%1").arg(err));
   });
   auto *exportReportAction = fileMenu->addAction(tr("Export &Report (.txt)..."));
+  connect(m_psiWorkflow, &PsiWorkflowPanel::exportReportRequested, exportReportAction,
+          &QAction::trigger);
   exportReportAction->setToolTip(
       tr("Save everything computed so far as a plain text report: input and aperture, S2 "
          "(for PSI -- shifts and tilts per frame, diagnostics), S4 and the S5 aberrations"));
@@ -314,6 +371,7 @@ void MainWindow::buildMenusAndToolbars() {
   // element you're about to click beforehand (see ImageCanvas's
   // resolveUnifiedSelection, which hit-tests to decide). ---
   auto *selectAction = toolBar->addAction(cursorIcon(), tr("Select / move / delete"));
+  selectAction->setObjectName("selectTool");
   selectAction->setToolTip(
       tr("Select / move / delete a boundary or a seed point (click one directly)"));
   selectAction->setCheckable(true);
@@ -395,6 +453,7 @@ void MainWindow::buildMenusAndToolbars() {
   });
   toolBar->addSeparator();
 
+  const auto apertureActions = toolBar->actions();
   // --- Fringe tracing (seed points + run tracer) ---
   addFringeModeAction(seedIcon(), tr("Add seed point (click on a fringe)"),
                       FringeEditMode::AddSeed);
@@ -406,7 +465,7 @@ void MainWindow::buildMenusAndToolbars() {
   auto *autoSeedAction =
       toolBar->addAction(digitqt::gui::icons::autoSeedIcon(), tr("Auto-place seeds"));
   autoSeedAction->setToolTip(
-      tr("Automatically place seeds along one row at the fringes' intensity peaks"));
+      tr("Automatically place seeds at bright peaks along a row or column across the fringes"));
   connect(autoSeedAction, &QAction::triggered, this,
           [this] { m_fringeController->autoPlaceSeeds(); });
 
@@ -486,6 +545,9 @@ void MainWindow::buildMenusAndToolbars() {
 
   toolBar->addSeparator();
 
+  for (auto *action : toolBar->actions())
+    if (!apertureActions.contains(action))
+      m_nonPsiSetupActions.append(action);
   // --- Shared actions: Delete (whichever tool is active) and Trace ---
   auto *deleteAction =
       toolBar->addAction(style()->standardIcon(QStyle::SP_TrashIcon), tr("Delete selected"));
@@ -503,6 +565,7 @@ void MainWindow::buildMenusAndToolbars() {
   auto *traceAction =
       toolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Trace fringes"));
   traceAction->setToolTip(tr("Run the fringe tracer on all seed points"));
+  m_nonPsiSetupActions.append(traceAction);
   connect(traceAction, &QAction::triggered, this, [this, switchToSelectTool] {
     runTracing();
     switchToSelectTool();
@@ -538,7 +601,7 @@ void MainWindow::buildMenusAndToolbars() {
   auto *computePhaseAction =
       phaseToolBar->addAction(style()->standardIcon(QStyle::SP_MediaPlay), tr("Compute phase"));
   computePhaseAction->setToolTip(tr("Reconstruct the phase map from the numbered fringe lines"));
-  connect(computePhaseAction, &QAction::triggered, this, &MainWindow::computePhase);
+  connect(computePhaseAction, &QAction::triggered, this, [this] { computePhase(); });
 
   // --- Wavefront toolbar (S4: same heatmap/isolines toggles, own
   // Compute button -- see the shared QAction objects below, which keep
@@ -620,6 +683,7 @@ void MainWindow::buildDocks() {
 }
 
 void MainWindow::onStageSelected(StageId id) {
+  m_currentStage = id;
   const bool isSetup = (id == StageId::Setup);
   const bool isPhase = (id == StageId::S2);
   const bool isWavefront = (id == StageId::S4);
@@ -648,6 +712,12 @@ void MainWindow::onStageSelected(StageId id) {
   m_modalToolBar->setVisible(isModal);
 
   m_parametersDock->setStage(id);
+  QTimer::singleShot(0,this,[this,id]{
+    if(m_currentStage!=id) return;
+    if(id==StageId::Setup) m_canvas->fitImageToView();
+    else if(id==StageId::S2 || id==StageId::S4) m_phaseMapView->fitMapToView();
+    else if(id==StageId::S5) m_modalPhaseMapView->fitMapToView();
+  });
 }
 
 void MainWindow::runTracing() {
@@ -663,12 +733,11 @@ void MainWindow::runTracing() {
       });
 }
 
-void MainWindow::computePhase() {
+void MainWindow::computePhase(std::function<void()> then) {
   runComputeInBackground(
-      StageId::S2,
-      tr("Reconstructing phase..."),
+      StageId::S2, tr("Reconstructing phase..."),
       [this] { return m_pipeline->compute(StageId::S2, *m_measurement); },
-      [this](bool ok) {
+      [this, then](bool ok) {
         if (!ok) {
           QMessageBox::warning(this, tr("Phase Reconstruction"),
                                tr("Phase reconstruction failed:\n%1")
@@ -680,7 +749,10 @@ void MainWindow::computePhase() {
           showPhaseShiftingReport();
         }
         m_phaseMapView->refresh();
+        m_phaseMapView->fitMapToView();
         updateStatusBar();
+        if (then && ok)
+          then();
       });
 }
 
@@ -890,11 +962,18 @@ void MainWindow::openPhaseShiftingSeries() {
   m_measurement->setCustomPhaseReconstructorPluginPath({});
   m_measurement->setPhaseReconstructionAlgorithm(
       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  m_psiFramePaths = paths;
+  m_canvas->setActiveController(ActiveController::Boundary);
+  m_controller->setMode(EditMode::Select);
+  m_fringeController->setMode(FringeEditMode::Select);
+  m_fiducialController->setMode(FiducialEditMode::Select);
   resetViewsToMeasurement();
+  if (auto *select = findChild<QAction *>("selectTool"))
+    select->trigger();
+  m_pipelineDock->selectStage(StageId::Setup);
   updateStatusBar();
   statusBar()->showMessage(
-      tr("Loaded %1 phase-shifting frames; the first one is shown. Draw the aperture, then "
-         "run Phase Reconstruction.")
+      tr("Loaded %1 phase-shifting frames. Check the frames and aperture, then use Calculate PSI.")
           .arg(paths.size()));
 }
 
@@ -908,6 +987,9 @@ void MainWindow::resetViewsToMeasurement() {
   m_phaseMapView->setMeasurement(m_measurement.get());
   m_surface3DView->setMeasurement(m_measurement.get());
   m_modalPhaseMapView->setMeasurement(m_measurement.get());
+  if (!m_measurement->phaseShifting().hasSeries())
+    m_psiFramePaths.clear();
+  m_psiWorkflow->setMeasurement(m_measurement.get(), m_pipeline.get(), m_psiFramePaths);
 }
 
 void MainWindow::importFile() {
@@ -1125,6 +1207,22 @@ void MainWindow::showPhaseShiftingReport() {
                                .arg(shifts.join(QStringLiteral(" / "))));
 
   QStringList warnings;
+  if (!std::isfinite(report.phaseStdErrorP95))
+    warnings << tr(
+        "Conditional phase noise is unavailable (three frames or tilt model). "
+        "A completed calculation does not establish map accuracy.");
+  if (report.mapCoverage < 0.9)
+    warnings << tr("Only %1% of the aperture remains in the phase map. Check the missing areas.")
+                    .arg(100.0 * report.mapCoverage, 0, 'f', 1);
+  if (report.noisyPointFraction > 0.05)
+    warnings << tr("%1% of retained points have conditional phase noise above 0.05 cycles. "
+                   "The map may be unreliable; use better-separated shifts or improve the signal.")
+                    .arg(100.0 * report.noisyPointFraction, 0, 'f', 1);
+  if (report.upperPlateauLevel >= 0)
+    warnings << tr("Many samples share an upper intensity level (%1; %2%). Possible clipping or "
+                   "nonlinear camera processing; check exposure and capture settings.")
+                    .arg(report.upperPlateauLevel)
+                    .arg(100.0 * report.upperPlateauFraction, 0, 'f', 1);
   if (!report.converged)
     warnings << tr("The phase shifts did not settle within the iteration limit; the map may "
                    "still carry shift errors (step-like ripple across the fringes).");
@@ -1159,8 +1257,18 @@ void MainWindow::showPhaseShiftingReport() {
     warnings << tr("The valid area falls apart into %1 disconnected regions; their relative "
                    "fringe orders are unknown, so steps between them are not real.")
                     .arg(report.regionCount);
-  if (!warnings.isEmpty())
-    QMessageBox::warning(this, tr("Phase Shifting"), warnings.join(QStringLiteral("\n\n")));
+  m_psiWorkflow->setWarnings(warnings);
+}
+
+void MainWindow::refreshPsiWorkspace() {
+  const bool psi = m_measurement->phaseShifting().hasSeries() &&
+                   m_measurement->customPhaseReconstructorPluginPath().empty() &&
+                   m_measurement->phaseReconstructionAlgorithm() ==
+                       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+  for (auto *action : m_nonPsiSetupActions)
+    action->setVisible(!psi);
+  m_pipelineDock->setPsiMode(psi);
+  m_psiWorkflow->refresh();
 }
 
 void MainWindow::updateStatusBar() {
@@ -1169,13 +1277,22 @@ void MainWindow::updateStatusBar() {
     return;
   }
   m_pipeline->synchronizeInputs(*m_measurement);
+  refreshPsiWorkspace();
   const auto &b = m_measurement->boundaries();
   const auto &tracingData = m_measurement->fringeTracing();
-  m_statusLabel->setText(tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
-                             .arg(b.getExternal().size())
-                             .arg(b.getInternal().size())
-                             .arg(tracingData.seeds().size())
-                             .arg(tracingData.tracedLines().size()));
+  if (m_measurement->phaseShifting().hasSeries() &&
+      m_measurement->phaseReconstructionAlgorithm() ==
+          digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting)
+    m_statusLabel->setText(tr("PSI · Frames: %1 · Apertures: %2 · Obscurations: %3")
+                               .arg(m_measurement->phaseShifting().frames().size())
+                               .arg(b.getExternal().size())
+                               .arg(b.getInternal().size()));
+  else
+    m_statusLabel->setText(tr("External: %1   Internal: %2   Seeds: %3   Traced: %4")
+                               .arg(b.getExternal().size())
+                               .arg(b.getInternal().size())
+                               .arg(tracingData.seeds().size())
+                               .arg(tracingData.tracedLines().size()));
   if (m_pipeline->hasOutdatedResults())
     m_statusLabel->setText(m_statusLabel->text() +
                            tr(" — Results are out of date; recompute affected stages."));

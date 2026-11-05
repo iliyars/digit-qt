@@ -6,7 +6,7 @@ add_library(horizontal_spline_phase_plugin MODULE
     plugin.cpp
 )
 
-target_link_libraries(horizontal_spline_phase_plugin PRIVATE DigitQt::PluginAbi)
+target_link_libraries(horizontal_spline_phase_plugin PRIVATE DigitQt::PluginAbi Eigen3::Eigen)
 
 set_target_properties(horizontal_spline_phase_plugin PROPERTIES
     CXX_STANDARD 17

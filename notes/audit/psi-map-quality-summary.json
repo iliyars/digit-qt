@@ -1,0 +1,290 @@
+[
+  {
+    "step_deg": 0.5,
+    "amplitude": 80,
+    "noise_sigma": 0,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 80,
+    "noise_sigma": 0,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.048479,
+    "noisy_point_fraction": 0.028744299999999997,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.02846420192282226
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 80,
+    "noise_sigma": 0,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.00624113,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.00335419059730725
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 80,
+    "noise_sigma": 0,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.000982384,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.00043545816845328046
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 80,
+    "noise_sigma": 0,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.000405649,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.000578038040597129
+  },
+  {
+    "step_deg": 0.5,
+    "amplitude": 80,
+    "noise_sigma": 1,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 80,
+    "noise_sigma": 1,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.263257,
+    "noisy_point_fraction": 0.553243,
+    "coverage": 0.9447806354009077,
+    "phase_rms_orders": 0.6719868552878568
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 80,
+    "noise_sigma": 1,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.0231611,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.011938343772798935
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 80,
+    "noise_sigma": 1,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.00324798,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0017864951076360953
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 80,
+    "noise_sigma": 1,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.00234817,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0013602059272780416
+  },
+  {
+    "step_deg": 0.5,
+    "amplitude": 80,
+    "noise_sigma": 3,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 80,
+    "noise_sigma": 3,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 1,
+    "error": "Stage failed: No valid points remain for modal fitting. Check the map and edge erosion.\n"
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 80,
+    "noise_sigma": 3,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.0723087,
+    "noisy_point_fraction": 0.16307200000000002,
+    "coverage": 0.9996217851739788,
+    "phase_rms_orders": 0.036111298038323164
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 80,
+    "noise_sigma": 3,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.0093608,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.0052036078904908615
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 80,
+    "noise_sigma": 3,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.00667776,
+    "noisy_point_fraction": 0.0,
+    "coverage": 1.0,
+    "phase_rms_orders": 0.00394208111732887
+  },
+  {
+    "step_deg": 0.5,
+    "amplitude": 8,
+    "noise_sigma": 0,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 8,
+    "noise_sigma": 0,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 1,
+    "error": "Stage failed: Not enough valid points to fit (need at least 11)\n"
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 8,
+    "noise_sigma": 0,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: every connected area is smaller than 100 points\n"
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 8,
+    "noise_sigma": 0,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: no valid phase points\n"
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 8,
+    "noise_sigma": 0,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: no valid phase points\n"
+  },
+  {
+    "step_deg": 0.5,
+    "amplitude": 8,
+    "noise_sigma": 1,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 8,
+    "noise_sigma": 1,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 0,
+    "error": "",
+    "conditional_noise_p95": 0.24114,
+    "noisy_point_fraction": 0.257509,
+    "coverage": 0.8562783661119516,
+    "phase_rms_orders": 1.658822592822109
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 8,
+    "noise_sigma": 1,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: every connected area is smaller than 100 points\n"
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 8,
+    "noise_sigma": 1,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: no valid phase points\n"
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 8,
+    "noise_sigma": 1,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: no valid phase points\n"
+  },
+  {
+    "step_deg": 0.5,
+    "amplitude": 8,
+    "noise_sigma": 3,
+    "design_condition_2": 31388.12440527538,
+    "returncode": 1,
+    "error": "Stage failed: Phase shifts are non-finite, degenerate or ill-conditioned (condition limit 10000). Use better-separated shifts.\n"
+  },
+  {
+    "step_deg": 5,
+    "amplitude": 8,
+    "noise_sigma": 3,
+    "design_condition_2": 312.40026629378883,
+    "returncode": 1,
+    "error": "Stage failed: No valid points remain for modal fitting. Check the map and edge erosion.\n"
+  },
+  {
+    "step_deg": 15,
+    "amplitude": 8,
+    "noise_sigma": 3,
+    "design_condition_2": 33.47563768168233,
+    "returncode": 1,
+    "error": "Stage failed: No valid points remain for modal fitting. Check the map and edge erosion.\n"
+  },
+  {
+    "step_deg": 45,
+    "amplitude": 8,
+    "noise_sigma": 3,
+    "design_condition_2": 3.1052312376028,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: every connected area is smaller than 100 points\n"
+  },
+  {
+    "step_deg": 90,
+    "amplitude": 8,
+    "noise_sigma": 3,
+    "design_condition_2": 1.6453287760160726,
+    "returncode": 1,
+    "error": "Stage failed: Nothing to unwrap: every connected area is smaller than 100 points\n"
+  }
+]

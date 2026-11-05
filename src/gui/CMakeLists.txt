@@ -4,6 +4,8 @@ target_sources(DigitQt
         BackgroundComputation.cpp
         MainWindow.h
         MainWindow.cpp
+        PsiWorkflowPanel.h
+        PsiWorkflowPanel.cpp
         IconFactory.h
         IconFactory.cpp
         PipelineTreeDock.h

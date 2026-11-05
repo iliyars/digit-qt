@@ -273,6 +273,7 @@ ParametersDock::ParametersDock(QWidget *parent)
   psiStepLabel->setContentsMargins(8, 8, 8, 0);
   psiStepLayout->addWidget(psiStepLabel);
   m_psiStepSpin = new QDoubleSpinBox(m_psiStepRow);
+  m_psiStepSpin->setObjectName("psiNominalStep");
   m_psiStepSpin->setRange(1.0, 359.0);
   m_psiStepSpin->setDecimals(1);
   m_psiStepSpin->setSuffix(tr(" deg"));
@@ -289,6 +290,7 @@ ParametersDock::ParametersDock(QWidget *parent)
           });
   psiStepLayout->addWidget(m_psiStepSpin);
   m_psiTiltCheck = new QCheckBox(tr("Compensate tilt between frames"), m_psiStepRow);
+  m_psiTiltCheck->setObjectName("psiTiltCompensation");
   m_psiTiltCheck->setContentsMargins(8, 4, 8, 0);
   m_psiTiltCheck->setToolTip(
       tr("Treat the phase shift of every frame as a plane instead of a constant -- for frames "
@@ -301,6 +303,7 @@ ParametersDock::ParametersDock(QWidget *parent)
     emit inputsChanged();
   });
   m_psiRefineCheck = new QCheckBox(tr("Refine phase shifts from the frames"), m_psiStepRow);
+  m_psiRefineCheck->setObjectName("psiRefineShifts");
   m_psiRefineCheck->setContentsMargins(8, 4, 8, 0);
   m_psiRefineCheck->setToolTip(
       tr("Estimate the real shift of every frame from the frames themselves (iterations). "
@@ -502,7 +505,8 @@ bool ParametersDock::currentPhaseAlgorithmNeedsFringeLines() const {
 }
 
 void ParametersDock::refreshPsiStepRow() {
-  const bool show = m_currentStage == StageId::S2 && m_measurement &&
+  const bool show = (m_currentStage == StageId::S2 || m_currentStage == StageId::Setup) &&
+                    m_measurement && m_measurement->phaseShifting().hasSeries() &&
                     m_measurement->customPhaseReconstructorPluginPath().empty() &&
                     m_measurement->phaseReconstructionAlgorithm() ==
                         digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
@@ -796,12 +800,28 @@ QString ParametersDock::phaseShiftingReportHtml() const {
                                .arg(report.iterations)
                                .arg(report.converged ? QString() : tr(" (did not settle)"))
                          : tr("Nominal shifts (not refined)<br>");
+  if (report.refined)
+    text += report.illuminationRefined ? tr("Spatially varying illumination accounted for.<br>")
+                                       : tr("Shift estimation assumes uniform illumination.<br>");
   text += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"2\">%1</table>").arg(rows);
   if (hasTilt)
-    text += tr("Tilt -- waves across the frame width (height), relative to frame 1.<br>");
+    text +=
+        tr("Phase change from edge to edge of the frame, cycles; X right, Y down, relative to "
+           "frame 1.<br>"
+           "For normalized-coordinate coefficients: dLx = X/2, dLy = -Y/2.<br>");
+  if (report.upperPlateauLevel >= 0)
+    text += tr("Upper intensity plateau: level %1, %2% of shift samples (possible clipping).<br>")
+                .arg(report.upperPlateauLevel)
+                .arg(100.0 * report.upperPlateauFraction, 0, 'f', 1);
   const QString halves = std::isnan(report.halvesDisagreementDeg)
                              ? tr("n/a")
                              : QString::number(report.halvesDisagreementDeg, 'f', 1);
+  text += tr("Map coverage: %1%; conditional phase noise p95: %2 cycles "
+             "(fixed shifts; excludes calibration and unwrap errors).<br>")
+              .arg(100.0 * report.mapCoverage, 0, 'f', 1)
+              .arg(std::isfinite(report.phaseStdErrorP95)
+                       ? QString::number(report.phaseStdErrorP95, 'g', 3)
+                       : tr("n/a"));
   text += tr("<br>Halves of the field disagree by: %1 deg<br>"
              "Fit residual: %2 of fringe amplitude %3 grey levels<br>"
              "Points used for the shifts: %4")
@@ -814,6 +834,16 @@ QString ParametersDock::phaseShiftingReportHtml() const {
 
 void ParametersDock::refresh() {
   using digitqt::core::pipeline::shortName;
+  const bool psi = m_measurement && m_measurement->phaseShifting().hasSeries() &&
+                   m_measurement->customPhaseReconstructorPluginPath().empty() &&
+                   m_measurement->phaseReconstructionAlgorithm() ==
+                       digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting;
+  m_algorithmRow->setVisible(m_currentStage == StageId::Setup && !psi);
+  m_fringeCenterRow->setVisible(m_currentStage == StageId::Setup && !psi);
+  m_edgeExtensionMarginRow->setVisible(m_currentStage == StageId::Setup && !psi);
+  m_wavelengthRow->setVisible(m_currentStage == StageId::S4 ||
+                              (m_currentStage == StageId::Setup && psi));
+  refreshPsiStepRow();
 
   QString text = tr("<b>%1</b> (%2)<br><br>").arg(stageDisplayName(m_currentStage),
           QString::fromStdString(shortName(m_currentStage)));
@@ -823,21 +853,27 @@ void ParametersDock::refresh() {
       const auto &img = m_measurement->image();
       const auto &b = m_measurement->boundaries();
       const auto &tracingData = m_measurement->fringeTracing();
-      text += tr("Image: %1 × %2 px<br>File: %3<br><br>"
-                 "External boundaries: %4<br>"
-                 "Internal boundaries: %5<br><br>"
-                 "Seed points: %6<br>"
-                 "Traced lines: %7<br><br>"
-                 "Use the toolbar to add/move/delete boundaries and "
-                 "seed points, and to run the tracer. Double-click a "
-                 "traced line to edit its points or fringe order.")
-                  .arg(img.width())
-                  .arg(img.height())
-                  .arg(QString::fromStdString(m_measurement->imagePath()))
-                  .arg(b.getExternal().size())
-                  .arg(b.getInternal().size())
-                  .arg(tracingData.seeds().size())
-                  .arg(tracingData.tracedLines().size());
+      if (psi) {
+        text +=
+            tr("Draw or detect the pupil on the selected frame. The same aperture applies to the "
+               "whole series.<br>"
+               "Check the shift model and physical units, then use Calculate PSI.");
+      } else
+        text += tr("Image: %1 × %2 px<br>File: %3<br><br>"
+                   "External boundaries: %4<br>"
+                   "Internal boundaries: %5<br><br>"
+                   "Seed points: %6<br>"
+                   "Traced lines: %7<br><br>"
+                   "Use the toolbar to add/move/delete boundaries and "
+                   "seed points, and to run the tracer. Double-click a "
+                   "traced line to edit its points or fringe order.")
+                    .arg(img.width())
+                    .arg(img.height())
+                    .arg(QString::fromStdString(m_measurement->imagePath()))
+                    .arg(b.getExternal().size())
+                    .arg(b.getInternal().size())
+                    .arg(tracingData.seeds().size())
+                    .arg(tracingData.tracedLines().size());
     } else {
       text += tr("No image loaded yet. Use File → Open Image.");
     }

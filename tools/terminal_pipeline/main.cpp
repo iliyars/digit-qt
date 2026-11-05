@@ -11,7 +11,10 @@
 // Usage:
 //   terminal_pipeline <input.bmp> <output.mtr>
 //       [--center-x=X] [--center-y=Y] [--radius=R]
-//       [--wavelength=NM] [--extend]
+//       [--wavelength=NM] [--extend] [--minmax]
+//       [--out-map=FILE] [--out-report=FILE]
+// --out-map: full-resolution phase cycles, same text format as psi_check.
+// --out-report: S4/S5 report, default reflection conversion (lambda/2).
 //
 // По умолчанию центр/радиус берутся из размера изображения (вписанный
 // круг с отступом 1px), wavelength=632.8, без продления полос до края
@@ -20,17 +23,20 @@
 // FringeTracingController).
 
 #include "core/FringeEdgeExtrapolation.h"
+#include "core/AutoSeedPlacement.h"
 #include "core/Measurement.h"
 #include "core/PhaseReconstructionAlgorithm.h"
 #include "core/pipeline/Pipeline.h"
 #include "core/pipeline/PipelineStageId.h"
 #include "io/ImageLoader.h"
 #include "io/MtrExporter.h"
+#include "io/ModalReportExporter.h"
 
 #include <aperture/include/geometry/Ellipse.h>
 #include <aperture/include/visibility/VisibilityChecker.h>
 
 #include <QCoreApplication>
+#include <QFile>
 #include <QTextStream>
 
 #include <algorithm>
@@ -55,9 +61,20 @@ int main(int argc, char **argv) {
   double wavelengthNm = 632.8;
   double centerX = -1, centerY = -1, radius = -1;
   bool extend = false;
+  bool minmax = false;
+  bool sequential = false;
+  QString mapPath, reportPath;
   for (int i = 1; i < args.size(); ++i) {
     const QString &a = args[i];
-    if (a.startsWith(QStringLiteral("--wavelength=")))
+    if (a.startsWith(QStringLiteral("--out-map=")))
+      mapPath = a.mid(10);
+    else if (a.startsWith(QStringLiteral("--out-report=")))
+      reportPath = a.mid(13);
+    else if (a == QStringLiteral("--sequential"))
+      sequential = true;
+    else if (a == QStringLiteral("--minmax"))
+      minmax = true;
+    else if (a.startsWith(QStringLiteral("--wavelength=")))
       wavelengthNm = a.mid(QStringLiteral("--wavelength=").size()).toDouble();
     else if (a.startsWith(QStringLiteral("--center-x=")))
       centerX = a.mid(QStringLiteral("--center-x=").size()).toDouble();
@@ -76,7 +93,8 @@ int main(int argc, char **argv) {
 
   if (positional.size() != 2) {
     err << "Usage: terminal_pipeline <input.bmp> <output.mtr> [--center-x=X] "
-          "[--center-y=Y] [--radius=R] [--wavelength=NM] [--extend]\n";
+          "[--center-y=Y] [--radius=R] [--wavelength=NM] [--extend] [--minmax] "
+          "[--out-map=FILE] [--out-report=FILE]\n";
     return 1;
   }
 
@@ -103,12 +121,19 @@ int main(int argc, char **argv) {
   measurement.boundaries().addExternal(
       std::make_unique<aperture::Ellipse>(radius, radius, centerX, centerY));
 
-  measurement.fringeTracing().setAlgorithm(digitqt::core::TracerAlgorithm::ScanlineExtremum);
-  // MinMax (the Measurement default) numbers maxima AND minima 1.0 apart,
-  // i.e. two consecutive MAXIMA end up 2.0 apart -- double the true fringe
-  // order for the same physical fringe pattern. Classic single-extremum
-  // counting (Max) is what matches WinFringe/Digit's own convention.
-  measurement.fringeTracing().setFringeCenterMode(digitqt::core::FringeCenterMode::Max);
+  measurement.fringeTracing().setAlgorithm(sequential ? digitqt::core::TracerAlgorithm::SequentialTracking
+                                                     : digitqt::core::TracerAlgorithm::ScanlineExtremum);
+  if (sequential) {
+    aperture::VisibilityChecker checker(measurement.boundaries());
+    auto visible = [&checker](int x, int y) {
+      return checker.isVisible(aperture::Point{double(x), double(y)});
+    };
+    measurement.fringeTracing().seeds() = digitqt::core::findRowSeeds(measurement.image(), visible);
+    out << "Seeds: " << measurement.fringeTracing().seeds().size() << "\n";
+  }
+  // Adjacent extrema in MinMax are half a phase cycle apart.
+  measurement.fringeTracing().setFringeCenterMode(
+      minmax ? digitqt::core::FringeCenterMode::MinMax : digitqt::core::FringeCenterMode::Max);
 
   out << "Image: " << loadResult.image.width() << "x" << loadResult.image.height()
       << ", aperture center=(" << centerX << ", " << centerY << ") radius=" << radius << "\n";
@@ -172,5 +197,31 @@ int main(int argc, char **argv) {
   }
 
   out << "Wrote " << outputPath << "\n";
+  if (!mapPath.isEmpty()) {
+    QFile file(mapPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return 1;
+    QTextStream stream(&file);
+    const auto &map = measurement.phaseMap();
+    stream << map.width() << " " << map.height() << "\n";
+    for (int y = 0; y < map.height(); ++y) {
+      for (int x = 0; x < map.width(); ++x) {
+        if (x) stream << " ";
+        stream << (map.hasValue(x, y) ? QString::number(map.value(x, y), 'g', 9)
+                                     : QStringLiteral("nan"));
+      }
+      stream << "\n";
+    }
+  }
+  if (!reportPath.isEmpty()) {
+    for (auto id : {StageId::S4, StageId::S5})
+      if (!pipeline.stage(id).compute(measurement)) {
+        err << QString::fromStdString(pipeline.stage(id).errorMessage()) << "\n";
+        return 1;
+      }
+    if (!digitqt::core::io::writeFullReport(reportPath, measurement, writeErr)) {
+      err << writeErr << "\n";
+      return 1;
+    }
+  }
   return 0;
 }

@@ -1,0 +1,153 @@
+[
+  {
+    "scenario": "everything_beam",
+    "config": "build",
+    "report": {
+      "Series": "5 frames 256x256, aperture center=(127.5, 127.5) radius=117.2",
+      "Mode": "nominal step 90 deg, refined, tilt compensated",
+      "Shifts, deg": "0.00 / 79.99 / 175.01 / 290.01 / 19.99",
+      "Iterations": "54 (converged)",
+      "Tilt x, waves": "0.000 / 0.300 / -0.400 / 0.200 / 0.500",
+      "Tilt y, waves": "0.000 / -0.200 / 0.300 / 0.400 / -0.300",
+      "Illumination fit": "per pixel",
+      "Mirrored": "no",
+      "Halves disagree": "2.7672 deg",
+      "Map coverage": "96.5984%",
+      "Conditional noise": "p95 nan cycles; fixed shifts, excludes calibration/unwrap errors",
+      "Noisy points": "nan% retained points above 0.05 cycles",
+      "Map QC warning": "review coverage and conditional noise; completion does not establish map accuracy",
+      "Fit residual": "0.659675 of amplitude 63.9362 grey levels (40769 points)",
+      "Unwrap regions": "1, masked 794 + islands 3 points",
+      "Wavefront RMS": "1.70428 waves",
+      "S5 residual RMS": "0.00240947 waves",
+      "S5 coefficients": "tiltX=2.99998 tiltY=1.49997 defocus=0.99994 astigX=0.29998 astigY=0.20003 comaX=0.29995 comaY=-0.20010 trefoilX=0.14999 trefoilY=0.10010 spherical=0.40010 waves"
+    },
+    "comparison": {
+      "points": 41684,
+      "sign_flipped": false,
+      "map_rms": 0.0024977414998156038,
+      "map_pv": 0.03746690263698316,
+      "shift_err": 0.009999999999990905,
+      "tilt_err": 0.0,
+      "s5": {
+        "carrier_x": [
+          3,
+          2.99998
+        ],
+        "carrier_y": [
+          1.5,
+          1.49997
+        ],
+        "defocus": [
+          1,
+          0.99994
+        ],
+        "astig_x": [
+          0.3,
+          0.29998
+        ],
+        "astig_y": [
+          0.2,
+          0.20003
+        ],
+        "coma_x": [
+          0.3,
+          0.29995
+        ],
+        "coma_y": [
+          -0.2,
+          -0.2001
+        ],
+        "trefoil_x": [
+          0.15,
+          0.14999
+        ],
+        "trefoil_y": [
+          0.1,
+          0.1001
+        ],
+        "spherical": [
+          0.4,
+          0.4001
+        ]
+      },
+      "s5_err": 9.999999999998899e-05
+    },
+    "stage": "after photometric tilt refinement"
+  },
+  {
+    "scenario": "everything_beam",
+    "config": "build-release",
+    "report": {
+      "Series": "5 frames 256x256, aperture center=(127.5, 127.5) radius=117.2",
+      "Mode": "nominal step 90 deg, refined, tilt compensated",
+      "Shifts, deg": "0.00 / 81.76 / 177.16 / 293.11 / 22.58",
+      "Iterations": "50 (converged)",
+      "Tilt x, waves": "0.000 / 0.249 / -0.448 / 0.131 / 0.429",
+      "Tilt y, waves": "0.000 / -0.154 / 0.356 / 0.473 / -0.232",
+      "Mirrored": "no",
+      "Halves disagree": "6.42905 deg",
+      "Map coverage": "96.5938%",
+      "Conditional noise": "p95 nan cycles; fixed shifts, excludes calibration/unwrap errors",
+      "Noisy points": "nan% retained points above 0.05 cycles",
+      "Map QC warning": "review coverage and conditional noise; completion does not establish map accuracy",
+      "Fit residual": "2.09086 of amplitude 63.8868 grey levels (40769 points)",
+      "Unwrap regions": "1, masked 777 + islands 1 points",
+      "Wavefront RMS": "1.71795 waves",
+      "S5 residual RMS": "0.00438292 waves",
+      "S5 coefficients": "tiltX=3.02139 tiltY=1.52175 defocus=0.99686 astigX=0.29966 astigY=0.19504 comaX=0.29664 comaY=-0.20294 trefoilX=0.15046 trefoilY=0.10115 spherical=0.40179 waves"
+    },
+    "comparison": {
+      "points": 41684,
+      "sign_flipped": false,
+      "map_rms": 0.01607770155821378,
+      "map_pv": 0.098297538771003,
+      "shift_err": 3.1100000000000136,
+      "tilt_err": 0.07299999999999995,
+      "s5": {
+        "carrier_x": [
+          3,
+          3.02139
+        ],
+        "carrier_y": [
+          1.5,
+          1.52175
+        ],
+        "defocus": [
+          1,
+          0.99686
+        ],
+        "astig_x": [
+          0.3,
+          0.29966
+        ],
+        "astig_y": [
+          0.2,
+          0.19504
+        ],
+        "coma_x": [
+          0.3,
+          0.29664
+        ],
+        "coma_y": [
+          -0.2,
+          -0.20294
+        ],
+        "trefoil_x": [
+          0.15,
+          0.15046
+        ],
+        "trefoil_y": [
+          0.1,
+          0.10115
+        ],
+        "spherical": [
+          0.4,
+          0.40179
+        ]
+      },
+      "s5_err": 0.021749999999999936
+    },
+    "stage": "before photometric tilt refinement"
+  }
+]

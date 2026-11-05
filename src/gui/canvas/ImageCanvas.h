@@ -7,6 +7,7 @@
 #include "FringeTracingController.h"
 #include "SeedItem.h"
 #include "TracedLineItem.h"
+#include "core/Bitmap.h"
 
 #include <QGraphicsEllipseItem>
 #include <QGraphicsPathItem>
@@ -18,6 +19,7 @@
 
 namespace digitqt::core {
 class Measurement;
+class Bitmap;
 }
 
 namespace digitqt::gui::canvas {
@@ -48,6 +50,8 @@ public:
 
   void setMeasurement(digitqt::core::Measurement *measurement);
   void fitImageToView();
+  /// Preview a PSI exposure without changing calculation inputs or overlays.
+  void setDisplayedFrame(const digitqt::core::Bitmap &frame);
 
   void setActiveController(ActiveController controller);
   ActiveController activeController() const { return m_activeController; }
@@ -97,6 +101,7 @@ private:
   FiducialController *m_fiducialController;
   ActiveController m_activeController = ActiveController::Boundary;
   digitqt::core::Measurement *m_measurement = nullptr;
+  digitqt::core::Bitmap m_displayedImage;
 
   QGraphicsScene m_scene;
   QGraphicsPixmapItem *m_pixmapItem = nullptr;

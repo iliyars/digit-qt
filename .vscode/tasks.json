@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Release: собрать dist и ZIP",
+      "type": "process",
+      "command": "C:\\msys64\\usr\\bin\\bash.exe",
+      "args": ["scripts/package-release.sh"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$gcc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Release: запустить dist",
+      "type": "process",
+      "command": "${workspaceFolder}/dist/DigitQt.exe",
+      "options": {
+        "cwd": "${workspaceFolder}/dist"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Release: собрать и запустить dist",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Release: собрать dist и ZIP",
+        "Release: запустить dist"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

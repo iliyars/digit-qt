@@ -168,7 +168,8 @@ class SequentialFringeTracker {
 
     TracedPoint point1, point2;
     if (!firstStep(startX, startY, point1, point2)) {
-      m_lastError = "Could not determine initial fringe direction";
+      if (m_lastError.empty())
+        m_lastError = "Could not determine initial fringe direction";
       return false;
     }
 
@@ -232,8 +233,10 @@ class SequentialFringeTracker {
 
   bool firstStep(int x, int y, TracedPoint &point1, TracedPoint &point2) {
     TraceDirection direction = TraceDirection::Vertical;
-    if (!measureWidth(x, y, m_curWidth, direction))
+    if (!measureWidth(x, y, m_curWidth, direction)) {
+      m_lastError = "No measurable bright fringe at the seed";
       return false;
+    }
 
     if (m_curWidth < 5.0f)
       m_curWidth = 5.0f;
@@ -281,8 +284,17 @@ class SequentialFringeTracker {
     xx = static_cast<int>(point1.x) + perpDx;
     yy = static_cast<int>(point1.y) + perpDy;
 
-    if (!isInside(xx, yy))
-      return false;
+    if (!isInside(xx, yy)) {
+      // A seed near the rim may only have room in the opposite direction.
+      perpDx = -perpDx;
+      perpDy = -perpDy;
+      xx = static_cast<int>(point1.x) + perpDx;
+      yy = static_cast<int>(point1.y) + perpDy;
+      if (!isInside(xx, yy)) {
+        m_lastError = "Initial step leaves the aperture in both directions";
+        return false;
+      }
+    }
     if (!centerPerpendicular(xx, yy, perpDx, perpDy))
       return false;
 
@@ -375,15 +387,9 @@ class SequentialFringeTracker {
     const int predY = y + stepY;
 
     if (!isInside(predX, predY)) {
-      int boundX = predX, boundY = predY;
-      linStepToBoundary(x, y, predX, predY, boundX, boundY);
-
-      TracedPoint p;
-      p.x = boundX;
-      p.y = boundY;
-      p.width = m_curWidth;
-      p.intensity = averageIntensity(boundX, boundY);
-      line.push_back(p);
+      // Intersecting the predicted tangent with the pupil is geometric
+      // extrapolation, not a detected intensity maximum. Keep only the
+      // last centred sample; the phase solver handles the unsupported rim.
       return -1;
     }
 
@@ -392,12 +398,7 @@ class SequentialFringeTracker {
 
     int cx = predX, cy = predY;
     if (!centerPerpendicular(cx, cy, ndx, ndy)) {
-      TracedPoint p;
-      p.x = predX;
-      p.y = predY;
-      p.width = m_curWidth;
-      p.intensity = averageIntensity(predX, predY);
-      line.push_back(p);
+      // A failed prediction is not a measured fringe centre.
       return -2;
     }
 
@@ -405,12 +406,6 @@ class SequentialFringeTracker {
     const float jumpDy = static_cast<float>(cy - predY);
     const float centeringJump = std::sqrt(jumpDx * jumpDx + jumpDy * jumpDy);
     if (centeringJump > m_wideLine * m_params.maxCenteringJumpFactor) {
-      TracedPoint p;
-      p.x = predX;
-      p.y = predY;
-      p.width = m_curWidth;
-      p.intensity = averageIntensity(predX, predY);
-      line.push_back(p);
       return -2;
     }
 
@@ -492,12 +487,17 @@ class SequentialFringeTracker {
       }
       if (!floorFonud)
         floorEstimate = ss;
-      axisFloor[i] = floorEstimate;
+      // Quantized broad peaks can start with a short plateau. Do not
+      // retain that initial peak as the floor if the mean later falls.
+      axisFloor[i] = std::min(floorEstimate, ss);
     }
 
-    m_average = axisFloor[3];
+    // The last axis can run along a bright ridge: its mean then equals
+    // the peak and rejects even a perfect diagonal or broad fringe.
+    // Use the lowest directional floor, i.e. a section across the ridge.
+    m_average = *std::min_element(std::begin(axisFloor), std::end(axisFloor));
 
-    float minWide = static_cast<float>(m_width) / 6.0f;
+    float minWide = static_cast<float>(std::max(m_width, m_height));
     int bestDirectionIdx = 0;
 
     for (int j = 0; j < 4; ++j) {

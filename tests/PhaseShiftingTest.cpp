@@ -9,7 +9,10 @@
 
 #include <QtTest/QtTest>
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <random>
 
 namespace {
 
@@ -128,24 +131,38 @@ class PhaseShiftingTest : public QObject {
 private slots:
   void cosineFitRecoversKnownCosine();
   void cosineFitRejectsDegenerateInput();
+  void cosineFitHandlesCorrelatedColumns();
+  void cosineFitRejectsIllConditionedAndNonFiniteInput();
+  void phaseRejectsCloseAndNonFiniteShifts();
+  void phaseRejectsWeakSignalAndMasksWeakPixels();
+  void knownAndUnknownShiftsNeedDifferentSpatialInformation();
+  void conditionalNoiseTracksSpacingAndHasExplicitLimits();
+  void tiltWithBeamAndMixedAberrations();
   void computePhaseWithTrueShifts();
   void computePhaseWithWrongShiftsIsVisiblyWorse();
   void computePhaseRejectsBadInput();
   void estimateShiftsFromTruePhase();
   void shiftPointsSkipDarkNoise();
   void diagnosticsOfCleanFrames();
+  void diagnosticsFlagUpperPlateau_data();
+  void diagnosticsFlagUpperPlateau();
+  void diagnosticsIgnoreIsolatedUpperSamples();
   void diagnosticsFlagTiltBetweenFrames();
   void tiltSolverRecoversTiltedSeries();
   void tiltSolverOnUntiltedFrames();
   void solveRecoversArticleExample_data();
   void solveRecoversArticleExample();
   void solveReportsNonConvergence();
+  void solveRecoversSpatiallyVaryingIllumination_data();
+  void solveRecoversSpatiallyVaryingIllumination();
+  void spatialRefinementRequiresIndependentShifts();
   void knownShiftsSolverSkipsRefinement();
   void mirrorAmbiguityOfOutOfOrderExample();
   void unwrapRecoversSmoothPhase();
   void unwrapRoutesAroundLowQualityNoise();
   void unwrapCountsDisconnectedRegions();
   void pipelineStageComputesPhaseFromSeries();
+  void pipelineCoverageCountsMissingSignal();
   void pipelineStageRequiresSeries();
   void pipelineStageWithoutRefinementUsesNominalShifts();
   void pipelineStageReportsTiltOfSourceFrames();
@@ -175,6 +192,236 @@ void PhaseShiftingTest::cosineFitRejectsDegenerateInput() {
   for (int i = 0; i < 3; ++i)
     sameAngle.add(0.5, 10.0 + i);
   QVERIFY(!sameAngle.solve(a, c, s));
+}
+
+void PhaseShiftingTest::cosineFitHandlesCorrelatedColumns() {
+  // Independent analytic intensity values, including a large DC offset and
+  // correlated columns; no image quantization can hide the linear-solve error.
+  CosineFit fit;
+  for (int repeat = 0; repeat < 100; ++repeat)
+    for (double theta : {0.10, 0.15, 0.22, 0.31, 0.45, 0.65, 1.10})
+      fit.add(theta, 1e6 + 20 * std::cos(theta - 0.8));
+  double a = 0, c = 0, s = 0;
+  QVERIFY(fit.solve(a, c, s));
+  QVERIFY(std::fabs(a - 1e6) < 1e-6);
+  QVERIFY(std::fabs(c - 20 * std::cos(-0.8)) < 1e-6);
+  QVERIFY(std::fabs(s - 20 * std::sin(-0.8)) < 1e-6);
+}
+
+void PhaseShiftingTest::cosineFitRejectsIllConditionedAndNonFiniteInput() {
+  double a = 7, c = 8, s = 9;
+  CosineFit narrow;
+  for (int n = 0; n < 5; ++n) {
+    const double theta = 2.0 + radians(.5 * n);
+    narrow.add(theta, 120 + 100 * std::cos(theta + .7));
+  }
+  QVERIFY(!narrow.solve(a, c, s));
+  QCOMPARE(a, 7.0);
+  QCOMPARE(c, 8.0);
+  QCOMPARE(s, 9.0);
+  for (double invalid :
+       {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+    CosineFit badAngle, badIntensity;
+    for (double theta : {0.0, 1.0, 2.0, 3.0}) {
+      badAngle.add(theta, 120 + 20 * std::cos(theta));
+      badIntensity.add(theta, 120 + 20 * std::cos(theta));
+    }
+    badAngle.add(invalid, 120);
+    badIntensity.add(1.5, invalid);
+    QVERIFY(!badAngle.solve(a, c, s));
+    QVERIFY(!badIntensity.solve(a, c, s));
+  }
+}
+
+void PhaseShiftingTest::phaseRejectsCloseAndNonFiniteShifts() {
+  const auto frames = makeFrames(kArticleShiftsDeg);
+  PsiResult result;
+  result.wrappedPhase = digitqt::core::PhaseMap(1, 1);
+  result.wrappedPhase.setValue(0, 0, 123);
+  std::string error;
+  // Distinct phase steps, but condition(A) is about 31,388: do not call the
+  // inversion reliable just because the determinant is nonzero.
+  QVERIFY(!digitqt::core::psi::computePhase(frames, toRadians({0, .5, 1, 1.5, 2}), insideAperture,
+                                            result, error));
+  QVERIFY(error.find("condition") != std::string::npos);
+  QCOMPARE(result.wrappedPhase.value(0, 0), 123.0);
+  for (double invalid :
+       {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+    auto shifts = toRadians(kArticleShiftsDeg);
+    shifts[1] = invalid;
+    QVERIFY(!digitqt::core::psi::computePhase(frames, shifts, insideAperture, result, error));
+    shifts = toRadians(kArticleShiftsDeg);
+    std::vector<double> tiltX(5, 0.0), tiltY(5, 0.0);
+    tiltX[2] = invalid;
+    QVERIFY(!digitqt::core::psi::computePhaseTilted(frames, shifts, tiltX, tiltY, insideAperture,
+                                                    result, error));
+    QCOMPARE(result.wrappedPhase.value(0, 0), 123.0);
+  }
+  const std::vector<double> zero(5, 0.0);
+  QVERIFY(!digitqt::core::psi::computePhaseTilted(frames, zero, zero, zero, insideAperture, result,
+                                                  error));
+  QCOMPARE(result.wrappedPhase.value(0, 0), 123.0);
+}
+
+void PhaseShiftingTest::phaseRejectsWeakSignalAndMasksWeakPixels() {
+  const auto shifts = toRadians({0, 90, 180, 270});
+  auto frames = makeFrames({0, 90, 180, 270});
+  // Actual temporal variation of one count, not merely four identical frames.
+  // It fits b=sqrt(.5^2+.5^2)<1 and must not become a zero-error phase map.
+  const uint8_t levels[] = {121, 120, 120, 121};
+  for (size_t n = 0; n < frames.size(); ++n)
+    for (int y = 0; y < kSize; ++y)
+      for (int x = kSize / 2; x < kSize; ++x)
+        frames[n].setPixel(x, y, levels[n]);
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::computePhase(frames, shifts, insideAperture, result, error),
+           error.c_str());
+  QVERIFY(result.wrappedPhase.hasValue(kSize / 4, kSize / 2));
+  QVERIFY(!result.wrappedPhase.hasValue(3 * kSize / 4, kSize / 2));
+  for (size_t n = 0; n < frames.size(); ++n)
+    frames[n].fill(levels[n]);
+  const double saved = result.wrappedPhase.value(kSize / 4, kSize / 2);
+  QVERIFY(!digitqt::core::psi::computePhase(frames, shifts, insideAperture, result, error));
+  QCOMPARE(result.wrappedPhase.value(kSize / 4, kSize / 2), saved);
+  const std::vector<double> zero(4, 0.0);
+  QVERIFY(!digitqt::core::psi::computePhaseTilted(frames, shifts, zero, zero, insideAperture,
+                                                  result, error));
+  for (auto &frame : frames)
+    frame.fill(120);
+  QVERIFY(
+      !digitqt::core::psi::solveWithKnownShifts(frames, shifts, insideAperture, {}, result, error));
+}
+
+void PhaseShiftingTest::tiltWithBeamAndMixedAberrations() {
+  // psi_demo's everything_beam: mixed Seregin terms, unequal shifts,
+  // independent X/Y frame tilts, Gaussian illumination and camera noise.
+  constexpr int size = 256;
+  const double center = 127.5, radius = 115.2, pupil = 114.5;
+  const std::vector<double> shifts{0, 80, 175, 290, 20};
+  const std::vector<double> tx{0, .3, -.4, .2, .5}, ty{0, -.2, .3, .4, -.3};
+  auto truth = [&](int x, int y) {
+    const double u = (x - center) / pupil, v = (y - center) / pupil, r2 = u * u + v * v;
+    return 2 * kPi *
+           (3 * u - 1.5 * v + r2 + .3 * 1.5 * (u * u - v * v) - .2 * u * v +
+            .3 * (u * r2 - 2 * u / 3) + (-.2) * (2 * v / 3 - v * r2) +
+            .15 * (3 * u * v * v - u * u * u) + .1 * (3 * u * u * v - v * v * v) + .4 * r2 * r2);
+  };
+  std::mt19937 random(721);
+  std::normal_distribution<double> noise(0.0, 1.0);
+  std::vector<Bitmap> frames;
+  for (size_t n = 0; n < shifts.size(); ++n) {
+    Bitmap frame(size, size);
+    for (int y = 0; y < size; ++y)
+      for (int x = 0; x < size; ++x) {
+        const double dx = x - center, dy = y - center, r2 = (dx * dx + dy * dy) / (radius * radius);
+        const double delta = radians(shifts[n]) + 2 * kPi * (tx[n] * dx + ty[n] * dy) / (size - 1);
+        const double signal = 110 + (r2 <= 1 ? 90 * std::cos(truth(x, y) + delta) : 0);
+        frame.setPixel(x, y,
+                       static_cast<uint8_t>(std::clamp(
+                           std::lround(signal * std::exp(-.7 * r2) + noise(random)), 0L, 255L)));
+      }
+    frames.push_back(std::move(frame));
+  }
+  PsiResult result;
+  std::string error;
+  const auto visible = [&](int x, int y) {
+    return (x - center) * (x - center) + (y - center) * (y - center) <= (radius + 2) * (radius + 2);
+  };
+  QVERIFY2(digitqt::core::psi::solveWithTiltShifts(frames, toRadians({0, 90, 180, 270, 360}),
+                                                   visible, {}, result, error),
+           error.c_str());
+  QVERIFY(result.illuminationRefined);
+  QVERIFY(result.converged);
+  for (size_t n = 0; n < shifts.size(); ++n) {
+    QVERIFY(std::abs(degrees(angleDiff(result.shifts[n], radians(shifts[n])))) < .1);
+    QVERIFY(std::abs(result.tiltX[n] * (size - 1) / (2 * kPi) - tx[n]) < .002);
+    QVERIFY(std::abs(result.tiltY[n] * (size - 1) / (2 * kPi) - ty[n]) < .002);
+  }
+  double sum = 0, sumSq = 0;
+  int count = 0;
+  for (int y = 0; y < size; ++y)
+    for (int x = 0; x < size; ++x)
+      if ((x - center) * (x - center) + (y - center) * (y - center) <= radius * radius &&
+          result.wrappedPhase.hasValue(x, y)) {
+        const double e = angleDiff(result.wrappedPhase.value(x, y), truth(x, y));
+        sum += e;
+        sumSq += e * e;
+        ++count;
+      }
+  QVERIFY(count > 40000);
+  QVERIFY(std::sqrt(sumSq / count - (sum / count) * (sum / count)) < .02);
+}
+
+void PhaseShiftingTest::conditionalNoiseTracksSpacingAndHasExplicitLimits() {
+  using namespace digitqt::core::psi;
+  std::string error;
+  PsiResult broad, close, three;
+  const std::vector<double> good{0, 90, 180, 270, 360}, bad{0, 5, 10, 15, 20};
+  QVERIFY(computePhase(makeFrames(good), toRadians(good), insideAperture, broad, error));
+  QVERIFY(computePhase(makeFrames(bad), toRadians(bad), insideAperture, close, error));
+  double broadSum = 0, closeSum = 0;
+  int count = 0;
+  for (int y = 0; y < kSize; ++y)
+    for (int x = 0; x < kSize; ++x) {
+      if (!insideAperture(x, y)) {
+        QVERIFY(!broad.phaseStdError.hasValue(x, y));
+        continue;
+      }
+      QVERIFY(broad.phaseStdError.value(x, y) > 0);
+      broadSum += broad.phaseStdError.value(x, y);
+      closeSum += close.phaseStdError.value(x, y);
+      ++count;
+    }
+  QVERIFY(count > 0);
+  QVERIFY(closeSum > 20 * broadSum);
+  const std::vector<double> minimal{0, 120, 240};
+  QVERIFY(computePhase(makeFrames(minimal), toRadians(minimal), insideAperture, three, error));
+  QVERIFY(!three.phaseStdError.hasValue(kSize / 2, kSize / 2));
+  const std::vector<double> zero(good.size(), 0.0);
+  QVERIFY(computePhaseTilted(makeFrames(good), toRadians(good), zero, zero, insideAperture, broad,
+                             error));
+  QVERIFY(broad.phaseStdError.isEmpty());
+  // Four quadrature exposures: the alternating residual is orthogonal to
+  // all three model columns. It must increase variance without changing phase.
+  for (const int noise : {0, 2}) {
+    std::vector<Bitmap> frames;
+    for (const int value : {200 + noise, 120 - noise, 40 + noise, 120 - noise}) {
+      Bitmap frame(8, 8);
+      for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x)
+          frame.setPixel(x, y, static_cast<uint8_t>(value));
+      frames.push_back(std::move(frame));
+    }
+    PsiResult fit;
+    QVERIFY(computePhase(
+        frames, toRadians({0, 90, 180, 270}), [](int, int) { return true; }, fit, error));
+    const double variance = noise ? 4.0 * noise * noise : 1.0 / 12.0;
+    const double expected = std::sqrt(variance / 2.0) / (80.0 * 2.0 * kPi);
+    QVERIFY(std::abs(fit.phaseStdError.value(4, 4) - expected) < 1e-12);
+  }
+}
+
+void PhaseShiftingTest::knownAndUnknownShiftsNeedDifferentSpatialInformation() {
+  const auto shifts = toRadians(kArticleShiftsDeg);
+  std::vector<Bitmap> frames;
+  for (double shift : shifts) {
+    Bitmap frame(kSize, kSize);
+    frame.fill(static_cast<uint8_t>(std::lround(120 + 80 * std::cos(.7 + shift))));
+    frames.push_back(std::move(frame));
+  }
+  PsiResult result;
+  std::string error;
+  // No spatial fringes: known temporal shifts still determine a constant phase.
+  QVERIFY2(
+      digitqt::core::psi::solveWithKnownShifts(frames, shifts, insideAperture, {}, result, error),
+      error.c_str());
+  QVERIFY(std::fabs(angleDiff(result.wrappedPhase.value(kSize / 2, kSize / 2), .7)) < .01);
+  const double saved = result.wrappedPhase.value(kSize / 2, kSize / 2);
+  // These same data do not determine arbitrary unknown shifts.
+  QVERIFY(!digitqt::core::psi::solveWithUnknownShifts(frames, toRadians({0, 90, 180, 270, 360}),
+                                                      insideAperture, {}, result, error));
+  QCOMPARE(result.wrappedPhase.value(kSize / 2, kSize / 2), saved);
 }
 
 void PhaseShiftingTest::computePhaseWithTrueShifts() {
@@ -307,6 +554,60 @@ void PhaseShiftingTest::diagnosticsOfCleanFrames() {
   QVERIFY(d.halvesDisagreementDeg < 0.5);
   QVERIFY(d.residual < 1.0);                   // только квантование
   QVERIFY(std::fabs(d.amplitude - 100.0) < 2.0);  // b из makeFrames()
+  QCOMPARE(d.upperPlateauLevel, -1);
+}
+
+void PhaseShiftingTest::diagnosticsFlagUpperPlateau_data() {
+  QTest::addColumn<int>("ceiling");
+  QTest::addColumn<bool>("refine");
+  QTest::newRow("video-range, known shifts") << 235 << false;
+  QTest::newRow("video-range, refined shifts") << 235 << true;
+  QTest::newRow("full-range, known shifts") << 255 << false;
+  QTest::newRow("full-range, refined shifts") << 255 << true;
+}
+
+void PhaseShiftingTest::diagnosticsFlagUpperPlateau() {
+  QFETCH(int, ceiling);
+  QFETCH(bool, refine);
+  const auto shifts = toRadians({0, 60, 120, 180, 240, 300});
+  std::vector<Bitmap> frames;
+  for (double shift : shifts) {
+    Bitmap frame(kSize, kSize);
+    for (int y = 0; y < kSize; ++y)
+      for (int x = 0; x < kSize; ++x) {
+        // Known phase, no motion, no tilt or exposure changes. Only clipping.
+        const double value = ceiling - 65.0 + 100.0 * std::cos(truePhase(x, y) + shift);
+        frame.setPixel(x, y,
+                       static_cast<uint8_t>(
+                           std::lround(std::clamp(value, 0.0, static_cast<double>(ceiling)))));
+      }
+    frames.push_back(std::move(frame));
+  }
+  PsiResult result;
+  std::string error;
+  const bool ok = refine ? digitqt::core::psi::solveWithUnknownShifts(
+                               frames, shifts, insideAperture, {}, result, error)
+                         : digitqt::core::psi::solveWithKnownShifts(frames, shifts, insideAperture,
+                                                                    {}, result, error);
+  QVERIFY2(ok, error.c_str());
+  QCOMPARE(result.diagnostics.upperPlateauLevel, ceiling);
+  QVERIFY(result.diagnostics.upperPlateauFraction > 0.25);
+  // These clipped inputs pass the old generic warning thresholds. The new
+  // signal diagnostic must remain visible even when the phase iteration settles.
+  QVERIFY(result.converged);
+  QVERIFY(result.diagnostics.halvesDisagreementDeg < 10.0);
+  QVERIFY(result.diagnostics.residual < 0.1 * result.diagnostics.amplitude);
+}
+
+void PhaseShiftingTest::diagnosticsIgnoreIsolatedUpperSamples() {
+  auto frames = makeFrames(kArticleShiftsDeg);
+  frames[1].setPixel(kSize / 2, kSize / 2, 255);
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithKnownShifts(frames, toRadians(kArticleShiftsDeg),
+                                                    insideAperture, {}, result, error),
+           error.c_str());
+  QCOMPARE(result.diagnostics.upperPlateauLevel, -1);
 }
 
 void PhaseShiftingTest::diagnosticsFlagTiltBetweenFrames() {
@@ -427,6 +728,100 @@ void PhaseShiftingTest::solveReportsNonConvergence() {
   QVERIFY(!result.wrappedPhase.isEmpty());
 }
 
+void PhaseShiftingTest::solveRecoversSpatiallyVaryingIllumination_data() {
+  QTest::addColumn<std::vector<double>>("shiftsDeg");
+  QTest::addColumn<double>("noiseLevels");
+  QTest::newRow("five frames, quantization only")
+      << std::vector<double>{0, 72, 160, 248, 325} << 0.0;
+  QTest::newRow("seven frames, camera noise")
+      << std::vector<double>{0, 48, 103, 157, 211, 268, 326} << 1.0;
+  QTest::newRow("five frames, negative shifts")
+      << std::vector<double>{0, -72, -160, -248, -325} << 0.0;
+}
+
+void PhaseShiftingTest::solveRecoversSpatiallyVaryingIllumination() {
+  QFETCH(std::vector<double>, shiftsDeg);
+  QFETCH(double, noiseLevels);
+  // Background and fringe amplitude vary independently across the aperture,
+  // but stay constant between frames, as required by I_n=a(x,y)+b(x,y)cos(phi+delta_n).
+  const auto phaseAt = [](int x, int y) {
+    const double u = (x - (kSize - 1) / 2.0) / 60.0;
+    const double v = (y - (kSize - 1) / 2.0) / 60.0;
+    return 2 * kPi * (2 * u + 0.7 * (u * u + v * v));
+  };
+  std::vector<Bitmap> frames;
+  uint32_t random = 719;
+  for (double shiftDeg : shiftsDeg) {
+    Bitmap frame(kSize, kSize);
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        const double u = (x - (kSize - 1) / 2.0) / 60.0;
+        const double v = (y - (kSize - 1) / 2.0) / 60.0;
+        const double background = 90 + 50 * std::exp(-2 * ((u - .4) * (u - .4) + v * v));
+        const double amplitude = 25 + 65 * std::exp(-3 * ((u + .3) * (u + .3) + v * v));
+        random = random * 1664525u + 1013904223u;
+        const double noise = noiseLevels * (2 * (random / 4294967296.0) - 1);
+        frame.setPixel(
+            x, y,
+            static_cast<uint8_t>(std::lround(
+                background + amplitude * std::cos(phaseAt(x, y) + radians(shiftDeg)) + noise)));
+      }
+    }
+    frames.push_back(std::move(frame));
+  }
+  std::vector<double> expected;
+  for (size_t n = 0; n < frames.size(); ++n)
+    expected.push_back(0.37 + (shiftsDeg[1] < 0 ? -1.0 : 1.0) * n * 2 * kPi / (frames.size() - 1));
+  PsiResult result, known;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(frames, expected, insideAperture, {}, result,
+                                                      error),
+           error.c_str());
+  QVERIFY2(
+      digitqt::core::psi::computePhase(frames, toRadians(shiftsDeg), insideAperture, known, error),
+      error.c_str());
+  QVERIFY(result.converged);
+  QVERIFY(result.illuminationRefined);
+  double worstShift = 0, sum = 0, sumKnown = 0;
+  int count = 0;
+  for (size_t n = 0; n < frames.size(); ++n)
+    worstShift = std::max(worstShift,
+                          std::fabs(degrees(angleDiff(result.shifts[n], radians(shiftsDeg[n])))));
+  // No fitted sign, tilt or scale; the gauge delta_0=0 fixes the phase piston too.
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      if (!insideAperture(x, y))
+        continue;
+      QVERIFY(result.wrappedPhase.hasValue(x, y));
+      const double e = angleDiff(result.wrappedPhase.value(x, y), phaseAt(x, y));
+      const double ek = angleDiff(known.wrappedPhase.value(x, y), phaseAt(x, y));
+      sum += e * e;
+      sumKnown += ek * ek;
+      ++count;
+    }
+  }
+  const double rms = std::sqrt(sum / count), best = std::sqrt(sumKnown / count);
+  qInfo("nonuniform illumination: shift max error %.4f deg, phase RMS %.6f rad, known %.6f rad",
+        worstShift, rms, best);
+  QVERIFY2(worstShift < 0.15, "Spatial illumination must not bias the recovered shifts");
+  QVERIFY(rms < best * 1.10 + 1e-4);
+  QVERIFY(result.diagnostics.halvesDisagreementDeg < 0.5);
+}
+
+void PhaseShiftingTest::spatialRefinementRequiresIndependentShifts() {
+  // Five images but only four independent phase positions. The larger model
+  // has an unobservable direction; damping must not disguise it as full rank.
+  const std::vector<double> shiftsDeg = {0, 90, 180, 270, 0};
+  PsiResult result;
+  std::string error;
+  QVERIFY2(digitqt::core::psi::solveWithUnknownShifts(makeFrames(shiftsDeg), toRadians(shiftsDeg),
+                                                      insideAperture, {}, result, error),
+           error.c_str());
+  QVERIFY(!result.illuminationRefined);
+  QVERIFY(result.converged);
+  QVERIFY(phaseErrorRms(result, 1.0) < 0.005);
+}
+
 void PhaseShiftingTest::knownShiftsSolverSkipsRefinement() {
   // Те же кадры рис. 4, сдвиги не уточняются. С настоящими сдвигами --
   // точный результат, с номинальными 90 градусов -- рябь (как в
@@ -441,6 +836,7 @@ void PhaseShiftingTest::knownShiftsSolverSkipsRefinement() {
            error.c_str());
   QCOMPARE(exact.iterations, 0);
   QVERIFY(exact.converged);
+  QVERIFY(!exact.illuminationRefined);
   QVERIFY(!exact.mirrored);
   QVERIFY(phaseErrorRms(exact, 1.0) < 0.005);
 
@@ -585,6 +981,31 @@ void PhaseShiftingTest::unwrapCountsDisconnectedRegions() {
                                       digitqt::core::PhaseMap(), result, error));
 }
 
+void PhaseShiftingTest::pipelineCoverageCountsMissingSignal() {
+  using digitqt::core::pipeline::StageId;
+  auto frames = makeFrames({0, 90, 180, 270, 360});
+  for (auto &frame : frames)
+    for (int y = 0; y < kSize; ++y)
+      for (int x = 0; x < kSize / 2; ++x)
+        frame.setPixel(x, y, 120);
+  digitqt::core::Measurement measurement;
+  measurement.setPhaseShiftingFrames(std::move(frames), "frame1.bmp");
+  measurement.boundaries().addExternal(
+      std::make_unique<aperture::Ellipse>(60.0, 60.0, (kSize - 1) / 2.0, (kSize - 1) / 2.0));
+  measurement.setPhaseReconstructionAlgorithm(
+      digitqt::core::PhaseReconstructionAlgorithm::PhaseShifting);
+  measurement.phaseShifting().setRefineShifts(false);
+  measurement.phaseShifting().setNominalStepDeg(90.0);
+  digitqt::core::pipeline::Pipeline pipeline;
+  QVERIFY(pipeline.stage(StageId::Setup).compute(measurement));
+  QVERIFY2(pipeline.stage(StageId::S2).compute(measurement),
+           pipeline.stage(StageId::S2).errorMessage().c_str());
+  const auto &report = measurement.phaseShifting().report();
+  QVERIFY(std::abs(report.mapCoverage - 0.5) < 1e-12);
+  QVERIFY(report.phaseStdErrorP95 > 0.0);
+  QCOMPARE(report.noisyPointFraction, 0.0);
+}
+
 void PhaseShiftingTest::pipelineStageComputesPhaseFromSeries() {
   // Весь путь, как в программе: серия в Measurement, апертура, S2 с
   // методом PSI и номинальным шагом 90 -- при настоящих сдвигах рис. 4.
@@ -605,7 +1026,12 @@ void PhaseShiftingTest::pipelineStageComputesPhaseFromSeries() {
 
   const auto &report = measurement.phaseShifting().report();
   QVERIFY(report.converged);
+  QVERIFY(report.illuminationRefined);
   QCOMPARE(report.regionCount, 1);
+  QVERIFY(report.mapCoverage > 0.99);
+  QVERIFY(report.phaseStdErrorP95 > 0.0);
+  QVERIFY(report.phaseStdErrorP95 < 0.01);
+  QCOMPARE(report.noisyPointFraction, 0.0);
   QCOMPARE(report.shiftsDeg.size(), kArticleShiftsDeg.size());
   for (size_t n = 0; n < kArticleShiftsDeg.size(); ++n)
     QVERIFY(std::fabs(report.shiftsDeg[n] - kArticleShiftsDeg[n]) < 0.2);

@@ -1,0 +1,9 @@
+astig basis=Seregin angle=0 ok=1 report_magnitude_nm=66.6667 residual_rms_nm=1.63659e-14
+astig basis=Seregin angle=45 ok=1 report_magnitude_nm=200 residual_rms_nm=1.53799e-14
+astig basis=Zernike angle=0 ok=1 report_magnitude_nm=100 residual_rms_nm=4.65637e-14
+astig basis=Zernike angle=45 ok=1 report_magnitude_nm=100 residual_rms_nm=2.74179e-14
+collapsed_affine ok=1 determinant=0
+psi varying=0 known=1 ok=1 converged=1 shift_max_error_deg=0 phase_rms_orders=0.000365831 residual=0.18012 error=
+psi varying=0 known=0 ok=1 converged=1 shift_max_error_deg=0.0149276 phase_rms_orders=0.000365878 residual=0.17998 error=
+psi varying=1 known=1 ok=1 converged=1 shift_max_error_deg=0 phase_rms_orders=0.000786517 residual=0.18394 error=
+psi varying=1 known=0 ok=1 converged=1 shift_max_error_deg=2.81682 phase_rms_orders=0.00163328 residual=0.733006 error=

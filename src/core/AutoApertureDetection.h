@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace aperture {
 class Ellipse;
@@ -32,11 +33,8 @@ struct ApertureDetectionResult {
  * fringes modulate intensity from row to row and column to column, a
  * flat background doesn't, regardless of which side is brighter. The
  * largest connected high-variation region's contour is then fit with an
- * ellipse the same way
- * BoundaryEditController::finalizePointsEllipse() fits one from
- * manually-clicked points (centroid-centered first, to avoid
- * aperture::Ellipse::FitEllipse's ill-conditioning on raw pixel
- * coordinates far from the origin).
+ * ellipse with OpenCV's ellipse fitter. The fitted geometry is checked
+ * before publication, so invalid or collapsed ellipses fail explicitly.
  *
  * A heuristic, not a measurement -- exactly like
  * AutoSeedPlacement::findRowSeeds(), it can fail outright (no visible
@@ -45,5 +43,11 @@ struct ApertureDetectionResult {
  * resizable like any other boundary shape afterward.
  */
 ApertureDetectionResult detectApertureBoundary(const digitqt::core::Bitmap &image);
+
+/// PSI: detect the pupil from temporal intensity span over the whole series,
+/// independent of the spatial fringe density in its first exposure. Frames
+/// must be aligned, equally sized, with >=3 exposures. Flat series fail.
+/// Result coordinates match the frames, including any image padding.
+ApertureDetectionResult detectApertureBoundary(const std::vector<Bitmap> &frames);
 
 }  // namespace digitqt::core

@@ -8,6 +8,7 @@ add_executable(terminal_pipeline
     main.cpp
     ${CMAKE_SOURCE_DIR}/src/io/ImageLoader.cpp
     ${CMAKE_SOURCE_DIR}/src/io/MtrExporter.cpp
+    ${CMAKE_SOURCE_DIR}/src/io/ModalReportExporter.cpp
 )
 
 target_include_directories(terminal_pipeline PRIVATE ${CMAKE_SOURCE_DIR}/src)

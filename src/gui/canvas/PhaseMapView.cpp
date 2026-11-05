@@ -105,6 +105,11 @@ void PhaseMapView::refresh() {
   rebuildIsolines();
 }
 
+void PhaseMapView::fitMapToView() {
+  const auto rect=m_scene.itemsBoundingRect();
+  if(!rect.isEmpty()) fitInView(rect,Qt::KeepAspectRatio);
+}
+
 void PhaseMapView::setHeatmapVisible(bool visible) {
   m_heatmapVisible = visible;
   const auto *map = currentMap();
@@ -149,7 +154,7 @@ void PhaseMapView::rebuildHeatmap() {
   if (!m_heatmapItem) {
     m_heatmapItem = m_scene.addPixmap(QPixmap());
     m_heatmapItem->setZValue(10.0);
-    m_heatmapItem->setOpacity(0.65);
+    m_heatmapItem->setOpacity(1.0);
     m_heatmapItem->setTransformationMode(Qt::SmoothTransformation);
   }
 
@@ -171,7 +176,10 @@ void PhaseMapView::rebuildHeatmap() {
   const double range = (maxV > minV) ? (maxV - minV) : 1.0;
 
   if (m_legend)
-    m_legend->setRange(minV, maxV, m_source != Source::Phase ? QStringLiteral(" nm") : QString());
+    m_legend->setRange(minV, maxV, m_source != Source::Phase ? QStringLiteral(" nm") : tr(" cycles"));
+  // Every colour represents a map value. Source fringes showing through
+  // a translucent map look like numerical ripple in the reconstruction.
+  m_heatmapItem->setOpacity(1.0);
 
   const int w = map.width();
   const int h = map.height();

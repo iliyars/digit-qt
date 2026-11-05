@@ -219,9 +219,24 @@ int main(int argc, char **argv) {
     out << "Tilt x, waves:      " << joined(report.tiltXWaves, 3) << "\n";
     out << "Tilt y, waves:      " << joined(report.tiltYWaves, 3) << "\n";
   }
+  if (report.refined)
+    out << "Illumination fit:   " << (report.illuminationRefined ? "per pixel" : "uniform assumed")
+        << "\n";
   out << "Mirrored:           " << (report.mirrored ? "YES -- check the sign of the map" : "no")
       << "\n";
   out << "Halves disagree:    " << report.halvesDisagreementDeg << " deg\n";
+  out << "Map coverage:       " << 100.0 * report.mapCoverage << "%\n";
+  out << "Conditional noise:  p95 " << report.phaseStdErrorP95
+      << " cycles; fixed shifts, excludes calibration/unwrap errors\n";
+  out << "Noisy points:       " << 100.0 * report.noisyPointFraction
+      << "% retained points above 0.05 cycles\n";
+  if (report.mapCoverage < 0.9 || report.noisyPointFraction > 0.05 ||
+      !std::isfinite(report.phaseStdErrorP95))
+    out << "Map QC warning:     review coverage and conditional noise; "
+           "completion does not establish map accuracy\n";
+  if (report.upperPlateauLevel >= 0)
+    out << "Upper plateau:      level " << report.upperPlateauLevel << ", "
+        << 100.0 * report.upperPlateauFraction << "% of shift samples (possible clipping)\n";
   out << "Fit residual:       " << report.residual << " of amplitude " << report.amplitude
       << " grey levels (" << report.shiftPoints << " points)\n";
   out << "Unwrap regions:     " << report.regionCount << ", masked " << report.maskedLowModulation

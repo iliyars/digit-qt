@@ -72,6 +72,7 @@ ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
 
 void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
   m_measurement = measurement;
+  m_displayedImage = measurement ? measurement->image() : digitqt::core::Bitmap{};
   if (!m_pixmapItem) {
     m_pixmapItem = m_scene.addPixmap(QPixmap());
     m_pixmapItem->setZValue(0.0);
@@ -90,6 +91,14 @@ void ImageCanvas::setMeasurement(digitqt::core::Measurement *measurement) {
 void ImageCanvas::fitImageToView() {
   if (m_pixmapItem)
     fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+}
+
+void ImageCanvas::setDisplayedFrame(const digitqt::core::Bitmap &frame) {
+  if (m_pixmapItem && m_measurement && frame.width() == m_measurement->image().width() &&
+      frame.height() == m_measurement->image().height()) {
+    m_displayedImage = frame;
+    m_pixmapItem->setPixmap(QPixmap::fromImage(digitqt::io::toQImage(frame)));
+  }
 }
 
 void ImageCanvas::setActiveController(ActiveController controller) {
@@ -260,7 +269,7 @@ void ImageCanvas::updateCursorInfoTooltip(const QPointF &scenePos, const QPoint 
     return;
   }
 
-  const auto &img = m_measurement->image();
+  const auto &img = m_displayedImage;
   const int x = static_cast<int>(std::floor(scenePos.x()));
   const int y = static_cast<int>(std::floor(scenePos.y()));
 
@@ -269,7 +278,7 @@ void ImageCanvas::updateCursorInfoTooltip(const QPointF &scenePos, const QPoint 
     return;
   }
 
-  const int intensity = qGray(img.pixel(x, y));
+  const int intensity = img.pixel(x, y);
   const QString text = tr("x: %1, y: %2\nintensity: %3").arg(x).arg(y).arg(intensity);
   QToolTip::showText(globalPos, text, this);
 }

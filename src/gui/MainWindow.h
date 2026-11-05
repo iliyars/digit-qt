@@ -12,6 +12,7 @@
 #include "formats/FormatAdapter.h"
 
 #include <QList>
+#include <QStringList>
 #include <QMainWindow>
 #include <functional>
 #include <initializer_list>
@@ -19,6 +20,7 @@
 
 
 class QLabel;
+class QAction;
 class QProgressBar;
 class QUndoStack;
 class QStackedWidget;
@@ -28,6 +30,7 @@ namespace digitqt::gui {
 
 class PipelineTreeDock;
 class ParametersDock;
+class PsiWorkflowPanel;
 class NotImplementedPage;
 
 class MainWindow : public QMainWindow {
@@ -43,7 +46,7 @@ private slots:
   void updateStatusBar();
   void onStageSelected(digitqt::core::pipeline::StageId id);
   void runTracing();
-  void computePhase();
+  void computePhase(std::function<void()> then = {});
   // `then` (if given) runs after this stage's own success/failure
   // handling and view refresh -- see applyImportedPhaseMap(), which chains
   // computeWavefront() -> computeModalAnalysis() this way instead of
@@ -57,6 +60,7 @@ private:
   void buildMenusAndToolbars();
   void buildLanguageMenu();
   void buildDocks();
+  void refreshPsiWorkspace();
 
   /// Re-points every controller/view at m_measurement after its image or
   /// imported data was replaced wholesale.
@@ -103,6 +107,10 @@ private:
   NotImplementedPage *m_notImplementedPage;
   PipelineTreeDock *m_pipelineDock;
   ParametersDock *m_parametersDock;
+  PsiWorkflowPanel *m_psiWorkflow;
+  QStringList m_psiFramePaths;
+  QList<QAction *> m_nonPsiSetupActions;
+  digitqt::core::pipeline::StageId m_currentStage = digitqt::core::pipeline::StageId::Setup;
   QToolBar *m_setupToolBar;
   QToolBar *m_phaseToolBar;
   QToolBar *m_wavefrontToolBar;

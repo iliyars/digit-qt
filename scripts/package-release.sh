@@ -11,6 +11,10 @@
 #   версия по умолчанию берётся из `git describe --tags --always --dirty`.
 set -euo pipefail
 
+# Plain bash.exe launched from PowerShell may have no MSYS tools on PATH.
+# Set this before the first dirname/cd, not just before configuring CMake.
+export PATH="/usr/bin:/mingw64/bin:$PATH"
+
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 REPO_ROOT="$(pwd)"
 
@@ -72,7 +76,7 @@ cmake -B "$BUILD_DIR" -G Ninja \
   -DOpenCV_DIR="$OPENCV_WIN7_DIR"
 
 echo "==> Building"
-cmake --build "$BUILD_DIR" --parallel
+cmake --build "$BUILD_DIR" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-1}"
 
 echo "==> Preparing $DIST_DIR"
 rm -rf "$DIST_DIR"
