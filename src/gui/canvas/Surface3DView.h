@@ -1,6 +1,10 @@
 #pragma once
 
+#include "HeightPalette.h"
+
 #include "ColorLegendWidget.h"
+#include "core/PhaseMap.h"
+#include "core/ApertureSamples.h"
 
 #include <QString>
 #include <QWidget>
@@ -26,6 +30,7 @@ namespace digitqt::gui::canvas {
 class Surface3DView : public QWidget {
   Q_OBJECT
 public:
+  void setHeightPalette(HeightPalette palette);
   explicit Surface3DView(QWidget *parent = nullptr);
 
   void setMeasurement(digitqt::core::Measurement *measurement);
@@ -42,11 +47,14 @@ protected:
   void resizeEvent(QResizeEvent *event) override;
 
 private:
+  HeightPalette m_palette = HeightPalette::Plasma;
   digitqt::core::Measurement *m_measurement = nullptr;
-  const digitqt::core::PhaseMap *m_map = nullptr;
+  // GUI-owned snapshot: background fitting may replace the measurement result.
+  digitqt::core::PhaseMap m_map;
+  digitqt::core::ApertureGeometry m_geometry;
   QString m_unitSuffix = QStringLiteral(" nm");
 
-  double m_azimuth = 0.7;     // радианы, поворот вокруг вертикальной оси
+  double m_azimuth = 0.0;     // радианы, поворот вокруг вертикальной оси
   double m_elevation = 0.55;  // радианы, наклон камеры
   double m_zoom = 1.0;
 

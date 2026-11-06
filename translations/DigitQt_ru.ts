@@ -1626,6 +1626,18 @@ Per-fiducial residuals:
         <source>Results are out of date or a calculation failed. Recompute affected stages before exporting.</source>
         <translation>Результаты устарели или расчёт завершился ошибкой. Перед экспортом пересчитайте затронутые этапы.</translation>
     </message>
+    <message>
+        <source>Height palette</source>
+        <translation>Палитра высоты</translation>
+    </message>
+    <message>
+        <source>Rainbow</source>
+        <translation>Радужная</translation>
+    </message>
+    <message>
+        <source>Full rainbow</source>
+        <translation>Полная радуга</translation>
+    </message>
 </context>
 <context>
     <name>digitqt::gui::BackgroundComputation</name>

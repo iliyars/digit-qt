@@ -61,12 +61,6 @@ PsiWorkflowPanel::PsiWorkflowPanel(QWidget *parent) : QWidget(parent) {
     connect(button, &QPushButton::clicked, this, signal);
     return button;
   };
-  addButton(actions, tr("Auto aperture"), "psiAutoAperture",
-            &PsiWorkflowPanel::autoApertureRequested);
-  addButton(actions, tr("Draw ellipse"), "psiDrawAperture",
-            &PsiWorkflowPanel::drawApertureRequested);
-  addButton(actions, tr("Edit aperture"), "psiEditAperture",
-            &PsiWorkflowPanel::editApertureRequested);
   m_fullFrame = new QCheckBox(tr("Use the entire frame"), this);
   m_fullFrame->setObjectName("psiFullFrame");
   actions->addWidget(m_fullFrame);
@@ -85,6 +79,13 @@ PsiWorkflowPanel::PsiWorkflowPanel(QWidget *parent) : QWidget(parent) {
   m_next->setTextFormat(Qt::PlainText);
   layout->addWidget(m_next);
   m_results = new QWidget(this);
+  m_results->setStyleSheet(QStringLiteral(
+      "QPushButton:disabled {"
+      " color: #969696;"
+      " background-color: #e8e8e8;"
+      " border: 1px solid #d2d2d2;"
+      " border-radius: 2px;"
+      "}"));
   auto *results = new QHBoxLayout(m_results);
   results->setContentsMargins(0, 0, 0, 0);
   addButton(results, tr("Frames / aperture"), "psiSource", &PsiWorkflowPanel::sourceRequested);
@@ -156,6 +157,7 @@ void PsiWorkflowPanel::refresh() {
   m_frames->setVisible(psi);
   m_actions->setVisible(psi);
   m_results->setVisible(psi);
+  m_results->setEnabled(false);
   m_quality->setVisible(psi);
   if (!psi) {
     m_summary->setText(tr("PSI: open a series of at least three phase-shifted frames."));
@@ -184,6 +186,7 @@ void PsiWorkflowPanel::refresh() {
   };
   const bool phase = current(StageId::S2), wavefront = current(StageId::S4),
              analysis = current(StageId::S5);
+  m_results->setEnabled(phase);
   m_phase->setEnabled(phase);
   m_wavefront->setEnabled(phase && wavefront);
   m_analysis->setEnabled(phase && wavefront && analysis);

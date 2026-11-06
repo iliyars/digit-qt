@@ -15,6 +15,13 @@
 
 namespace digitqt::gui::canvas {
 
+void Surface3DView::setHeightPalette(HeightPalette palette) {
+  m_palette = palette;
+  m_legend->setHeightPalette(palette);
+  update();
+}
+
+
 namespace {
 constexpr int kGridTarget = 55;  // максимум ячеек по каждой оси -- ради читаемости и скорости
 }
@@ -34,8 +41,12 @@ void Surface3DView::setMeasurement(digitqt::core::Measurement *measurement) {
 
 void Surface3DView::refresh() {
   m_map = (m_measurement && !m_measurement->modalAnalysis().isEmpty())
-              ? &m_measurement->modalAnalysis().residual
-              : nullptr;
+              ? m_measurement->modalAnalysis().residual
+              : digitqt::core::PhaseMap{};
+  // Capture the pre-erosion pupil on the GUI thread together with the surface.
+  const auto &pupilMap = m_measurement && !m_measurement->wavefrontMap().isEmpty()
+                             ? m_measurement->wavefrontMap() : m_map;
+  m_geometry = digitqt::core::computeApertureGeometry(pupilMap);
   update();
 }
 
@@ -83,7 +94,7 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   painter.drawText(QRectF(8, height() - 22, width() - 16, 18), Qt::AlignLeft | Qt::AlignVCenter,
                    tr("Перетащите для поворота, колесо — масштаб"));
 
-  if (!m_map || m_map->isEmpty()) {
+  if (m_map.isEmpty()) {
     painter.setPen(Qt::white);
     painter.drawText(rect(), Qt::AlignCenter, tr("No data"));
     if (m_legend)
@@ -91,8 +102,8 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
     return;
   }
 
-  const int srcW = m_map->width();
-  const int srcH = m_map->height();
+  const int srcW = m_map.width();
+  const int srcH = m_map.height();
 
   // Истинный диапазон значений -- по ПОЛНОМУ разрешению карты, не по
   // прорежённой сетке ниже. Раньше min/max считались уже после
@@ -105,9 +116,9 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   bool anyFullRes = false;
   for (int y = 0; y < srcH; ++y) {
     for (int x = 0; x < srcW; ++x) {
-      if (!m_map->hasValue(x, y))
+      if (!m_map.hasValue(x, y))
         continue;
-      const double v = m_map->value(x, y);
+      const double v = m_map.value(x, y);
       minV = std::min(minV, v);
       maxV = std::max(maxV, v);
       anyFullRes = true;
@@ -143,9 +154,9 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   bool any = false;
   for (int j = 0; j < gh; ++j) {
     for (int i = 0; i < gw; ++i) {
-      if (!m_map->hasValue(xs[static_cast<size_t>(i)], ys[static_cast<size_t>(j)]))
+      if (!m_map.hasValue(xs[static_cast<size_t>(i)], ys[static_cast<size_t>(j)]))
         continue;
-      const double v = m_map->value(xs[static_cast<size_t>(i)], ys[static_cast<size_t>(j)]);
+      const double v = m_map.value(xs[static_cast<size_t>(i)], ys[static_cast<size_t>(j)]);
       grid[static_cast<size_t>(j) * static_cast<size_t>(gw) + static_cast<size_t>(i)] = v;
       any = true;
     }
@@ -167,8 +178,10 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   // пространственного размера апертуры -- без этого рельеф выглядел бы
   // плоским).
   constexpr double kHeightExaggeration = 0.6;
-  auto normX = [&](int i) { return (gw > 1) ? (2.0 * i / (gw - 1) - 1.0) : 0.0; };
-  auto normY = [&](int j) { return (gh > 1) ? (2.0 * j / (gh - 1) - 1.0) : 0.0; };
+  // Image rows grow downwards; Cartesian Y grows upwards, as in the 2D view.
+  // Use source coordinates so downsampling preserves the map's spatial positions.
+  auto normX = [&](int i) { return (xs[static_cast<size_t>(i)] - m_geometry.centerX) / m_geometry.radius; };
+  auto normY = [&](int j) { return (m_geometry.centerY - ys[static_cast<size_t>(j)]) / m_geometry.radius; };
   auto normH = [&](double v) { return ((v - minV) / range - 0.5) * 2.0 * kHeightExaggeration; };
 
   const double cosA = std::cos(m_azimuth), sinA = std::sin(m_azimuth);
@@ -253,7 +266,7 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   // корректно для гладкой, не самопересекающейся поверхности (какой и
   // является наша карта высот).
   std::sort(quads.begin(), quads.end(),
-            [](const Quad &a, const Quad &b) { return a.depth < b.depth; });
+            [](const Quad &a, const Quad &b) { return a.depth > b.depth; });
 
   QPen edgePen(QColor(20, 20, 22, 130));
   edgePen.setWidthF(0.6);
@@ -261,13 +274,12 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
 
   for (const auto &q : quads) {
     const double t = (q.avgValue - minV) / range;
-    const int hue = static_cast<int>(std::clamp((1.0 - t) * 240.0, 0.0, 240.0));
 
     QPolygonF poly;
     for (const auto &pt : q.pts)
       poly << pt;
 
-    painter.setBrush(QColor::fromHsv(hue, 220, 235));
+    painter.setBrush(heightColor(t, m_palette));
     painter.setPen(edgePen);
     painter.drawPolygon(poly);
   }
@@ -288,7 +300,8 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   const QPointF axisOrigin = axisPoint(-1.0, -1.0, hBottom);
   const QPointF xEnd = axisPoint(1.0, -1.0, hBottom);
   const QPointF yEnd = axisPoint(-1.0, 1.0, hBottom);
-  const QPointF zEnd = axisPoint(-1.0, -1.0, hTop);
+  // Keep the height axis at the right corner, distinct from Y in the default view.
+  const QPointF zEnd = axisPoint(1.0, -1.0, hTop);
 
   QPen axisPen(QColor(200, 200, 200, 210));
   axisPen.setWidthF(1.0);
@@ -296,7 +309,7 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   painter.setPen(axisPen);
   painter.drawLine(axisOrigin, xEnd);
   painter.drawLine(axisOrigin, yEnd);
-  painter.drawLine(axisOrigin, zEnd);
+  painter.drawLine(xEnd, zEnd);
 
   QFont axisFont = painter.font();
   axisFont.setPointSize(8);
@@ -315,7 +328,7 @@ void Surface3DView::paintEvent(QPaintEvent * /*event*/) {
   painter.drawText(axisOrigin + QPointF(-16, 14), QStringLiteral("-1"));
   painter.drawText(xEnd + QPointF(-8, 14), QStringLiteral("+1"));
   painter.drawText(yEnd + QPointF(4, 8), QStringLiteral("+1"));
-  painter.drawText(axisOrigin + QPointF(4, 0), QString::number(minV, 'f', 1));
+  painter.drawText(xEnd + QPointF(4, 0), QString::number(minV, 'f', 1));
   painter.drawText(zEnd + QPointF(4, 12), QString::number(maxV, 'f', 1));
 }
 

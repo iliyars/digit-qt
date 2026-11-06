@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HeightPalette.h"
+
 #include "ColorLegendWidget.h"
 
 #include <QGraphicsPathItem>
@@ -28,6 +30,7 @@ namespace digitqt::gui::canvas {
 class PhaseMapView : public QGraphicsView {
   Q_OBJECT
 public:
+  void setHeightPalette(HeightPalette palette);
   enum class Source { Phase, Wavefront, Residual };
 
   explicit PhaseMapView(QWidget *parent = nullptr);
@@ -50,10 +53,12 @@ public:
   double isolineStep() const { return m_isolineStep; }
 
 protected:
+  void drawForeground(QPainter *painter, const QRectF &rect) override;
   void wheelEvent(QWheelEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
 
 private:
+  HeightPalette m_palette = HeightPalette::Plasma;
   void rebuildHeatmap();
   void rebuildIsolines();
   void repositionLegend();
@@ -67,6 +72,7 @@ private:
   QGraphicsPixmapItem *m_heatmapItem = nullptr;
   QGraphicsPathItem *m_isolinesItem = nullptr;
   ColorLegendWidget *m_legend = nullptr;
+  QRectF m_unitApertureRect;
 
   bool m_heatmapVisible = true;
   bool m_isolinesVisible = false;

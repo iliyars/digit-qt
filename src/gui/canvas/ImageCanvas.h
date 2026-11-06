@@ -63,6 +63,7 @@ public:
   void setFiducialsVisible(bool visible);
 
 protected:
+  void drawForeground(QPainter *painter, const QRectF &rect) override;
   void mousePressEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;

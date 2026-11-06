@@ -92,6 +92,41 @@ private slots:
     panel.setMeasurement(&m, &pipeline);
     QVERIFY(panel.findChild<QPlainTextEdit *>("psiWarnings")->toPlainText().isEmpty());
   }
+  void resultButtonsWaitForPhaseAndRespectLaterStages() {
+    digitqt::core::Measurement m;
+    load(m);
+    digitqt::core::pipeline::Pipeline pipeline;
+    digitqt::gui::PsiWorkflowPanel panel;
+    panel.setMeasurement(&m, &pipeline);
+    const auto enabled = [&](const char *name) {
+      return panel.findChild<QPushButton *>(name)->isEnabled();
+    };
+    for (const auto *name : {"psiSource", "psiPhase", "psiWavefront", "psiAnalysis",
+                             "psiExportMap", "psiExportReport"})
+      QVERIFY(!enabled(name));
+    QSignalSpy source(&panel, &digitqt::gui::PsiWorkflowPanel::sourceRequested);
+    panel.findChild<QPushButton *>("psiSource")->click();
+    QCOMPARE(source.count(), 0);
+    pipeline.stage(StageId::S2).markComputed();
+    panel.refresh();
+    QVERIFY(enabled("psiSource"));
+    QVERIFY(enabled("psiPhase"));
+    QVERIFY(!enabled("psiWavefront"));
+    QVERIFY(!enabled("psiAnalysis"));
+    QVERIFY(!enabled("psiExportMap"));
+    QVERIFY(!enabled("psiExportReport"));
+    pipeline.stage(StageId::S4).markComputed();
+    pipeline.stage(StageId::S5).markComputed();
+    panel.refresh();
+    for (const auto *name : {"psiSource", "psiPhase", "psiWavefront", "psiAnalysis",
+                             "psiExportMap", "psiExportReport"})
+      QVERIFY(enabled(name));
+    pipeline.invalidateFrom(StageId::S2);
+    panel.refresh();
+    for (const auto *name : {"psiSource", "psiPhase", "psiWavefront", "psiAnalysis",
+                             "psiExportMap", "psiExportReport"})
+      QVERIFY(!enabled(name));
+  }
   void errorRemainsVisible() {
     digitqt::core::Measurement m;
     load(m);

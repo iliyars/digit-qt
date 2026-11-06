@@ -1,4 +1,5 @@
 #include "PhaseMapView.h"
+#include "CartesianAxes.h"
 
 #include "core/Measurement.h"
 #include "core/PhaseMap.h"
@@ -14,6 +15,24 @@
 
 
 namespace digitqt::gui::canvas {
+
+void PhaseMapView::drawForeground(QPainter *painter, const QRectF &rect) {
+  QGraphicsView::drawForeground(painter, rect);
+  if (m_heatmapItem && !m_unitApertureRect.isEmpty()) {
+    const QRectF mapOnScreen = viewportTransform().mapRect(m_heatmapItem->mapRectToScene(m_unitApertureRect));
+    drawCoordinateFrame(*painter, viewport()->rect(), mapOnScreen);
+  } else {
+    drawCartesianAxes(*painter, viewport()->rect());
+  }
+}
+
+
+void PhaseMapView::setHeightPalette(HeightPalette palette) {
+  m_palette = palette;
+  m_legend->setHeightPalette(palette);
+  rebuildHeatmap();
+}
+
 
 namespace {
 
@@ -151,6 +170,7 @@ void PhaseMapView::repositionLegend() {
 }
 
 void PhaseMapView::rebuildHeatmap() {
+  m_unitApertureRect = QRectF();
   if (!m_heatmapItem) {
     m_heatmapItem = m_scene.addPixmap(QPixmap());
     m_heatmapItem->setZValue(10.0);
@@ -166,6 +186,10 @@ void PhaseMapView::rebuildHeatmap() {
     return;
   }
   const auto &map = *mapPtr;
+  // Residual erosion must not redefine the pupil used by the modal fit.
+  const auto &pupilMap = m_source == Source::Residual && !m_measurement->wavefrontMap().isEmpty()
+                             ? m_measurement->wavefrontMap() : map;
+  m_unitApertureRect = unitApertureRect(digitqt::core::computeApertureGeometry(pupilMap));
   double minV = 0.0, maxV = 0.0;
   if (!computeRange(map, minV, maxV)) {
     m_heatmapItem->hide();
@@ -191,10 +215,7 @@ void PhaseMapView::rebuildHeatmap() {
       if (!map.hasValue(x, y))
         continue;
       const double t = (map.value(x, y) - minV) / range;  // 0..1
-      // 240° (синий, минимум) -> 0° (красный, максимум) -- классическая
-      // "радужная" карта, простая и наглядная для первой версии.
-      const int hue = static_cast<int>(std::clamp((1.0 - t) * 240.0, 0.0, 240.0));
-      img.setPixelColor(x, y, QColor::fromHsv(hue, 255, 255));
+      img.setPixelColor(x, y, heightColor(t, m_palette));
     }
   }
 

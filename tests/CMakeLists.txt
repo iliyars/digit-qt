@@ -235,3 +235,13 @@ add_executable(digitqt_psi_workflow_tests
 target_link_libraries(digitqt_psi_workflow_tests PRIVATE Qt5::Test Qt5::Widgets DigitQt::Core)
 add_test(NAME PsiWorkflowPanelTest COMMAND digitqt_psi_workflow_tests)
 set_tests_properties(PsiWorkflowPanelTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(digitqt_surface_view_tests
+    Surface3DViewTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/canvas/Surface3DView.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/canvas/ColorLegendWidget.cpp
+)
+target_link_libraries(digitqt_surface_view_tests PRIVATE Qt5::Test Qt5::Widgets
+    Qt5::Concurrent DigitQt::Core)
+add_test(NAME Surface3DViewTest COMMAND digitqt_surface_view_tests)
+set_tests_properties(Surface3DViewTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -6,6 +6,12 @@
 
 namespace digitqt::gui::canvas {
 
+void ColorLegendWidget::setHeightPalette(HeightPalette palette) {
+  m_palette = palette;
+  update();
+}
+
+
 namespace {
 constexpr int kBarWidth = 20;
 constexpr int kBarHeight = 140;
@@ -51,13 +57,11 @@ void ColorLegendWidget::paintEvent(QPaintEvent * /*event*/) {
 
   const QRectF barRect(kMargin, kMargin, kBarWidth, kBarHeight);
 
-  // top = максимум (красный), bottom = минимум (синий) -- те же самые
-  // hue-точки, что rebuildHeatmap() использует для самой карты:
-  // hue = (1 - t) * 240, t=1 (максимум) -> hue=0 (красный), t=0 -> hue=240 (синий).
   QLinearGradient gradient(barRect.topLeft(), barRect.bottomLeft());
-  gradient.setColorAt(0.0, QColor::fromHsv(0, 255, 255));
-  gradient.setColorAt(0.5, QColor::fromHsv(120, 255, 255));
-  gradient.setColorAt(1.0, QColor::fromHsv(240, 255, 255));
+  for (int i = 0; i <= 256; ++i) {
+    const double t = i / 256.0;
+    gradient.setColorAt(t, heightColor(1.0 - t, m_palette));
+  }
 
   painter.setBrush(gradient);
   painter.setPen(QPen(Qt::white, 1));

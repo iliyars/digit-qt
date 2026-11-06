@@ -25,9 +25,6 @@ public:
   void setWarnings(const QStringList &warnings);
 signals:
   void openRequested();
-  void autoApertureRequested();
-  void drawApertureRequested();
-  void editApertureRequested();
   void frameSelected(int index);
   void calculateRequested();
   void sourceRequested();

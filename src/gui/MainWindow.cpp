@@ -23,6 +23,7 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
+#include <QPainter>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProgressBar>
@@ -99,22 +100,6 @@ MainWindow::MainWindow(QWidget *parent)
       return;
     m_pipelineDock->selectStage(StageId::Setup);
     m_canvas->setDisplayedFrame(frames[static_cast<size_t>(index)]);
-  });
-  connect(m_psiWorkflow, &PsiWorkflowPanel::autoApertureRequested, this, [this] {
-    m_pipelineDock->selectStage(StageId::Setup);
-    m_controller->autoDetectAperture();
-    if (!m_controller->lastError().isEmpty())
-      QMessageBox::warning(this, tr("Auto Detect Aperture"), m_controller->lastError());
-  });
-  connect(m_psiWorkflow, &PsiWorkflowPanel::drawApertureRequested, this, [this] {
-    m_pipelineDock->selectStage(StageId::Setup);
-    m_canvas->setActiveController(ActiveController::Boundary);
-    m_controller->setMode(EditMode::AddExternalEllipse);
-  });
-  connect(m_psiWorkflow, &PsiWorkflowPanel::editApertureRequested, this, [this] {
-    m_pipelineDock->selectStage(StageId::Setup);
-    m_canvas->setActiveController(ActiveController::Boundary);
-    m_controller->setMode(EditMode::Select);
   });
   connect(m_psiWorkflow, &PsiWorkflowPanel::phaseRequested, this,
           [this] { m_pipelineDock->selectStage(StageId::S2); });
@@ -680,6 +665,43 @@ void MainWindow::buildDocks() {
   auto *viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(m_pipelineDock->toggleViewAction());
   viewMenu->addAction(m_parametersDock->toggleViewAction());
+
+  auto *paletteMenu = viewMenu->addMenu(tr("Height palette"));
+  auto *paletteGroup = new QActionGroup(this);
+  paletteGroup->setExclusive(true);
+  using canvas::HeightPalette;
+  const auto applyPalette = [this](HeightPalette palette) {
+    m_phaseMapView->setHeightPalette(palette);
+    m_modalPhaseMapView->setHeightPalette(palette);
+    m_surface3DView->setHeightPalette(palette);
+  };
+  const int savedPalette = QSettings().value(QStringLiteral("view/heightPalette"), 0).toInt();
+  const auto initialPalette = savedPalette >= 0 && savedPalette <= static_cast<int>(HeightPalette::FullRainbow)
+                                  ? static_cast<HeightPalette>(savedPalette)
+                                  : HeightPalette::Plasma;
+  const QStringList paletteNames = {QStringLiteral("Plasma"), QStringLiteral("Viridis"),
+                                    QStringLiteral("Inferno"), tr("Rainbow"), tr("Full rainbow")};
+  for (int i = 0; i < paletteNames.size(); ++i) {
+    const auto palette = static_cast<HeightPalette>(i);
+    QPixmap preview(96, 16);
+    {
+      QPainter painter(&preview);
+      for (int x = 0; x < preview.width(); ++x) {
+        painter.setPen(canvas::heightColor(x / 95.0, palette));
+        painter.drawLine(x, 0, x, preview.height() - 1);
+      }
+    }
+    auto *action = paletteMenu->addAction(QIcon(preview), paletteNames[i]);
+    action->setCheckable(true);
+    action->setChecked(palette == initialPalette);
+    paletteGroup->addAction(action);
+    connect(action, &QAction::triggered, this, [applyPalette, palette] {
+      applyPalette(palette);
+      QSettings().setValue(QStringLiteral("view/heightPalette"), static_cast<int>(palette));
+    });
+  }
+  applyPalette(initialPalette);
+
 }
 
 void MainWindow::onStageSelected(StageId id) {

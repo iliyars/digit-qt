@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HeightPalette.h"
+
 #include <QString>
 #include <QWidget>
 
@@ -11,6 +13,7 @@ namespace digitqt::gui::canvas {
 class ColorLegendWidget : public QWidget {
   Q_OBJECT
 public:
+  void setHeightPalette(HeightPalette palette);
   explicit ColorLegendWidget(QWidget *parent = nullptr);
 
   // unitduffix для волнового фронта "нм", для карты фазы - пустая строка.
@@ -25,6 +28,7 @@ protected:
   void paintEvent(QPaintEvent *event) override;
 
 private:
+  HeightPalette m_palette = HeightPalette::Plasma;
   double m_minValue = 0.0;
   double m_maxValue = 0.0;
   QString m_unitSuffix;

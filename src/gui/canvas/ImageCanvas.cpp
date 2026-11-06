@@ -1,4 +1,5 @@
 #include "ImageCanvas.h"
+#include "CartesianAxes.h"
 
 #include "core/Measurement.h"
 #include "io/ImageLoader.h"
@@ -14,6 +15,22 @@
 #include <cmath>
 
 namespace digitqt::gui::canvas {
+
+void ImageCanvas::drawForeground(QPainter *painter, const QRectF &rect) {
+  QGraphicsView::drawForeground(painter, rect);
+  if (m_pixmapItem && m_measurement && m_measurement->boundaries().hasAnyExternal()) {
+    const auto bounds = m_measurement->boundaries().getVisibleRegion();
+    const digitqt::core::ApertureGeometry geometry{
+        (bounds.left + bounds.right) / 2.0, (bounds.top + bounds.bottom) / 2.0,
+        std::max(bounds.width(), bounds.height()) / 2.0};
+    const QRectF apertureOnScreen = viewportTransform().mapRect(
+        m_pixmapItem->mapRectToScene(unitApertureRect(geometry)));
+    drawCoordinateFrame(*painter, viewport()->rect(), apertureOnScreen);
+  } else {
+    drawCartesianAxes(*painter, viewport()->rect());
+  }
+}
+
 
 ImageCanvas::ImageCanvas(BoundaryEditController *boundaryController,
                          FringeTracingController *fringeController,
